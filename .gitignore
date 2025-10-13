@@ -27,6 +27,3 @@ thoughts/
 !.extern/AGENTS.md
 !.extern/scripts/
 __pycache__/
-
-# OpenCode metadata
-.opencode/
