@@ -6,7 +6,7 @@
 
 """Universal Wallpaper Manager"""
 
-import random
+import random as random_module
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -90,11 +90,13 @@ def set(path: Path):
     if theme_data.get('theme', {}).get('name') == 'dynamic':
         console.print("[blue]🎨 Dynamic theme - re-extracting colors...[/blue]")
         
-        # Preserve current transparency setting
-        current_transparency = theme_data.get('theme', {}).get('transparency', 0)
+        # Preserve current opacity setting
+        # Backwards compat: read opacity or old transparency field
+        current_opacity = theme_data.get('theme', {}).get('opacity',
+            theme_data.get('theme', {}).get('transparency', 0))
         cmd = [str(THEME_MANAGER), 'set', 'dynamic']
-        if current_transparency > 0:
-            cmd.extend(['-t', str(current_transparency)])
+        if current_opacity > 0:
+            cmd.extend(['-o', str(current_opacity)])
         
         subprocess.run(cmd)
     
@@ -147,7 +149,7 @@ def random():
         raise click.ClickException(f"No images found in: {folder_path}")
     
     # Select random image
-    selected = random.choice(images)
+    selected = random_module.choice(images)
     console.print(f"[green]✓ Selected: {selected.name}[/green]")
     
     # Set wallpaper using the set command
