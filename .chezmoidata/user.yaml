@@ -1,0 +1,16 @@
+user:
+  name: "M. Adel Alhashemi"
+  email: "malhashemi@users.noreply.github.com"
+
+preferences:
+  default_theme: "mocha"
+  toggle_themes: ["mocha", "latte"]
+  
+  terminal:
+    font_family: "JetBrains Mono"
+    font_size: 16
+  
+  wallpaper_folders:
+    mocha: "~/Pictures/Wallpapers/dark"
+    latte: "~/Pictures/Wallpapers/light"
+    dynamic: "~/Pictures/Wallpapers"

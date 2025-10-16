@@ -1,0 +1,28 @@
+{{- $hostname := .chezmoi.hostname -}}
+{{- $os := .chezmoi.os -}}
+
+[data]
+    name = "{{ .chezmoi.username }}"
+    hostname = "{{ $hostname }}"
+    os = "{{ $os }}"
+    
+    {{- if eq $os "darwin" }}
+    is_mac = true
+    is_linux = false
+    package_manager = "brew"
+    config_home = "{{ .chezmoi.homeDir }}/.config"
+    cache_dir = "{{ .chezmoi.homeDir }}/Library/Caches"
+    {{- else if eq $os "linux" }}
+    is_mac = false
+    is_linux = true
+    package_manager = "apt"
+    config_home = "{{ .chezmoi.homeDir }}/.config"
+    cache_dir = "{{ .chezmoi.homeDir }}/.cache"
+    {{- end }}
+
+[diff]
+    pager = "delta"
+
+[merge]
+    command = "nvim"
+    args = ["-d", "{{ "{{" }} .Destination {{ "}}" }}", "{{ "{{" }} .Source {{ "}}" }}"]

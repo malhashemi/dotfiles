@@ -1,0 +1,7 @@
+. "$HOME/.cargo/env"
+
+# uv
+export PATH="/Users/malhashemi/.local/bin:$PATH"
+
+# Source secrets file if it exists
+[ -f ~/.secrets ] && source ~/.secrets

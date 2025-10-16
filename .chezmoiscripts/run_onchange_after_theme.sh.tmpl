@@ -1,0 +1,12 @@
+#!/bin/bash
+# Hash: {{ .theme | toJson }}
+
+echo "🔄 Reloading applications..."
+
+{{- if eq .chezmoi.os "darwin" }}
+pkill -USR2 WezTerm 2>/dev/null || true
+{{- else }}
+pkill -USR2 wezterm 2>/dev/null || true
+{{- end }}
+
+echo "✅ Done"

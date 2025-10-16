@@ -1,0 +1,203 @@
+# ============================================================================
+# ZSH Configuration
+# ============================================================================
+
+# Completion System Setup
+setopt prompt_subst
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+autoload bashcompinit && bashcompinit
+autoload -Uz compinit
+compinit
+
+# ============================================================================
+# Zinit Plugin Manager
+# ============================================================================
+
+# Source Zinit from Homebrew installation
+source /opt/homebrew/Cellar/zinit/3.14.0/zinit.zsh
+
+# Load ZSH plugins
+source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+source /opt/homebrew/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
+# Removed zsh-autocomplete - it's incompatible with menu-complete tab cycling
+source /opt/homebrew/share/zsh-autopair/autopair.zsh
+
+# Configure tab for cycling through completions (standard ZSH completion)
+bindkey '\t' menu-complete
+bindkey "$terminfo[kcbt]" reverse-menu-complete
+
+# Enable menu selection with highlighting
+zstyle ':completion:*' menu select
+zstyle ':completion:*' list-colors ''
+
+# ============================================================================
+# Key Bindings
+# ============================================================================
+
+# Autosuggestions key bindings
+bindkey '^w' autosuggest-execute
+bindkey '^e' autosuggest-accept
+bindkey '^u' autosuggest-toggle
+bindkey '^k' up-line-or-search
+bindkey '^j' down-line-or-search
+
+# ============================================================================
+# Environment Variables
+# ============================================================================
+
+export LANG=en_US.UTF-8
+export EDITOR="nvim"
+export GOPATH="$HOME/go"
+export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH:$GOPATH/bin:$HOME/Library/Python/3.9/bin"
+export XDG_CONFIG_HOME="$HOME/.config"
+
+# FZF Configuration (kept for compatibility with tools that still use it)
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow'
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# Television is installed but kept as optional tool
+# Not used in functions due to terminal compatibility issues
+
+# ============================================================================
+# Aliases
+# ============================================================================
+
+# Editor
+alias v="neovide"
+alias e="nvim"
+
+# Modern CLI replacements
+alias cat="bat"
+alias l="eza -l --icons --git -a"
+alias lt="eza --tree --level=2 --long --icons --git -a"
+alias ltree="eza --tree --level=2 --icons --git -a"
+alias la="tree"
+alias cl="clear"
+
+# Directory navigation
+alias ~="cd ~"
+alias ..="cd .."
+alias ...="cd ../.."
+alias ....="cd ../../.."
+alias .....="cd ../../../.."
+alias ......="cd ../../../../.."
+
+# Git aliases
+alias gc="git commit -m"
+alias gca="git commit -a -m"
+alias gp="git push origin HEAD"
+alias gpu="git pull origin"
+alias gst="git status"
+alias glog="git log --graph --topo-order --pretty='%w(100,0,6)%C(yellow)%h%C(bold)%C(black)%d %C(cyan)%ar %C(green)%an%n%C(bold)%C(white)%s %N' --abbrev-commit"
+alias gdiff="git diff"
+alias gco="git checkout"
+alias gb="git branch"
+alias gba="git branch -a"
+alias gadd="git add"
+alias ga="git add -p"
+alias gcoall="git checkout -- ."
+alias gr="git remote"
+alias gre="git reset"
+
+# Docker aliases (when Docker is installed)
+alias dco="docker compose"
+alias dps="docker ps"
+alias dpa="docker ps -a"
+alias dl="docker ps -l -q"
+alias dx="docker exec -it"
+
+# Tools
+alias http="xh"
+alias lg="lazygit"
+
+# Television aliases for quick access
+alias tvf="tv files"  # Quick file search
+alias tvd="tv dirs"   # Quick directory search
+alias tvg="tv git-repos"  # Find git repositories
+alias tvh="tv zsh-history"  # Search zsh history
+
+# ============================================================================
+# Functions
+# ============================================================================
+
+# Change directory and list contents
+cx() { cd "$@" && l; }
+
+# Fuzzy find directory and cd into it
+fcd() {
+    local dir=$(find . -type d -not -path '*/.*' | fzf --preview 'eza -la --color=always {}')
+    [ -n "$dir" ] && cd "$dir" && l
+}
+
+# Fuzzy find file and copy path to clipboard
+f() {
+    local file=$(find . -type f -not -path '*/.*' | fzf --preview 'bat --color=always {}')
+    [ -n "$file" ] && echo "$file" | pbcopy
+}
+
+# Fuzzy find file and open in Neovide
+fv() {
+    local file=$(find . -type f -not -path '*/.*' | fzf --preview 'bat --color=always {}')
+    [ -n "$file" ] && neovide "$file"
+}
+
+# Fuzzy find and focus aerospace window (still using fzf as TV doesn't have this channel)
+ff() {
+    aerospace list-windows --all | fzf | awk '{print $1}' | xargs -I {} aerospace focus --window-id {}
+}
+
+# Yazi with directory change on exit
+function y() {
+    local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
+    yazi "$@" --cwd-file="$tmp"
+    if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+        cd -- "$cwd"
+    fi
+    rm -f -- "$tmp"
+}
+
+# ============================================================================
+# Tool Initializations
+# ============================================================================
+
+# Starship prompt
+eval "$(starship init zsh)"
+export STARSHIP_CONFIG=~/.config/starship/starship.toml
+
+# Atuin shell history
+. "$HOME/.atuin/bin/env"
+eval "$(atuin init zsh)"
+
+# Zoxide smart cd
+eval "$(zoxide init zsh)"
+
+# ============================================================================
+# Completions
+# ============================================================================
+
+# Load completions if available
+if command -v kubectl &> /dev/null; then
+    source <(kubectl completion zsh)
+fi
+
+if command -v aws &> /dev/null; then
+    complete -C '/usr/local/bin/aws_completer' aws
+fi
+
+# Display system info on terminal startup
+fastfetch --config examples/13
+export PATH="/Users/malhashemi/.bun/bin:/Users/malhashemi/.atuin/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/malhashemi/.local/share/zinit/polaris/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Users/malhashemi/.local/bin:/Users/malhashemi/.cargo/bin:/Applications/Ghostty.app/Contents/MacOS:/Users/malhashemi/go/bin:/Users/malhashemi/Library/Python/3.9/bin"
+
+# Task Master aliases added on 9/10/2025
+alias tm='task-master'
+alias taskmaster='task-master'
+
+
+# Zed
+
+alias zed="/Applications/Zed.app/Contents/MacOS/cli"
+alias ascii="~/scripts/figlet.sh"
+alias theme="~/.config/theme-system/scripts/theme-manager.py"
+alias wallpaper="~/.config/theme-system/scripts/wallpaper-manager.py"
+source ~/dev/dev-workflow/dubstack/.extern/scripts/completions.zsh
+setopt INTERACTIVE_COMMENTS

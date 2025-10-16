@@ -27,3 +27,6 @@ thoughts/
 !.extern/AGENTS.md
 !.extern/scripts/
 __pycache__/
+
+# Temporary Directory
+tmp/
