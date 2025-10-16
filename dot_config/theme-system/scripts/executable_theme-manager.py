@@ -221,8 +221,8 @@ def cli():
 
 @cli.command()
 @click.argument('name')
-@click.option('-t', '--transparency', type=click.IntRange(0, 100), default=0)
-def set(name: str, transparency: int):
+@click.option('-t', '--transparency', type=click.IntRange(0, 100), default=None)
+def set(name: str, transparency: int | None):
     """Set theme: mocha, latte, frappe, macchiato, dynamic"""
     
     # Lock
@@ -237,6 +237,10 @@ def set(name: str, transparency: int):
             raise click.ClickException(f"Invalid theme. Valid: {', '.join(valid)}")
         
         theme_data = load_yaml(THEME_DATA)
+        
+        # If transparency not specified, preserve current transparency
+        if transparency is None:
+            transparency = theme_data.get('theme', {}).get('transparency', 0)
         
         if name == 'dynamic':
             console.print("[blue]🌈 Dynamic theme...[/blue]")
@@ -360,6 +364,20 @@ def status():
     console.print(f"  Variant: {theme.get('variant', 'unknown')}")
     console.print(f"  Transparency: {theme.get('transparency', 0)}%")
     console.print()
+
+
+@cli.command()
+@click.argument('value', type=click.IntRange(0, 100))
+def transparency(value: int):
+    """Change transparency without changing theme"""
+    theme_data = load_yaml(THEME_DATA)
+    current_theme = theme_data.get('theme', {}).get('name', 'mocha')
+    
+    console.print(f"[blue]🔲 Setting transparency to {value}%...[/blue]")
+    
+    # Re-apply current theme with new transparency
+    ctx = click.Context(set)
+    ctx.invoke(set, name=current_theme, transparency=value)
 
 
 if __name__ == '__main__':

@@ -6,6 +6,7 @@
 
 """Universal Wallpaper Manager"""
 
+import random
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -20,6 +21,7 @@ HOME = Path.home()
 CONFIG_HOME = HOME / ".config"
 CHEZMOI_SOURCE = HOME / ".local/share/chezmoi"
 THEME_DATA = CHEZMOI_SOURCE / ".chezmoidata/theme.yaml"
+USER_DATA = CHEZMOI_SOURCE / ".chezmoidata/user.yaml"
 WALLPAPER_DATA = CHEZMOI_SOURCE / ".chezmoidata/wallpaper-state.yaml"
 THEME_MANAGER = CONFIG_HOME / "theme-system/scripts/theme-manager.py"
 
@@ -109,6 +111,48 @@ def status():
         console.print(f"\n[bold]🖼️  Wallpaper[/bold]\n  {current}\n")
     else:
         console.print("[yellow]No wallpaper set[/yellow]")
+
+
+@cli.command()
+def random():
+    """Set random wallpaper from theme folder"""
+    console.print("[blue]🎲 Selecting random wallpaper...[/blue]")
+    
+    # Get current theme
+    theme_data = load_yaml(THEME_DATA)
+    theme_name = theme_data.get('theme', {}).get('name', 'mocha')
+    
+    # Get wallpaper folder for theme
+    user_data = load_yaml(USER_DATA)
+    wallpaper_folders = user_data.get('preferences', {}).get('wallpaper_folders', {})
+    folder = wallpaper_folders.get(theme_name)
+    
+    if not folder:
+        raise click.ClickException(f"No wallpaper folder configured for theme: {theme_name}")
+    
+    # Expand home directory
+    folder_path = Path(folder).expanduser()
+    
+    if not folder_path.exists():
+        raise click.ClickException(f"Wallpaper folder not found: {folder_path}")
+    
+    # Find all images
+    image_extensions = ['.jpg', '.jpeg', '.png', '.heic']
+    images = []
+    for ext in image_extensions:
+        images.extend(folder_path.glob(f'*{ext}'))
+        images.extend(folder_path.glob(f'*{ext.upper()}'))
+    
+    if not images:
+        raise click.ClickException(f"No images found in: {folder_path}")
+    
+    # Select random image
+    selected = random.choice(images)
+    console.print(f"[green]✓ Selected: {selected.name}[/green]")
+    
+    # Set wallpaper using the set command
+    ctx = click.Context(set)
+    ctx.invoke(set, path=selected)
 
 
 if __name__ == '__main__':

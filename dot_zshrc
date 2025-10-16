@@ -199,5 +199,8 @@ alias zed="/Applications/Zed.app/Contents/MacOS/cli"
 alias ascii="~/scripts/figlet.sh"
 alias theme="~/.config/theme-system/scripts/theme-manager.py"
 alias wallpaper="~/.config/theme-system/scripts/wallpaper-manager.py"
-source ~/dev/dev-workflow/dubstack/.extern/scripts/completions.zsh
+
+# Custom completions
+source ~/.custom.zsh
+
 setopt INTERACTIVE_COMMENTS
