@@ -22,3 +22,7 @@ extern-delete repo:
 test-extern:
     @echo "Running extern catalog tests..."
     @uv run .extern/scripts/test_manage_catalog.py
+
+# Validate apps.yaml schema and show supported apps catalog
+validate-apps:
+    @uv run dot_config/theme-system/scripts/executable_validate-apps.py

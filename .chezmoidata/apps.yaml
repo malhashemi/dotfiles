@@ -1,0 +1,185 @@
+# Supported Applications Catalog
+# This file is purely for documentation and planning - NOT parsed at runtime
+# 
+# Actual theming happens by:
+# 1. Writing generator functions in theme-manager.py
+# 2. Manually calling them in the set() command
+#
+# Schema version: 1.0
+# Last updated: 2025-10-16
+
+apps:
+  # ==========================================================================
+  # WezTerm - Terminal Emulator (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  wezterm:
+    # Basic Info
+    display_name: WezTerm
+    config_file: ~/.config/wezterm/wezterm.lua
+    config_format: lua
+    app_type: terminal_emulator
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file        # Priority 1: Load from external file
+          enabled: true
+          notes: "Generates colors-wezterm.lua with Catppuccin palette"
+        - method: terminal_colors       # Priority 2: Fallback to 16 ANSI (N/A for terminal emulator)
+          enabled: false
+          notes: "Terminal emulator defines colors, doesn't inherit them"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file        # Priority 1: Load MD3 colors from file
+          enabled: true
+          notes: "Generates colors-wezterm.lua with Material Design 3 colors"
+        - method: terminal_colors       # Priority 2: Fallback (N/A for terminal emulator)
+          enabled: false
+    
+    # External File Configuration
+    external_files:
+      colors:
+        path: ~/.config/wezterm/colors-wezterm.lua
+        format: lua_module
+        template: dot_config/wezterm/colors-wezterm.lua.tmpl
+        load_mechanism: require("colors-wezterm")
+        notes: "Returns table with foreground, background, cursor, selection, ansi, brights"
+      opacity:
+        path: ~/.config/wezterm/opacity-wezterm.lua
+        format: lua_module
+        template: dot_config/wezterm/opacity-wezterm.lua.tmpl
+        load_mechanism: require("opacity-wezterm")
+        notes: "Returns table with enabled, opacity, blur fields"
+    
+    # Opacity Support
+    opacity:
+      supported: true
+      method: external_file             # Separate opacity-wezterm.lua file
+      config_key: window_background_opacity
+      blur_support: true                # macOS only (macos_window_background_blur)
+      notes: "Opacity: 0-100 where 0=invisible, 100=solid. Runtime value: 0.0-1.0"
+      
+    # Reload Behavior
+    reload:
+      automatic: true                   # Auto-reloads on config change
+      method: file_watch
+      delay_seconds: 2                  # theme-manager.py waits 2s after write
+      manual_command: null              # No manual reload needed
+      signal_support: true              # Can also use USR2 signal
+      notes: "WezTerm watches config directory and reloads < 1s"
+    
+    # Implementation Details (for Python generators)
+    generator:
+      colors_function: generate_wezterm_colors
+      opacity_function: generate_wezterm_opacity
+      method: external_file
+      location: dot_config/theme-system/scripts/executable_theme-manager.py
+      line_numbers:
+        colors_generator: "46-156"
+        opacity_generator: "158-189"
+        set_command_calls: "333-334"
+      notes: "Generators write directly to ~/.config/wezterm/, bypassing chezmoi for speed"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        foreground: "{{ .theme.colors.text }}"
+        background: "{{ .theme.colors.base }}"
+        cursor_bg: "{{ .theme.colors.mauve }}"
+        cursor_fg: "{{ .theme.colors.crust }}"
+        selection_bg: "{{ .theme.colors.surface2 }}"
+        selection_fg: "{{ .theme.colors.text }}"
+        split: "{{ .theme.colors.mauve }}"
+        ansi_black: "{{ .theme.colors.surface1 }}"
+        ansi_red: "{{ .theme.colors.red }}"
+        ansi_green: "{{ .theme.colors.green }}"
+        ansi_yellow: "{{ .theme.colors.yellow }}"
+        ansi_blue: "{{ .theme.colors.blue }}"
+        ansi_magenta: "{{ .theme.colors.mauve }}"
+        ansi_cyan: "{{ .theme.colors.teal }}"
+        ansi_white: "{{ .theme.colors.subtext1 }}"
+      
+      dynamic:
+        foreground: "{{ .theme.material.on_surface }}"
+        background: "{{ .theme.material.background }}"
+        cursor_bg: "{{ .theme.material.primary }}"
+        cursor_fg: "{{ .theme.material.on_primary }}"
+        selection_bg: "{{ .theme.material.primary_container }}"
+        selection_fg: "{{ .theme.material.on_primary_container }}"
+        ansi_black: "{{ .theme.material.surface }}"
+        ansi_red: "{{ .theme.material.error }}"
+        ansi_green: "{{ .theme.material.tertiary }}"
+        ansi_yellow: "{{ .theme.material.secondary_container }}"
+        ansi_blue: "{{ .theme.material.primary }}"
+        ansi_magenta: "{{ .theme.material.secondary }}"
+        ansi_cyan: "{{ .theme.material.tertiary_container }}"
+        ansi_white: "{{ .theme.material.on_surface }}"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true           # chezmoi apply generates initial files
+      runtime_working: true             # theme set commands work
+      date_implemented: "2025-10-16"
+      implementation_commit: "5663fef"
+    
+    # Known Issues / Notes
+    notes:
+      - "WezTerm is the reference implementation for the external_file method"
+      - "Auto-reload requires no user intervention"
+      - "Blur effect only available on macOS"
+      - "Both templates and runtime generators produce identical output format"
+      - "Runtime generators bypass chezmoi for sub-second theme switching"
+
+# ==========================================================================
+# Schema Field Definitions (for reference)
+# ==========================================================================
+schema:
+  version: "1.0"
+  
+  field_descriptions:
+    display_name: "Human-readable app name"
+    config_file: "Path to main config file"
+    config_format: "File format (lua, toml, yaml, json, conf, etc)"
+    app_type: "Application category (terminal_emulator, tui, gui, shell_prompt, etc)"
+    
+    static_theme.priority: "Ordered list of methods to try for Catppuccin themes"
+    dynamic_theme.priority: "Ordered list of methods to try for Material You themes"
+    
+    method_types:
+      - builtin: "App has native/plugin support for Catppuccin"
+      - external_file: "App can load colors from separate file (RECOMMENDED)"
+      - inline: "Colors must be in main config file (surgical swap or full template)"
+      - terminal_colors: "App uses 16 ANSI terminal colors (fallback)"
+    
+    external_files:
+      path: "Where to write the generated file (~/.config/...)"
+      format: "File format for colors (lua_module, toml, yaml, etc)"
+      template: "Chezmoi template path for bootstrapping (dot_config/...)"
+      load_mechanism: "How app loads this file (for documentation)"
+    
+    opacity.method:
+      - external_file: "Separate opacity config file"
+      - inline: "Opacity in main config"
+      - compositor: "Window manager/compositor handles it"
+    
+    reload.method:
+      - file_watch: "App watches for file changes and auto-reloads"
+      - signal: "Send UNIX signal to reload (e.g., SIGUSR2)"
+      - manual: "User must manually reload (e.g., :source command)"
+      - instant: "No reload needed (e.g., shell prompts regenerate)"
+    
+    generator:
+      colors_function: "Python function name in theme-manager.py"
+      opacity_function: "Python function name in theme-manager.py (if applicable)"
+      method: "Implementation approach (external_file, surgical_swap, full_template)"
+      location: "File path where generators are defined"
+      line_numbers: "Approximate line numbers for reference"
+  
+  validation:
+    script: "dot_config/theme-system/scripts/executable_validate-apps.py"
+    command: "~/.config/theme-system/scripts/validate-apps.py"
+    notes: "Optional validation tool to check schema correctness"
