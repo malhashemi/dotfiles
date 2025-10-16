@@ -15,27 +15,53 @@ colors.cursor_border = "{{ .theme.material.primary }}"
 colors.selection_bg = "{{ .theme.material.primary_container }}"
 colors.selection_fg = "{{ .theme.material.on_primary_container }}"
 
+{{- if eq .theme.variant "light" }}
+-- Light mode: Use base colors (dark in light mode) for visibility on light backgrounds  
 colors.ansi = {
-  "{{ .theme.material.surface }}",              -- black
-  "{{ .theme.material.error }}",                -- red
-  "{{ .theme.material.tertiary }}",             -- green
-  "{{ .theme.material.secondary_container }}",  -- yellow
-  "{{ .theme.material.primary }}",              -- blue
-  "{{ .theme.material.secondary }}",            -- magenta
-  "{{ .theme.material.tertiary_container }}",   -- cyan
-  "{{ .theme.material.on_surface }}",           -- white
+  "{{ .theme.material.outline }}",                 -- black (dark gray)
+  "{{ .theme.material.error }}",                   -- red (dark red)
+  "{{ .theme.material.tertiary }}",                -- green (dark olive/brown)
+  "{{ .theme.material.secondary }}",               -- yellow (dark mauve/brown)
+  "{{ .theme.material.primary }}",                 -- blue (dark rose/blue)
+  "{{ .theme.material.tertiary }}",                -- magenta (dark olive)
+  "{{ .theme.material.primary }}",                 -- cyan (dark rose/blue)
+  "{{ .theme.material.on_surface }}",              -- white (very dark text)
 }
 
 colors.brights = {
-  "{{ .theme.material.surface_variant }}",
-  "{{ .theme.material.error }}",
-  "{{ .theme.material.tertiary }}",
-  "{{ .theme.material.secondary_container }}",
-  "{{ .theme.material.primary }}",
-  "{{ .theme.material.secondary }}",
-  "{{ .theme.material.tertiary_container }}",
-  "{{ .theme.material.on_surface_variant }}",
+  "{{ .theme.material.outline }}",                 -- bright black (medium gray)
+  "{{ .theme.material.error }}",                   -- bright red (dark red)
+  "{{ .theme.material.tertiary }}",                -- bright green (dark olive)
+  "{{ .theme.material.secondary }}",               -- bright yellow (dark mauve)
+  "{{ .theme.material.primary }}",                 -- bright blue (dark rose)
+  "{{ .theme.material.tertiary }}",                -- bright magenta (dark olive)
+  "{{ .theme.material.primary }}",                 -- bright cyan (dark rose)
+  "{{ .theme.material.on_surface }}",              -- bright white (very dark text)
 }
+{{- else }}
+-- Dark mode: Use lighter colors for visibility on dark backgrounds
+colors.ansi = {
+  "{{ .theme.material.outline }}",           -- black (medium gray)
+  "{{ .theme.material.error }}",             -- red (salmon pink)
+  "{{ .theme.material.tertiary }}",          -- green (light purple)
+  "{{ .theme.material.secondary }}",         -- yellow (blue-gray)
+  "{{ .theme.material.primary }}",           -- blue (light blue)
+  "{{ .theme.material.tertiary_fixed }}",    -- magenta (very light purple)
+  "{{ .theme.material.primary_fixed }}",     -- cyan (very light blue)
+  "{{ .theme.material.on_surface }}",        -- white (light gray)
+}
+
+colors.brights = {
+  "{{ .theme.material.outline }}",           -- bright black (medium gray)
+  "{{ .theme.material.error }}",             -- bright red (salmon pink)
+  "{{ .theme.material.tertiary_fixed }}",    -- bright green (very light purple)
+  "{{ .theme.material.secondary_fixed }}",   -- bright yellow (very light blue-gray)
+  "{{ .theme.material.primary_fixed }}",     -- bright blue (very light blue)
+  "{{ .theme.material.tertiary_fixed }}",    -- bright magenta (very light purple)
+  "{{ .theme.material.primary_fixed }}",     -- bright cyan (very light blue)
+  "{{ .theme.material.on_surface_variant }}", -- bright white (medium light gray)
+}
+{{- end }}
 
 {{- else }}
 -- Static theme: Catppuccin {{ .theme.name | title }} with Mauve accents

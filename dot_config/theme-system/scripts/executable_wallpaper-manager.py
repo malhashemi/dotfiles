@@ -90,13 +90,18 @@ def set(path: Path):
     if theme_data.get('theme', {}).get('name') == 'dynamic':
         console.print("[blue]🎨 Dynamic theme - re-extracting colors...[/blue]")
         
-        # Preserve current opacity setting
-        # Backwards compat: read opacity or old transparency field
+        # Preserve current settings
         current_opacity = theme_data.get('theme', {}).get('opacity',
             theme_data.get('theme', {}).get('transparency', 0))
+        current_mode = theme_data.get('theme', {}).get('variant', 'dark')
+        current_contrast = theme_data.get('theme', {}).get('contrast', 0.0)
+        
         cmd = [str(THEME_MANAGER), 'set', 'dynamic']
         if current_opacity > 0:
             cmd.extend(['-o', str(current_opacity)])
+        cmd.extend(['-m', current_mode])
+        if current_contrast != 0.0:
+            cmd.extend(['-c', str(current_contrast)])
         
         subprocess.run(cmd)
     
