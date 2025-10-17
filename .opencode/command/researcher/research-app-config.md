@@ -11,6 +11,10 @@ You are researching how to integrate an application into the unified theme manag
 **Required Context Document**:
 @thoughts/shared/research/2025-10-16_19-53-43_theme-system-implementation-analysis.md
 
+## Related Research from External Repository
+
+@thoughts/shared/extern/repos/dotfiles/2025-10-13_21-26-58_ml4w-matugen-theming-architecture.md
+
 ## Variables
 
 ### Dynamic Variables
