@@ -96,14 +96,17 @@ def set(path: Path):
         current_mode = theme_data.get('theme', {}).get('variant', 'dark')
         current_contrast = theme_data.get('theme', {}).get('contrast', 0.0)
         
-        cmd = [str(THEME_MANAGER), 'set', 'dynamic']
+        # Build theme command - use uv run explicitly for subprocess compatibility
+        cmd = ['uv', 'run', str(THEME_MANAGER), 'set', 'dynamic']
         if current_opacity > 0:
             cmd.extend(['-o', str(current_opacity)])
         cmd.extend(['-m', current_mode])
         if current_contrast != 0.0:
             cmd.extend(['-c', str(current_contrast)])
         
-        subprocess.run(cmd)
+        # Run theme manager and show output
+        subprocess.run(cmd, check=True)
+        console.print("[green]✓ Colors updated[/green]")
     
     console.print("[green]✅ Done[/green]")
 

@@ -134,6 +134,166 @@ apps:
       - "Both templates and runtime generators produce identical output format"
       - "Runtime generators bypass chezmoi for sub-second theme switching"
 
+  # ==========================================================================
+  # borders (JankyBorders) - Window Border System (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  borders:
+    # Basic Info
+    display_name: JankyBorders
+    config_file: ~/.config/borders/bordersrc
+    config_format: bash
+    app_type: window_border_system
+    platform: macos
+    homepage: https://github.com/FelixKratz/JankyBorders
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: inline_template        # Priority 1: Full bash script regeneration
+          enabled: true
+          notes: "Regenerates entire bordersrc with Mauve for active borders (user preference)"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: inline_template        # Priority 1: Full bash script regeneration
+          enabled: true
+          notes: "Regenerates entire bordersrc with MD3 primary color for active borders"
+    
+    # Template Configuration
+    template:
+      path: dot_config/borders/executable_bordersrc.tmpl
+      output: ~/.config/borders/bordersrc
+      executable: true
+      notes: "Bash script that executes: borders \"${options[@]}\""
+    
+    # Opacity Support
+    opacity:
+      supported: true
+      method: color_alpha              # Uses alpha channel in 0xAARRGGBB format
+      always_opaque: true              # Ignores global opacity setting for visibility
+      notes: "Window borders should always be fully visible (0xff prefix)"
+    
+    # Reload Behavior
+    reload:
+      automatic: false                 # No file watching
+      method: execute_script           # Must execute bordersrc or run borders command
+      requires_arguments: true         # Cannot run bare 'borders' when already running
+      notes: "Execute bordersrc script which passes options as arguments to borders command"
+    
+    # Implementation Details (for Python generators)
+    generator:
+      colors_function: generate_borders_config
+      reload_function: reload_borders
+      method: inline_template
+      location: dot_config/theme-system/scripts/executable_theme-manager.py
+      line_numbers:
+        colors_generator: "223-286"
+        reload_function: "288-319"
+        set_command_calls: "513-517"
+      notes: "Generates full bash script with theme colors, then executes it to update borders"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        active_color: "0xff{{ trimPrefix \"#\" .theme.colors.mauve }}"
+        inactive_color: "0xff{{ trimPrefix \"#\" .theme.colors.surface0 }}"
+        notes: "User preference: Mauve for active borders in static themes"
+      
+      dynamic:
+        active_color: "0xff{{ trimPrefix \"#\" .theme.material.primary }}"
+        inactive_color: "0xff{{ trimPrefix \"#\" .theme.material.surface_container }}"
+        notes: "Primary color for active, subtle container for inactive"
+    
+    # Integration with Other Apps
+    integrations:
+      aerospace:
+        relationship: "AeroSpace starts borders at login and on workspace changes"
+        startup_command: "after-startup-command = ['exec-and-forget borders']"
+        workspace_reload: "exec-on-workspace-change = ['exec-and-forget', 'borders']"
+        notes: "borders is guaranteed to be running when AeroSpace is active"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true           # chezmoi apply generates bordersrc
+      runtime_working: true             # theme set commands regenerate and reload
+      date_implemented: "2025-10-17"
+      implementation_commit: "pending"
+    
+    # Known Issues / Notes
+    notes:
+      - "No official Catppuccin port - manual color mapping required"
+      - "Color format is 0xAARRGGBB (alpha + RGB hex)"
+      - "Running 'borders' without args when running produces error"
+      - "Must execute bordersrc script to pass options as arguments"
+      - "AeroSpace integration ensures borders is always running"
+      - "Reload happens via script execution, not file watching"
+      - "User preference: Mauve for active borders (favorite Catppuccin color)"
+
+  # ==========================================================================
+  # AeroSpace - Tiling Window Manager (NOT THEMED)
+  # ==========================================================================
+  aerospace:
+    # Basic Info
+    display_name: AeroSpace
+    config_file: ~/.config/aerospace/aerospace.toml
+    config_format: toml
+    app_type: window_manager
+    platform: macos
+    homepage: https://github.com/nikitabobko/AeroSpace
+    
+    # Theme Support
+    static_theme:
+      priority:
+        - method: not_applicable
+          enabled: false
+          notes: "Window manager config doesn't need theme colors"
+    
+    dynamic_theme:
+      priority:
+        - method: not_applicable
+          enabled: false
+          notes: "Window manager config doesn't need theme colors"
+    
+    # Role in Theme System
+    role: "Service Orchestrator"
+    responsibilities:
+      - "Starts borders at login (after-startup-command)"
+      - "Reloads borders on workspace changes (exec-on-workspace-change)"
+      - "Provides window management for themed applications"
+      - "Ensures borders daemon is always running"
+    
+    # Integration with Theme System
+    integrations:
+      borders:
+        startup: "after-startup-command = ['exec-and-forget borders']"
+        workspace_change: "exec-on-workspace-change = ['exec-and-forget', 'borders']"
+        notes: "Ensures borders is running and updates on focus changes"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      themed: false                     # Not a themed application
+      bootstrap_working: true
+      date_added: "2025-10-17"
+      notes: "AeroSpace config managed by chezmoi but doesn't participate in theming"
+    
+    # Configuration Details
+    config_notes:
+      - "TOML configuration for keybindings, layouts, and startup commands"
+      - "Not templated - static configuration"
+      - "Managed by chezmoi: dot_config/aerospace/aerospace.toml"
+      - "Key role: Orchestrates borders lifecycle"
+    
+    # Known Issues / Notes
+    notes:
+      - "Window manager doesn't need theme colors itself"
+      - "Critical for borders integration - starts and maintains borders daemon"
+      - "Configuration is static and doesn't change with themes"
+      - "Could potentially theme gaps/padding colors in future"
+
 # ==========================================================================
 # Schema Field Definitions (for reference)
 # ==========================================================================
