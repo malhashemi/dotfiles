@@ -108,7 +108,7 @@ inner.horizontal = 15
 inner.vertical =   15
 outer.left =       15
 outer.bottom =     15
-outer.top =        15
+outer.top =        35  # Adjusted for better window positioning
 outer.right =      15
 
 # 'main' binding mode declaration

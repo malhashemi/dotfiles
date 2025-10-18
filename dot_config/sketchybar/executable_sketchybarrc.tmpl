@@ -1,0 +1,208 @@
+#!/bin/bash
+# SketchyBar Configuration - Theme System Integration
+# Colors managed by theme system (static Catppuccin + dynamic Material Design 3)
+
+PLUGIN_DIR="$CONFIG_DIR/plugins"
+
+##### Theme System Integration #####
+# Load colors and opacity from theme system
+source "$CONFIG_DIR/colors-sketchybar.sh"
+source "$CONFIG_DIR/opacity-sketchybar.sh"
+
+# Font configuration - matching WezTerm
+FONT="JetBrains Mono Nerd Font"
+ICON_FONT="Font Awesome 7 Free"
+
+##### Bar Appearance #####
+# Bar with 15px margins matching AeroSpace area
+sketchybar --bar \
+  position=top \
+  height=50 \
+  corner_radius=12 \
+  margin=15 \
+  y_offset=8 \
+  blur_radius=$BLUR_RADIUS \
+  color=$(add_opacity "$BAR_COLOR") \
+  border_width=3 \
+  border_color="$ACCENT_COLOR"
+
+##### Default Item Settings #####
+# Continuous bar aesthetic - no individual backgrounds
+default=(
+  drawing=on
+  updates=when_shown
+  icon.font="$ICON_FONT:Regular:16.0"
+  icon.color="$ICON_COLOR"
+  icon.padding_left=4
+  icon.padding_right=4
+  label.font="$FONT:Regular:13.0"
+  label.color="$LABEL_COLOR"
+  label.padding_left=4
+  label.padding_right=4
+  padding_left=5
+  padding_right=5
+  background.drawing=off
+)
+sketchybar --default "${default[@]}"
+
+##### AeroSpace Workspace Indicators #####
+# Using AeroSpace workspaces instead of Mission Control spaces
+# Register custom event for workspace changes
+
+sketchybar --add event aerospace_workspace_change
+
+# Workspace indicators with subtle pill backgrounds for active workspace
+for sid in $(aerospace list-workspaces --all); do
+  # Hide workspace 10 by default (only show when active)
+  if [ "$sid" = "10" ]; then
+    INITIAL_DRAWING="off"
+  else
+    INITIAL_DRAWING="on"
+  fi
+
+  sketchybar --add item space.$sid left \
+    --subscribe space.$sid aerospace_workspace_change \
+    --set space.$sid \
+    drawing="$INITIAL_DRAWING" \
+    label="$sid" \
+    label.font="ttyclock:Regular:16.0" \
+    label.color="$LABEL_COLOR" \
+    label.padding_left=8 \
+    label.padding_right=8 \
+    icon.drawing=off \
+    background.corner_radius=6 \
+    background.height=24 \
+    background.drawing=off \
+    click_script="aerospace workspace $sid" \
+    script="$CONFIG_DIR/plugins/aerospace.sh $sid"
+done
+
+##### Left Items #####
+
+# Separator
+sketchybar --add item separator_left left \
+  --set separator_left \
+  icon="│" \
+  icon.color="$OUTLINE" \
+  icon.padding_left=8 \
+  icon.padding_right=8 \
+  label.drawing=off \
+  background.drawing=off
+
+# Front app after workspace indicators (fixed width to prevent shifting)
+sketchybar --add item front_app left \
+  --set front_app \
+  icon.drawing=off \
+  label.font="$FONT:Bold:18.0" \
+  label.color="$ACCENT_COLOR" \
+  width=100 \
+  background.drawing=off \
+  script="$PLUGIN_DIR/front_app.sh" \
+  --subscribe front_app front_app_switched
+
+# Separator before clock
+sketchybar --add item separator_clock left \
+  --set separator_clock \
+  icon="│" \
+  icon.color="$OUTLINE" \
+  icon.padding_left=12 \
+  icon.padding_right=12 \
+  label.drawing=off \
+  background.drawing=off
+
+# Clock widget (left side, absolute position with fixed width)
+sketchybar --add item clock left \
+  --set clock \
+  update_freq=10 \
+  icon.drawing=off \
+  label.font="ttyclock:Regular:28.0" \
+  label.color="$ACCENT_COLOR" \
+  width=320 \
+  background.drawing=off \
+  script="$PLUGIN_DIR/clock.sh"
+
+# Date widget (adjust label.padding_left to move right)
+sketchybar --add item date left \
+  --set date \
+  update_freq=30 \
+  icon.drawing=off \
+  label.font="ttyclock:Regular:28.0" \
+  label.color="$ACCENT_COLOR" \
+  label.padding_left=0 \
+  width=90 \
+  background.drawing=off \
+  script="$PLUGIN_DIR/date.sh"
+# Separator before clock
+sketchybar --add item separator_date left \
+  --set separator_date \
+  icon="│" \
+  icon.color="$OUTLINE" \
+  icon.padding_left=12 \
+  icon.padding_right=12 \
+  label.drawing=off \
+  background.drawing=off
+
+##### Right Items #####
+
+# Volume widget
+sketchybar --add item volume right \
+           --set volume \
+           icon="󰕾" \
+           icon.font="$FONT:Regular:20.0" \
+           icon.color="$ACCENT_COLOR" \
+           label.drawing=off \
+           background.drawing=off \
+           script="$PLUGIN_DIR/volume.sh" \
+           --subscribe volume volume_change
+
+# Battery widget (using Nerd Font icons, accent color)
+sketchybar --add item battery right \
+           --set battery \
+           update_freq=120 \
+           icon.font="$FONT:Regular:20.0" \
+           icon.color="$ACCENT_COLOR" \
+           label.font="ttyclock:Regular:16.0" \
+           label.color="$ACCENT_COLOR" \
+           background.drawing=off \
+           script="$PLUGIN_DIR/battery.sh" \
+           --subscribe battery system_woke power_source_change
+
+# Storage widget (free disk space)
+sketchybar --add item storage right \
+           --set storage \
+           update_freq=60 \
+           icon="󰋊" \
+           icon.font="$FONT:Regular:20.0" \
+           icon.color="$ACCENT_COLOR" \
+           label.font="ttyclock:Regular:16.0" \
+           label.color="$ACCENT_COLOR" \
+           background.drawing=off \
+           script="$PLUGIN_DIR/storage.sh"
+
+# RAM widget (memory usage)
+sketchybar --add item ram right \
+           --set ram \
+           update_freq=10 \
+           icon="󰍛" \
+           icon.font="$FONT:Regular:20.0" \
+           icon.color="$ACCENT_COLOR" \
+           label.font="ttyclock:Regular:16.0" \
+           label.color="$ACCENT_COLOR" \
+           background.drawing=off \
+           script="$PLUGIN_DIR/ram.sh"
+
+# CPU widget (processor usage)
+sketchybar --add item cpu right \
+           --set cpu \
+           update_freq=10 \
+           icon="󰻠" \
+           icon.font="$FONT:Regular:20.0" \
+           icon.color="$ACCENT_COLOR" \
+           label.font="ttyclock:Regular:16.0" \
+           label.color="$ACCENT_COLOR" \
+           background.drawing=off \
+           script="$PLUGIN_DIR/cpu.sh"
+
+##### Force all scripts to run the first time (never do this in a script) #####
+
+sketchybar --update
