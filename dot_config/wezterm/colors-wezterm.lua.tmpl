@@ -20,9 +20,9 @@ colors.selection_fg = "{{ .theme.material.on_primary_container }}"
 colors.ansi = {
   "{{ .theme.material.outline }}",                 -- black (dark gray)
   "{{ .theme.material.error }}",                   -- red (dark red)
-  "{{ .theme.material.tertiary }}",                -- green (dark olive/brown)
+  "{{ .theme.material.primary }}",                -- green (dark olive/brown)
   "{{ .theme.material.secondary }}",               -- yellow (dark mauve/brown)
-  "{{ .theme.material.primary }}",                 -- blue (dark rose/blue)
+  "{{ .theme.material.tertiary }}",                 -- blue (dark rose/blue)
   "{{ .theme.material.tertiary }}",                -- magenta (dark olive)
   "{{ .theme.material.primary }}",                 -- cyan (dark rose/blue)
   "{{ .theme.material.on_surface }}",              -- white (very dark text)
@@ -43,22 +43,22 @@ colors.brights = {
 colors.ansi = {
   "{{ .theme.material.outline }}",           -- black (medium gray)
   "{{ .theme.material.error }}",             -- red (salmon pink)
-  "{{ .theme.material.tertiary }}",          -- green (light purple)
+  "{{ .theme.material.primary }}",          -- green (light purple)
   "{{ .theme.material.secondary }}",         -- yellow (blue-gray)
-  "{{ .theme.material.primary }}",           -- blue (light blue)
-  "{{ .theme.material.tertiary_fixed }}",    -- magenta (very light purple)
-  "{{ .theme.material.primary_fixed }}",     -- cyan (very light blue)
+  "{{ .theme.material.tertiary }}",           -- blue (light blue)
+  "{{ .theme.material.primary_fixed }}",    -- magenta (very light purple)
+  "{{ .theme.material.tertiary_fixed }}",     -- cyan (very light blue)
   "{{ .theme.material.on_surface }}",        -- white (light gray)
 }
 
 colors.brights = {
   "{{ .theme.material.outline }}",           -- bright black (medium gray)
   "{{ .theme.material.error }}",             -- bright red (salmon pink)
-  "{{ .theme.material.tertiary_fixed }}",    -- bright green (very light purple)
+  "{{ .theme.material.primary_fixed }}",    -- bright green (very light purple)
   "{{ .theme.material.secondary_fixed }}",   -- bright yellow (very light blue-gray)
-  "{{ .theme.material.primary_fixed }}",     -- bright blue (very light blue)
-  "{{ .theme.material.tertiary_fixed }}",    -- bright magenta (very light purple)
-  "{{ .theme.material.primary_fixed }}",     -- bright cyan (very light blue)
+  "{{ .theme.material.tertiary_fixed }}",     -- bright blue (very light blue)
+  "{{ .theme.material.primary_fixed }}",    -- bright magenta (very light purple)
+  "{{ .theme.material.tertiary_fixed }}",     -- bright cyan (very light blue)
   "{{ .theme.material.on_surface_variant }}", -- bright white (medium light gray)
 }
 {{- end }}
