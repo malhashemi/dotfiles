@@ -114,7 +114,11 @@ inner.horizontal = 15
 inner.vertical = 15
 outer.left = 15
 outer.bottom = 15
-outer.top = 40        # Adjusted for better window positioning
+outer.top = [
+  { monitor."built-in" = 40 }, # MacBook with notch - works well with current value
+  { monitor."main" = 70 },     # External display - clears SketchyBar (50px bar + 8px offset)
+  70,                          # Default for additional monitors
+]
 outer.right = 15
 
 # 'main' binding mode declaration
