@@ -233,6 +233,175 @@ apps:
       - "User preference: Mauve for active borders (favorite Catppuccin color)"
 
   # ==========================================================================
+  # SketchyBar - macOS Menu Bar Replacement (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  sketchybar:
+    # Basic Info
+    display_name: SketchyBar
+    config_file: ~/.config/sketchybar/sketchybarrc
+    config_format: bash
+    app_type: status_bar
+    platform: macos
+    homepage: https://github.com/FelixKratz/SketchyBar
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file        # Priority 1: Load from external bash script
+          enabled: true
+          notes: "Generates colors-sketchybar.sh with Catppuccin palette"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file        # Priority 1: Load MD3 colors from file
+          enabled: true
+          notes: "Generates colors-sketchybar.sh with Material Design 3 colors"
+    
+    # External File Configuration
+    external_files:
+      colors:
+        path: ~/.config/sketchybar/colors-sketchybar.sh
+        format: bash_script
+        template: dot_config/sketchybar/colors-sketchybar.sh.tmpl
+        load_mechanism: source "$CONFIG_DIR/colors-sketchybar.sh"
+        notes: "Exports color variables: FOREGROUND, BACKGROUND, PRIMARY, SECONDARY, TERTIARY, ERROR, SURFACE, OUTLINE, plus semantic colors"
+      opacity:
+        path: ~/.config/sketchybar/opacity-sketchybar.sh
+        format: bash_script
+        template: dot_config/sketchybar/opacity-sketchybar.sh.tmpl
+        load_mechanism: source "$CONFIG_DIR/opacity-sketchybar.sh"
+        notes: "Exports OPACITY_ENABLED, OPACITY_ALPHA (0xNN hex), BLUR_RADIUS, plus add_opacity() helper function"
+    
+    # Opacity Support
+    opacity:
+      supported: true
+      method: external_file             # Separate opacity-sketchybar.sh file
+      format: argb_alpha                # Uses alpha channel in ARGB 0xAARRGGBB format
+      conversion: "0x[opacity%→hex]RRGGBB"
+      blur_support: true                # blur_radius adjusts with opacity
+      notes: "Opacity: 0-100% → Alpha: 0x00-0xFF. Helper function add_opacity() applies alpha to colors"
+      
+    # Reload Behavior
+    reload:
+      automatic: false                  # No file watching
+      method: manual                    # Must run command
+      manual_command: sketchybar --reload
+      reload_time: "<1 second"
+      notes: "Fast full reload. Alternatively can update items surgically with --set"
+    
+    # Implementation Details (for Python generators)
+    generator:
+      colors_function: generate_sketchybar_colors
+      opacity_function: generate_sketchybar_opacity
+      reload_function: reload_sketchybar
+      method: external_file
+      location: dot_config/theme-system/scripts/executable_theme-manager.py
+      line_numbers:
+        colors_generator: "325-413"
+        opacity_generator: "416-478"
+        reload_function: "481-495"
+        set_command_calls: "732-737"
+      notes: "Generators write bash scripts to ~/.config/sketchybar/, then reload via CLI"
+    
+    # Color Mappings (Semantic Abstraction Layer)
+    color_mappings:
+      # Semantic colors (what configs actually use)
+      semantic_layer:
+        BAR_COLOR: "$BACKGROUND"
+        ICON_COLOR: "$FOREGROUND"
+        LABEL_COLOR: "$FOREGROUND"
+        ITEM_BG_COLOR: "$SURFACE"
+        ITEM_BG_BRIGHT: "$SURFACE_BRIGHT"
+        BORDER_COLOR: "$OUTLINE"
+        ACCENT_COLOR: "$PRIMARY"
+      
+      # Static theme mapping (Catppuccin → Base colors)
+      static:
+        FOREGROUND: "{{ .theme.colors.text }}"
+        BACKGROUND: "{{ .theme.colors.base }}"
+        PRIMARY: "{{ .theme.colors.mauve }}"
+        SECONDARY: "{{ .theme.colors.blue }}"
+        TERTIARY: "{{ .theme.colors.green }}"
+        ERROR: "{{ .theme.colors.red }}"
+        SURFACE: "{{ .theme.colors.surface0 }}"
+        SURFACE_BRIGHT: "{{ .theme.colors.surface2 }}"
+        SURFACE_DIM: "{{ .theme.colors.mantle }}"
+        OUTLINE: "{{ .theme.colors.overlay0 }}"
+      
+      # Dynamic theme mapping (Material Design 3 → Base colors)
+      dynamic:
+        FOREGROUND: "{{ .theme.material.on_surface }}"
+        BACKGROUND: "{{ .theme.material.background }}"
+        PRIMARY: "{{ .theme.material.primary }}"
+        SECONDARY: "{{ .theme.material.secondary }}"
+        TERTIARY: "{{ .theme.material.tertiary }}"
+        ERROR: "{{ .theme.material.error }}"
+        SURFACE: "{{ .theme.material.surface }}"
+        SURFACE_BRIGHT: "{{ .theme.material.surface_bright }}"
+        SURFACE_DIM: "{{ .theme.material.surface_dim }}"
+        OUTLINE: "{{ .theme.material.outline }}"
+    
+    # Visual Aesthetics (Pacman Theme)
+    visual_style:
+      theme_name: "Pacman (inspired by itaysharir-dotfiles)"
+      bar_structure:
+        height: 50
+        corner_radius: 14
+        margin: 95                      # Floating bar effect
+        y_offset: 9                     # Slight drop from top
+        style: "Rounded floating bar with breathing room"
+      
+      widget_style:
+        shape: "Individual pills (not brackets)"
+        background_corner_radius: 20    # High radius for capsule shape
+        background_height: 33           # Pill height within 50px bar
+        pattern: "Each widget has separate rounded pill background"
+      
+      typography:
+        main_font: "Monocraft"
+        icon_font: "Font Awesome 7 Free"
+        aesthetic: "Retro pixel gaming (Minecraft-inspired)"
+        notes: "Install via: brew install --cask font-monocraft font-fontawesome"
+      
+      workspace_indicators:
+        style: "Dot characters (⬤) with dynamic pill backgrounds"
+        active_state: "Pill background with ACCENT_COLOR"
+        inactive_state: "No background, just dot"
+        integration: "AeroSpace workspace integration"
+    
+    # Integration with Other Apps
+    integrations:
+      aerospace:
+        relationship: "SketchyBar displays AeroSpace workspace state"
+        plugin: "dot_config/sketchybar/plugins/executable_aerospace.sh"
+        events: "Custom event: aerospace_workspace_change"
+        notes: "Workspace indicators update on focus change, show pill on active"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true           # chezmoi apply generates initial files
+      runtime_working: true             # theme set commands work
+      date_implemented: "2025-10-17"
+      implementation_plan: "thoughts/shared/plans/sketchybar-pacman-theme-integration.md"
+      research_doc: "thoughts/shared/research/2025-10-17_07-21-41_app-config-analysis-sketchybar.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "Pacman theme provides retro gaming aesthetic with modern theming"
+      - "Individual pill backgrounds (not brackets) for clean separation"
+      - "Helper function add_opacity() converts #RRGGBB to 0xAARRGGBB with current opacity"
+      - "Fast reload (< 1 second) via sketchybar --reload command"
+      - "Monocraft font gives pixel/retro aesthetic matching Pacman theme"
+      - "Font Awesome 7 Free used for all icons (battery, clock, volume, etc.)"
+      - "Workspace dots (⬤) dynamically show pill backgrounds on active workspace"
+      - "Both templates and runtime generators produce identical output format"
+      - "Runtime generators bypass chezmoi for sub-second theme switching"
+      - "Supports static Catppuccin themes + dynamic Material Design 3 from wallpaper"
+
+  # ==========================================================================
   # AeroSpace - Tiling Window Manager (NOT THEMED)
   # ==========================================================================
   aerospace:
