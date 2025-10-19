@@ -401,6 +401,135 @@ apps:
       - "Supports static Catppuccin themes + dynamic Material Design 3 from wallpaper"
 
   # ==========================================================================
+  # Atuin - TUI Shell History Tool (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  atuin:
+    # Basic Info
+    display_name: Atuin
+    config_file: ~/.config/atuin/config.toml
+    config_format: toml
+    app_type: tui
+    platform: cross_platform
+    homepage: https://atuin.sh/
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file        # Priority 1: Load from external TOML file
+          enabled: true
+          notes: "Generates theme files in ~/.config/atuin/themes/ with Catppuccin colors"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file        # Priority 1: Load MD3 colors from file
+          enabled: true
+          notes: "Generates dynamic.toml with Material Design 3 colors"
+    
+    # External File Configuration
+    external_files:
+      theme:
+        path: ~/.config/atuin/themes/{theme_name}.toml
+        format: toml
+        template: dot_config/atuin/themes/dynamic.toml.tmpl
+        load_mechanism: "[theme] name reference in config.toml"
+        notes: "Theme files define 8 semantic color roles"
+    
+    # Semantic Color Roles (8 roles)
+    color_roles:
+      - AlertInfo: "Success/info messages"
+      - AlertWarn: "Warning messages"
+      - AlertError: "Error messages"
+      - Annotation: "Metadata, tags, timestamps"
+      - Base: "Main foreground text"
+      - Guidance: "Help text, instructions"
+      - Important: "Highlighted/emphasized items"
+      - Title: "Section headers, titles"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "Atuin only accepts 6-digit hex RGB colors (no alpha channel)"
+      
+    # Reload Behavior
+    reload:
+      automatic: true                   # Config loaded fresh on each invocation
+      method: on_demand
+      manual_command: null              # No command needed - just invoke Atuin again
+      reload_time: "< 1ms"
+      notes: "No background daemon. Config loads on each Atuin invocation (Ctrl+R). Changes take effect immediately on next use."
+    
+    # Implementation Details (for Python generators)
+    generator:
+      class: AtuinTheme
+      module: apps.atuin
+      method: external_file
+      location: dot_config/theme-system/scripts/apps/atuin.py
+      apply_method: apply_theme
+      functions:
+        - generate_theme_file
+        - update_config_reference
+      notes: "Modular architecture: app registered in apps/__init__.py, called via app.apply_theme()"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        AlertInfo: "{{ .theme.colors.green }}"
+        AlertWarn: "{{ .theme.colors.peach }}"
+        AlertError: "{{ .theme.colors.red }}"
+        Annotation: "{{ .theme.colors.mauve }}"
+        Base: "{{ .theme.colors.text }}"
+        Guidance: "{{ .theme.colors.subtext0 }}"
+        Important: "{{ .theme.colors.red }}"
+        Title: "{{ .theme.colors.mauve }}"
+        notes: "AlertError and Important share red; Annotation and Title share mauve (user's favorite)"
+      
+      dynamic:
+        AlertInfo: "{{ .theme.material.tertiary }}"
+        AlertWarn: "{{ .theme.material.secondary }}"
+        AlertError: "{{ .theme.material.error }}"
+        Annotation: "{{ .theme.material.primary }}"
+        Base: "{{ .theme.material.on_surface }}"
+        Guidance: "{{ .theme.material.outline }}"
+        Important: "{{ .theme.material.error }}"
+        Title: "{{ .theme.material.primary }}"
+        notes: "Semantic MD3 mapping for dynamic themes"
+    
+    # Configuration Integration
+    config_integration:
+      theme_reference:
+        file: ~/.config/atuin/config.toml
+        section: "[theme]"
+        key: "name"
+        update_method: "tomlkit (surgical update, preserves comments)"
+        values:
+          static: "catppuccin-{variant}-mauve"
+          dynamic: "dynamic"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true           # chezmoi apply generates dynamic.toml
+      runtime_working: true             # theme set commands work
+      date_implemented: "2025-10-19"
+      implementation_plan: "thoughts/shared/plans/atuin-theme-integration.md"
+      research_doc: "thoughts/shared/research/2025-10-18_17-36-32_app-config-analysis-atuin.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "Atuin is a TUI app written in Rust using ratatui framework"
+      - "Theme files are TOML with [theme] and [colors] sections"
+      - "No official builtin Catppuccin - uses external theme files"
+      - "Official Catppuccin themes exist at github.com/catppuccin/atuin"
+      - "Config reference auto-updated via tomlkit (preserves comments)"
+      - "No opacity support - all colors are solid RGB"
+      - "Automatic reload on next invocation - no shell restart needed"
+      - "Both templates and runtime generators produce identical output format"
+      - "Runtime generators bypass chezmoi for instant theme switching"
+      - "Supports static Catppuccin themes + dynamic Material Design 3 from wallpaper"
+
+  # ==========================================================================
   # AeroSpace - Tiling Window Manager (NOT THEMED)
   # ==========================================================================
   aerospace:

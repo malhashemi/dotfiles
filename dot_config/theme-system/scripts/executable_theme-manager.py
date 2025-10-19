@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["click>=8.0", "pyyaml>=6.0", "rich>=13.0"]
+# dependencies = ["click>=8.0", "pyyaml>=6.0", "rich>=13.0", "tomlkit>=0.12.0"]
 # ///
 
 """Universal Theme Manager - Modular Architecture

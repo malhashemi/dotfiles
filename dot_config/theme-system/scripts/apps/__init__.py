@@ -11,6 +11,7 @@ from pathlib import Path
 from .wezterm import WeztermTheme
 from .borders import BordersTheme
 from .sketchybar import SketchybarTheme
+from .atuin import AtuinTheme
 
 
 def get_all_apps(config_home: Path) -> list:
@@ -31,6 +32,7 @@ def get_all_apps(config_home: Path) -> list:
         WeztermTheme(config_home),
         BordersTheme(config_home),
         SketchybarTheme(config_home),
+        AtuinTheme(config_home),
     ]
 
 
@@ -38,5 +40,6 @@ __all__ = [
     "WeztermTheme",
     "BordersTheme",
     "SketchybarTheme",
+    "AtuinTheme",
     "get_all_apps",
 ]
