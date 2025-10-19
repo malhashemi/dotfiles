@@ -4,16 +4,31 @@
 # dependencies = ["click>=8.0", "pyyaml>=6.0", "rich>=13.0"]
 # ///
 
-"""Universal Theme Manager - Matugen Only"""
+"""Universal Theme Manager - Modular Architecture
+
+Simplified commands:
+- theme set static [--variant VARIANT] [-o OPACITY]
+- theme set dynamic [-o OPACITY] [-c CONTRAST]
+- theme opacity <0-100>
+- theme mode <light|dark>
+- theme status
+"""
 
 import json
-import subprocess
-import sys
 from datetime import datetime, timezone
 from pathlib import Path
 import click
 import yaml
 from rich.console import Console
+
+# Import modular components
+from apps import get_all_apps
+from utils import (
+    detect_system_appearance,
+    set_system_appearance,
+    extract_colors_matugen,
+    map_catppuccin_to_material,
+)
 
 console = Console()
 
@@ -24,18 +39,13 @@ CONFIG_HOME = HOME / ".config"
 THEME_DATA = CHEZMOI_SOURCE / ".chezmoidata/theme.yaml"
 WALLPAPER_DATA = CHEZMOI_SOURCE / ".chezmoidata/wallpaper-state.yaml"
 THEMES_DIR = CHEZMOI_SOURCE / "dot_config/theme-system/themes"
-WEZTERM_COLORS = CONFIG_HOME / "wezterm/colors-wezterm.lua"
-WEZTERM_OPACITY = CONFIG_HOME / "wezterm/opacity-wezterm.lua"
-BORDERS_CONFIG = CONFIG_HOME / "borders/bordersrc"
-MATUGEN_CACHE = (
-    HOME
-    / ("Library/Caches" if sys.platform == "darwin" else ".cache")
-    / "matugen/colors.json"
-)
 LOCK_FILE = HOME / ".cache/theme-system-running"
 
 
+# State management utilities
+
 def load_yaml(path: Path) -> dict:
+    """Load YAML file"""
     if not path.exists():
         return {}
     with open(path) as f:
@@ -43,530 +53,88 @@ def load_yaml(path: Path) -> dict:
 
 
 def save_yaml(path: Path, data: dict):
+    """Save YAML file"""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         yaml.dump(data, f, default_flow_style=False)
 
 
-def generate_wezterm_colors(theme_data: dict):
-    """Generate colors-wezterm.lua directly from theme data"""
-    theme = theme_data.get("theme", {})
-    theme_name = theme.get("name", "mocha")
+# Theme data builders
 
-    console.print("[blue]🎨 Generating WezTerm colors...[/blue]")
-
-    # Generate Lua file content
-    if theme_name == "dynamic":
-        # Dynamic theme: Material Design 3 colors
-        mat = theme.get("material", {})
-        variant = theme.get("variant", "dark")
-
-        # Mode-aware ANSI color mapping
-        if variant == "light":
-            # Light mode: Use base colors (dark in light mode) for visibility on light backgrounds
-            ansi_colors = f"""colors.ansi = {{
-  "{mat.get("outline", "#73796f")}",                 -- black (dark gray)
-  "{mat.get("error", "#ba1a1a")}",                   -- red (dark red)
-  "{mat.get("primary", "#775930")}",                -- green (dark olive/brown)
-  "{mat.get("secondary", "#765658")}",               -- yellow (dark mauve/brown)
-  "{mat.get("tertiary", "#8f4a50")}",                 -- blue (dark rose/blue)
-  "{mat.get("primary", "#775930")}",                -- magenta (dark olive)
-  "{mat.get("tertiary", "#8f4a50")}",                 -- cyan (dark rose/blue)
-  "{mat.get("on_surface", "#22191a")}",              -- white (very dark text)
-}}
-
-colors.brights = {{
-  "{mat.get("outline", "#857373")}",                 -- bright black (medium gray)
-  "{mat.get("error", "#ba1a1a")}",                   -- bright red (dark red)
-  "{mat.get("primary", "#775930")}",                -- bright green (dark olive)
-  "{mat.get("secondary", "#765658")}",               -- bright yellow (dark mauve)
-  "{mat.get("tertiary", "#8f4a50")}",                 -- bright blue (dark rose)
-  "{mat.get("primary", "#775930")}",                -- bright magenta (dark olive)
-  "{mat.get("tertiary", "#8f4a50")}",                 -- bright cyan (dark rose)
-  "{mat.get("on_surface", "#22191a")}",              -- bright white (very dark text)
-}}"""
-        else:
-            # Dark mode: Use lighter colors for visibility on dark backgrounds
-            ansi_colors = f"""colors.ansi = {{
-  "{mat.get("outline", "#8d9199")}",           -- black (medium gray)
-  "{mat.get("error", "#f38ba8")}",             -- red (salmon pink)
-  "{mat.get("primary", "#a6e3a1")}",          -- green (light purple)
-  "{mat.get("secondary", "#89b4fa")}",         -- yellow (blue-gray)
-  "{mat.get("tertiary", "#cba6f7")}",           -- blue (light blue)
-  "{mat.get("primary_fixed", "#f7d8ff")}",    -- magenta (very light purple)
-  "{mat.get("tertiary_fixed", "#d4e3ff")}",     -- cyan (very light blue)
-  "{mat.get("on_surface", "#cdd6f4")}",        -- white (light gray)
-}}
-
-colors.brights = {{
-  "{mat.get("outline", "#8d9199")}",           -- bright black (medium gray)
-  "{mat.get("error", "#f38ba8")}",             -- bright red (salmon pink)
-  "{mat.get("primary_fixed", "#f7d8ff")}",    -- bright green (very light purple)
-  "{mat.get("secondary_fixed", "#d8e3f8")}",   -- bright yellow (very light blue-gray)
-  "{mat.get("tertiary_fixed", "#d4e3ff")}",     -- bright blue (very light blue)
-  "{mat.get("primary_fixed", "#f7d8ff")}",    -- bright magenta (very light purple)
-  "{mat.get("tertiary_fixed", "#d4e3ff")}",     -- bright cyan (very light blue)
-  "{mat.get("on_surface_variant", "#bac2de")}",-- bright white (medium light gray)
-}}"""
-
-        lua_content = f"""-- WezTerm Colors - Generated by theme system
--- Dynamic theme: Material Design 3 from wallpaper ({variant} mode)
-
-local colors = {{}}
-
--- Basic
-colors.foreground = "{mat.get("on_surface", "#cdd6f4")}"
-colors.background = "{mat.get("background", "#1e1e2e")}"
-
--- Cursor
-colors.cursor_bg = "{mat.get("primary", "#cba6f7")}"
-colors.cursor_fg = "{mat.get("on_primary", "#11111b")}"
-colors.cursor_border = "{mat.get("primary", "#cba6f7")}"
-
--- Selection
-colors.selection_bg = "{mat.get("primary_container", "#45475a")}"
-colors.selection_fg = "{mat.get("on_primary_container", "#cdd6f4")}"
-
--- ANSI colors (Mode-aware mapping)
-{ansi_colors}
-
-return colors
-"""
-    else:
-        # Static theme: Catppuccin with Mauve accents
-        ctp = theme.get("colors", {})
-        lua_content = f"""-- WezTerm Colors - Generated by theme system
--- Static theme: Catppuccin {theme_name.title()} with Mauve accents
-
-local colors = {{}}
-
--- Basic
-colors.foreground = "{ctp.get("text", "#cdd6f4")}"
-colors.background = "{ctp.get("base", "#1e1e2e")}"
-
--- Cursor
-colors.cursor_bg = "{ctp.get("mauve", "#cba6f7")}"
-colors.cursor_fg = "{ctp.get("crust", "#11111b")}"
-colors.cursor_border = "{ctp.get("mauve", "#cba6f7")}"
-
--- Selection
-colors.selection_bg = "{ctp.get("surface2", "#585b70")}"
-colors.selection_fg = "{ctp.get("text", "#cdd6f4")}"
-
--- Split border
-colors.split = "{ctp.get("mauve", "#cba6f7")}"
-
--- Catppuccin ANSI colors
-colors.ansi = {{
-  "{ctp.get("surface1", "#45475a")}",  -- black
-  "{ctp.get("red", "#f38ba8")}",       -- red
-  "{ctp.get("green", "#a6e3a1")}",     -- green
-  "{ctp.get("yellow", "#f9e2af")}",    -- yellow
-  "{ctp.get("blue", "#89b4fa")}",      -- blue
-  "{ctp.get("mauve", "#cba6f7")}",     -- magenta (Mauve!)
-  "{ctp.get("teal", "#94e2d5")}",      -- cyan
-  "{ctp.get("subtext1", "#bac2de")}",  -- white
-}}
-
-colors.brights = {{
-  "{ctp.get("surface2", "#585b70")}",  -- bright black
-  "{ctp.get("red", "#f38ba8")}",       -- bright red
-  "{ctp.get("green", "#a6e3a1")}",     -- bright green
-  "{ctp.get("yellow", "#f9e2af")}",    -- bright yellow
-  "{ctp.get("blue", "#89b4fa")}",      -- bright blue
-  "{ctp.get("mauve", "#cba6f7")}",     -- bright magenta (Mauve!)
-  "{ctp.get("teal", "#94e2d5")}",      -- bright cyan
-  "{ctp.get("subtext0", "#a6adc8")}",  -- bright white
-}}
-
-return colors
-"""
-
-    # Write the file
-    WEZTERM_COLORS.parent.mkdir(parents=True, exist_ok=True)
-    with open(WEZTERM_COLORS, "w") as f:
-        f.write(lua_content)
-
-    console.print(f"[green]✓ Generated {WEZTERM_COLORS}[/green]")
-
-
-def generate_wezterm_opacity(theme_data: dict):
-    """Generate opacity-wezterm.lua from theme data"""
-    theme = theme_data.get("theme", {})
-    # Read opacity (0-100 where 100 = fully opaque)
-    opacity_percent = theme.get("opacity", 0)
-
-    if opacity_percent > 0:
-        opacity_value = opacity_percent / 100.0
-        lua_content = f"""-- WezTerm Opacity - Generated by theme system
--- Opacity: {opacity_percent}% (0=invisible, 100=solid)
-
-return {{
-  enabled = true,
-  opacity = {opacity_value},
-  blur = 80,
-}}
-"""
-    else:
-        lua_content = """-- WezTerm Opacity - Generated by theme system
--- Opacity: 0% (fully invisible)
-
-return {
-  enabled = false,
-}
-"""
-
-    # Write the file
-    WEZTERM_OPACITY.parent.mkdir(parents=True, exist_ok=True)
-    with open(WEZTERM_OPACITY, "w") as f:
-        f.write(lua_content)
-
-    console.print(f"[green]✓ Generated {WEZTERM_OPACITY}[/green]")
-
-
-def generate_borders_config(theme_data: dict):
-    """Generate borders configuration from theme data
-
-    Generates bordersrc with theme-aware colors:
-    - Static themes: Mauve for active (user favorite), Surface0 for inactive
-    - Dynamic themes: Primary for active, surface_container for inactive
-    - Always fully opaque (0xff prefix) - window borders need visibility
+def build_static_theme_data(variant: str, opacity: int) -> dict:
+    """Build theme data for static Catppuccin theme
+    
+    Args:
+        variant: Catppuccin variant (mocha, latte, frappe, macchiato)
+        opacity: Opacity percentage (0-100)
+        
+    Returns:
+        Complete theme data dictionary
     """
-    theme = theme_data.get("theme", {})
-    theme_name = theme.get("name", "mocha")
-
-    console.print("[blue]🔲 Generating borders configuration...[/blue]")
-
-    if theme_name == "dynamic":
-        # Dynamic theme: Use Material Design 3 colors
-        mat = theme.get("material", {})
-
-        # Active: Primary color (wallpaper accent)
-        # Inactive: Surface container (subtle background)
-        active_color = mat.get("primary", "#cba6f7").lstrip("#")
-        inactive_color = mat.get("surface_container", "#313244").lstrip("#")
-
-        comment = f"Dynamic theme: Material Design 3 from wallpaper"
-    else:
-        # Static theme: Use Catppuccin colors
-        ctp = theme.get("colors", {})
-
-        # User preference: Mauve for active (favorite color)
-        # Surface0 for inactive (subtle, recedes)
-        active_color = ctp.get("mauve", "#cba6f7").lstrip("#")
-        inactive_color = ctp.get("surface0", "#313244").lstrip("#")
-
-        comment = f"Static theme: Catppuccin {theme_name.title()} with Mauve accents"
-
-    bash_content = f"""#!/bin/bash
-
-# borders Configuration - {comment}
-# Auto-generated by theme system
-# Always fully opaque (0xff prefix) for visibility
-
-options=(
-  style=round
-  width=6.0
-  hidpi=on
-  active_color=0xff{active_color}
-  inactive_color=0xff{inactive_color}
-)
-
-borders "${{options[@]}}"
-"""
-
-    # Write to ~/.config/borders/bordersrc
-    BORDERS_CONFIG.parent.mkdir(parents=True, exist_ok=True)
-
-    with open(BORDERS_CONFIG, "w") as f:
-        f.write(bash_content)
-
-    # Make executable (chmod 755)
-    BORDERS_CONFIG.chmod(0o755)
-
-    console.print(f"[green]✓ Generated {BORDERS_CONFIG}[/green]")
+    console.print(f"[blue]🎨 Theme: {variant}[/blue]")
+    
+    # Load Catppuccin theme
+    theme_file = THEMES_DIR / f"catppuccin-{variant}.json"
+    if not theme_file.exists():
+        raise click.ClickException(f"Theme file not found: {theme_file}")
+    
+    with open(theme_file) as f:
+        theme_json = json.load(f)
+    
+    ctp = theme_json["colors"]
+    material_colors = map_catppuccin_to_material(ctp)
+    
+    return {
+        "theme": {
+            "name": variant,
+            "variant": theme_json.get("variant", "dark"),
+            "opacity": opacity,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "colors": ctp,
+            "material": material_colors,
+        }
+    }
 
 
-def reload_borders():
-    """Reload borders by executing the bordersrc script
-
-    When borders is already running (which it is via AeroSpace), you must provide
-    arguments to update it. Executing bordersrc passes the options array as arguments,
-    updating the running instance. Changes apply instantly (< 100ms).
-
-    Note: Running 'borders' without arguments when already running produces error:
-    "A borders instance is already running and no valid arguments where provided"
-    """
-    # Check if config was generated
-    if not BORDERS_CONFIG.exists():
-        console.print("[yellow]⚠ borders config not found, skipping reload[/yellow]")
-        return
-
-    try:
-        # Check if borders command exists
-        result = subprocess.run(["which", "borders"], capture_output=True, timeout=2)
-        if result.returncode != 0:
-            console.print(
-                "[yellow]⚠ borders not installed (brew install borders), skipping[/yellow]"
-            )
-            return
-
-        # Execute bordersrc script - it runs: borders "${options[@]}"
-        # This passes the color options as arguments, updating the running instance
-        subprocess.run([str(BORDERS_CONFIG)], check=False, timeout=5)
-        console.print("[green]✓ Reloaded borders[/green]")
-
-    except subprocess.TimeoutExpired:
-        console.print("[yellow]⚠ borders reload timed out[/yellow]")
-    except Exception as e:
-        console.print(f"[yellow]⚠ Failed to reload borders: {e}[/yellow]")
-
-
-def generate_sketchybar_colors(theme_data: dict):
-    """Generate colors-sketchybar.sh from theme data"""
-    theme = theme_data.get("theme", {})
-    theme_name = theme.get("name", "mocha")
-
-    console.print("[blue]🎨 Generating Sketchybar colors...[/blue]")
-
-    # Helper function to convert #rrggbb to 0xffrrggbb (ARGB format for Sketchybar)
-    def hex_to_argb(hex_color):
-        hex_clean = hex_color.lstrip("#")
-        return f"0xff{hex_clean}"
-
-    if theme_name == "dynamic":
-        # Use Material Design 3 colors
-        mat = theme.get("material", {})
-        sh_content = f"""#!/bin/bash
-# SketchyBar Colors - Dynamic theme
-# Generated by theme system
-
-# Helper function to convert #rrggbb to 0xffrrggbb (ARGB format)
-hex_to_argb() {{
-  local hex="${{1#\\#}}"  # Remove # if present
-  echo "0xff${{hex}}"
-}}
-
-export FOREGROUND="$(hex_to_argb '{mat.get("on_surface", "#cdd6f4")}')"
-export BACKGROUND="$(hex_to_argb '{mat.get("background", "#1e1e2e")}')"
-export PRIMARY="$(hex_to_argb '{mat.get("primary", "#cba6f7")}')"
-export SECONDARY="$(hex_to_argb '{mat.get("secondary", "#89b4fa")}')"
-export TERTIARY="$(hex_to_argb '{mat.get("tertiary", "#a6e3a1")}')"
-export ERROR="$(hex_to_argb '{mat.get("error", "#f38ba8")}')"
-export SURFACE="$(hex_to_argb '{mat.get("surface", "#313244")}')"
-export SURFACE_BRIGHT="$(hex_to_argb '{mat.get("surface_bright", "#585b70")}')"
-export SURFACE_DIM="$(hex_to_argb '{mat.get("surface_dim", "#181825")}')"
-export OUTLINE="$(hex_to_argb '{mat.get("outline", "#6c7086")}')"
-
-# Semantic colors for Sketchybar (use these in your config)
-export BAR_COLOR="$BACKGROUND"
-export ICON_COLOR="$FOREGROUND"
-export LABEL_COLOR="$FOREGROUND"
-export ITEM_BG_COLOR="$SURFACE"
-export ITEM_BG_BRIGHT="$SURFACE_BRIGHT"
-export BORDER_COLOR="$OUTLINE"
-export ACCENT_COLOR="$PRIMARY"
-"""
-    else:
-        # Use Catppuccin colors
-        ctp = theme.get("colors", {})
-        sh_content = f"""#!/bin/bash
-# SketchyBar Colors - {theme_name.title()}
-# Generated by theme system
-
-# Helper function to convert #rrggbb to 0xffrrggbb (ARGB format)
-hex_to_argb() {{
-  local hex="${{1#\\#}}"  # Remove # if present
-  echo "0xff${{hex}}"
-}}
-
-export FOREGROUND="$(hex_to_argb '{ctp.get("text", "#cdd6f4")}')"
-export BACKGROUND="$(hex_to_argb '{ctp.get("base", "#1e1e2e")}')"
-export PRIMARY="$(hex_to_argb '{ctp.get("mauve", "#cba6f7")}')"
-export SECONDARY="$(hex_to_argb '{ctp.get("blue", "#89b4fa")}')"
-export TERTIARY="$(hex_to_argb '{ctp.get("green", "#a6e3a1")}')"
-export ERROR="$(hex_to_argb '{ctp.get("red", "#f38ba8")}')"
-export SURFACE="$(hex_to_argb '{ctp.get("surface0", "#313244")}')"
-export SURFACE_BRIGHT="$(hex_to_argb '{ctp.get("surface2", "#585b70")}')"
-export SURFACE_DIM="$(hex_to_argb '{ctp.get("mantle", "#181825")}')"
-export OUTLINE="$(hex_to_argb '{ctp.get("overlay0", "#6c7086")}')"
-
-# Semantic colors for Sketchybar (use these in your config)
-export BAR_COLOR="$BACKGROUND"
-export ICON_COLOR="$FOREGROUND"
-export LABEL_COLOR="$FOREGROUND"
-export ITEM_BG_COLOR="$SURFACE"
-export ITEM_BG_BRIGHT="$SURFACE_BRIGHT"
-export BORDER_COLOR="$OUTLINE"
-export ACCENT_COLOR="$PRIMARY"
-"""
-
-    # Write to ~/.config/sketchybar/colors-sketchybar.sh
-    sketchybar_colors = CONFIG_HOME / "sketchybar/colors-sketchybar.sh"
-    sketchybar_colors.parent.mkdir(parents=True, exist_ok=True)
-    with open(sketchybar_colors, "w") as f:
-        f.write(sh_content)
-
-    # Make executable
-    sketchybar_colors.chmod(0o755)
-
-    console.print(f"[green]✓ Generated {sketchybar_colors}[/green]")
-
-
-def generate_sketchybar_opacity(theme_data: dict):
-    """Generate opacity-sketchybar.sh from theme data"""
-    theme = theme_data.get("theme", {})
-    opacity_percent = theme.get("opacity", 0)
-
-    console.print(
-        f"[blue]🔲 Generating Sketchybar opacity ({opacity_percent}%)...[/blue]"
-    )
-
-    # Convert percentage to hex alpha (0-100 → 0x00-0xFF)
-    alpha_hex = format(int(opacity_percent * 255 / 100), "02x")
-
-    if opacity_percent > 0:
-        sh_content = f"""#!/bin/bash
-# SketchyBar Opacity - {opacity_percent}%
-# Generated by theme system
-
-export OPACITY_ENABLED=true
-export OPACITY_ALPHA="0x{alpha_hex}"
-export BLUR_RADIUS=30
-
-# Helper function to add opacity to ARGB colors
-# Usage: add_opacity "0xff1e1e2e" → "0xa51e1e2e" (with current opacity)
-add_opacity() {{
-  local color="$1"
-  # Strip 0xff prefix if present, or 0x prefix, or # prefix
-  color="${{color#0xff}}"
-  color="${{color#0x}}"
-  color="${{color#\\#}}"
-  # Return with opacity alpha
-  echo "0x${{OPACITY_ALPHA#0x}}${{color}}"
-}}
-"""
-    else:
-        sh_content = """#!/bin/bash
-# SketchyBar Opacity - Disabled
-# Generated by theme system
-
-export OPACITY_ENABLED=false
-export OPACITY_ALPHA="0xff"
-export BLUR_RADIUS=0
-
-# Helper function to add opacity to ARGB colors (no-op when opacity disabled)
-add_opacity() {
-  local color="$1"
-  # Strip 0xff prefix if present, or 0x prefix, or # prefix
-  color="${color#0xff}"
-  color="${color#0x}"
-  color="${color#\\#}"
-  # Return fully opaque
-  echo "0xff${color}"
-}
-"""
-
-    sketchybar_opacity = CONFIG_HOME / "sketchybar/opacity-sketchybar.sh"
-    sketchybar_opacity.parent.mkdir(parents=True, exist_ok=True)
-    with open(sketchybar_opacity, "w") as f:
-        f.write(sh_content)
-
-    # Make executable
-    sketchybar_opacity.chmod(0o755)
-
-    console.print(f"[green]✓ Generated {sketchybar_opacity}[/green]")
-
-
-def reload_sketchybar():
-    """Reload Sketchybar to apply new colors"""
-    import subprocess
-
-    try:
-        subprocess.run(
-            ["sketchybar", "--reload"], check=True, capture_output=True, timeout=5
-        )
-        console.print("[green]✓ Sketchybar reloaded[/green]")
-    except subprocess.CalledProcessError as e:
-        console.print(
-            f"[yellow]⚠ Sketchybar reload failed: {e.stderr.decode()}[/yellow]"
-        )
-    except FileNotFoundError:
-        console.print("[yellow]⚠ Sketchybar not found (not running?)[/yellow]")
-    except subprocess.TimeoutExpired:
-        console.print("[yellow]⚠ Sketchybar reload timeout[/yellow]")
-
-
-def extract_colors_matugen(
-    wallpaper_path: Path, mode: str = "dark", contrast: float = 0.0
+def build_dynamic_theme_data(
+    wallpaper_path: str,
+    mode: str,
+    opacity: int,
+    contrast: float
 ) -> dict:
-    """Extract colors using matugen with mode and contrast control"""
-    console.print(
-        f"[blue]🎨 Extracting colors ({mode} mode, contrast: {contrast:+.1f})...[/blue]"
+    """Build theme data for dynamic Material You theme
+    
+    Args:
+        wallpaper_path: Path to wallpaper image
+        mode: Color mode (light, dark, amoled)
+        opacity: Opacity percentage (0-100)
+        contrast: Contrast adjustment (-1.0 to 1.0)
+        
+    Returns:
+        Complete theme data dictionary
+    """
+    console.print(f"[blue]🌈 Dynamic theme ({mode} mode, contrast: {contrast:+.1f})...[/blue]")
+    
+    material_colors = extract_colors_matugen(
+        Path(wallpaper_path),
+        mode=mode,
+        contrast=contrast
     )
-
-    try:
-        # Build matugen command
-        cmd = ["matugen", "image", str(wallpaper_path), "-m", mode, "--json", "hex"]
-
-        # Add contrast parameter if non-zero
-        if contrast != 0.0:
-            cmd.extend(["--contrast", str(contrast)])
-
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        data = json.loads(result.stdout)
-
-        console.print(
-            f"[green]✓ Matugen: {mode.title()} mode palette generated[/green]"
-        )
-
-        # Extract colors for the specified mode
-        colors = data.get("colors", {}).get(mode, {})
-
-        if not colors:
-            raise click.ClickException(f"No colors generated for mode '{mode}'")
-
-        return colors
-
-    except subprocess.CalledProcessError as e:
-        raise click.ClickException(
-            f"Matugen failed: {e.stderr if e.stderr else str(e)}"
-        )
-    except Exception as e:
-        raise click.ClickException(f"Matugen failed: {e}")
+    
+    return {
+        "theme": {
+            "name": "dynamic",
+            "variant": mode,
+            "opacity": opacity,
+            "contrast": contrast,
+            "last_updated": datetime.now(timezone.utc).isoformat(),
+            "material": material_colors,
+            "source_wallpaper": str(wallpaper_path),
+        }
+    }
 
 
-def detect_system_appearance() -> str:
-    """Detect macOS system appearance (light or dark)"""
-    try:
-        # Use AppleScript to check dark mode setting
-        result = subprocess.run(
-            [
-                "osascript",
-                "-e",
-                'tell application "System Events" to tell appearance preferences to get dark mode',
-            ],
-            capture_output=True,
-            text=True,
-            check=True,
-            timeout=2,
-        )
-        is_dark = result.stdout.strip().lower() == "true"
-        return "dark" if is_dark else "light"
-    except:
-        # Fallback: check defaults (only exists in dark mode)
-        try:
-            result = subprocess.run(
-                ["defaults", "read", "-g", "AppleInterfaceStyle"],
-                capture_output=True,
-                text=True,
-                timeout=2,
-            )
-            return "dark" if "Dark" in result.stdout else "light"
-        except:
-            # Default to dark if detection fails
-            return "dark"
-
+# CLI Commands
 
 @click.group()
 def cli():
@@ -575,342 +143,199 @@ def cli():
 
 
 @cli.command()
-@click.argument("name")
-@click.option("-o", "--opacity", type=click.IntRange(0, 100), default=None)
-@click.option(
-    "-m",
-    "--mode",
-    type=click.Choice(["light", "dark", "amoled"]),
-    default=None,
-    help="Color mode (light/dark/amoled). Auto-detects system if not specified.",
-)
-@click.option(
-    "-c",
-    "--contrast",
-    type=click.FloatRange(-1.0, 1.0),
-    default=0.0,
-    help="Contrast adjustment (-1 to 1, default: 0)",
-)
-@click.option(
-    "--follow-system/--no-follow-system",
-    default=False,
-    help="Follow macOS system appearance (overrides --mode)",
-)
-def set(
-    name: str,
-    opacity: int | None,
-    mode: str | None,
-    contrast: float,
-    follow_system: bool,
-):
-    """Set theme: mocha, latte, frappe, macchiato, dynamic"""
-
-    # Lock
+@click.argument("theme_type", type=click.Choice(["static", "dynamic"]))
+@click.option("-o", "--opacity", type=click.IntRange(0, 100), default=None, help="Opacity (0=invisible, 100=solid)")
+@click.option("--variant", type=click.Choice(["mocha", "latte", "frappe", "macchiato"]), default=None, help="Static theme variant")
+@click.option("-c", "--contrast", type=click.FloatRange(-1.0, 1.0), default=0.0, help="Contrast adjustment for dynamic theme")
+def set(theme_type: str, opacity: int | None, variant: str | None, contrast: float):
+    """Set theme (static or dynamic)
+    
+    Examples:
+        theme set static              # Auto-detect mocha/latte from system
+        theme set static --variant frappe
+        theme set static -o 65        # With 65% opacity
+        theme set dynamic             # Use current wallpaper
+        theme set dynamic -c 0.5      # High contrast dynamic theme
+    """
+    # Lock to prevent concurrent runs
     if LOCK_FILE.exists():
-        raise click.ClickException("Already running")
+        raise click.ClickException("Theme manager already running")
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
     LOCK_FILE.touch()
-
+    
     try:
-        valid = ["mocha", "latte", "frappe", "macchiato", "dynamic"]
-        if name not in valid:
-            raise click.ClickException(f"Invalid theme. Valid: {', '.join(valid)}")
-
         theme_data = load_yaml(THEME_DATA)
-
-        # If opacity not specified, preserve current opacity
-        # Support backwards compatibility: read old 'transparency' field
+        
+        # Preserve current opacity if not specified
         if opacity is None:
-            opacity = theme_data.get("theme", {}).get(
-                "opacity", theme_data.get("theme", {}).get("transparency", 0)
-            )
-
-        # Determine mode for dynamic themes
-        if name == "dynamic":
-            if follow_system or mode is None:
-                detected_mode = detect_system_appearance()
-                mode = detected_mode
-                if follow_system:
-                    console.print(
-                        f"[blue]📱 Following system appearance: {mode}[/blue]"
-                    )
-                else:
-                    console.print(f"[dim]Auto-detected system appearance: {mode}[/dim]")
-
-            console.print(f"[blue]🌈 Dynamic theme ({mode} mode)...[/blue]")
-
-            # Get wallpaper
+            opacity = theme_data.get("theme", {}).get("opacity", 0)
+        
+        if theme_type == "static":
+            # Auto-detect variant based on system appearance if not specified
+            if variant is None:
+                system_mode = detect_system_appearance()
+                variant = "latte" if system_mode == "light" else "mocha"
+                console.print(f"[dim]Auto-detected variant: {variant} (system is {system_mode})[/dim]")
+            
+            theme_data = build_static_theme_data(variant, opacity)
+            
+        else:  # dynamic
+            # Get wallpaper path
             wallpaper_state = load_yaml(WALLPAPER_DATA)
             wallpaper_path = wallpaper_state.get("wallpaper", {}).get("current")
-
+            
             if not wallpaper_path or not Path(wallpaper_path).exists():
                 raise click.ClickException(
                     "No wallpaper set. Run 'wallpaper set <path>' first."
                 )
-
-            # Extract colors with mode and contrast
-            material_colors = extract_colors_matugen(
-                Path(wallpaper_path), mode=mode, contrast=contrast
-            )
-
-            theme_data["theme"] = {
-                "name": "dynamic",
-                "variant": mode,
-                "opacity": opacity,
-                "contrast": contrast,
-                "last_updated": datetime.now(timezone.utc).isoformat(),
-                "material": material_colors,
-                "source_wallpaper": str(wallpaper_path),
-            }
-        else:
-            console.print(f"[blue]🎨 Theme: {name}[/blue]")
-
-            # Load Catppuccin theme
-            theme_file = THEMES_DIR / f"catppuccin-{name}.json"
-            with open(theme_file) as f:
-                theme_json = json.load(f)
-
-            ctp = theme_json["colors"]
-
-            # Map to Material Design 3
-            material_colors = {
-                "primary": ctp["mauve"],
-                "on_primary": ctp["crust"],
-                "primary_container": ctp["surface0"],
-                "on_primary_container": ctp["text"],
-                "secondary": ctp["blue"],
-                "on_secondary": ctp["crust"],
-                "secondary_container": ctp["surface0"],
-                "on_secondary_container": ctp["text"],
-                "tertiary": ctp["green"],
-                "on_tertiary": ctp["crust"],
-                "tertiary_container": ctp["surface0"],
-                "on_tertiary_container": ctp["text"],
-                "error": ctp["red"],
-                "on_error": ctp["crust"],
-                "error_container": ctp["surface0"],
-                "on_error_container": ctp["text"],
-                "background": ctp["base"],
-                "on_background": ctp["text"],
-                "surface": ctp["base"],
-                "on_surface": ctp["text"],
-                "surface_variant": ctp["surface0"],
-                "on_surface_variant": ctp["subtext1"],
-                "surface_dim": ctp["mantle"],
-                "surface_bright": ctp["surface1"],
-                "surface_container_lowest": ctp["crust"],
-                "surface_container_low": ctp["mantle"],
-                "surface_container": ctp["base"],
-                "surface_container_high": ctp["surface0"],
-                "surface_container_highest": ctp["surface1"],
-                "outline": ctp["overlay0"],
-                "outline_variant": ctp["surface2"],
-                "shadow": "#000000",
-                "scrim": "#000000",
-                "inverse_surface": ctp["text"],
-                "inverse_on_surface": ctp["base"],
-                "inverse_primary": ctp["mauve"],
-            }
-
-            theme_data["theme"] = {
-                "name": name,
-                "variant": theme_json.get("variant", "dark"),
-                "opacity": opacity,
-                "last_updated": datetime.now(timezone.utc).isoformat(),
-                "colors": ctp,
-                "material": material_colors,
-            }
-
-        # Save state (for reproducibility)
+            
+            # Auto-detect mode from system appearance
+            mode = detect_system_appearance()
+            console.print(f"[dim]Auto-detected mode: {mode}[/dim]")
+            
+            theme_data = build_dynamic_theme_data(wallpaper_path, mode, opacity, contrast)
+        
+        # Save state
         save_yaml(THEME_DATA, theme_data)
         console.print("[green]✓ Theme state saved[/green]")
-
-        # Generate config files directly (fast & surgical)
-        generate_wezterm_colors(theme_data)
-        generate_wezterm_opacity(theme_data)
-        generate_borders_config(theme_data)
-        generate_sketchybar_colors(theme_data)
-        generate_sketchybar_opacity(theme_data)
-
-        # Reload applications
-        reload_borders()
-        reload_sketchybar()
-
-        # Wait for WezTerm to pick up changes
+        
+        # Apply to all registered apps
+        apps = get_all_apps(CONFIG_HOME)
+        for app in apps:
+            app.apply_theme(theme_data)
+        
+        # Wait for terminal to pick up changes
         import time
-
         time.sleep(2)
-
-        console.print(f"[green]✅ Theme '{name}' applied[/green]")
-
+        
+        console.print(f"[green]✅ Theme applied[/green]")
+        
     finally:
         LOCK_FILE.unlink(missing_ok=True)
 
 
 @cli.command()
-def toggle():
-    """Toggle between mocha and latte"""
+@click.argument("value", type=click.IntRange(0, 100))
+def opacity(value: int):
+    """Change opacity without changing theme (0=invisible, 100=solid)
+    
+    Example:
+        theme opacity 65    # Set 65% opacity
+    """
     theme_data = load_yaml(THEME_DATA)
-    current = theme_data.get("theme", {}).get("name", "mocha")
-    # Backwards compat: read opacity or old transparency field
-    opacity = theme_data.get("theme", {}).get(
-        "opacity", theme_data.get("theme", {}).get("transparency", 0)
-    )
+    current_theme = theme_data.get("theme", {})
+    theme_name = current_theme.get("name", "mocha")
+    
+    console.print(f"[blue]🔲 Setting opacity to {value}%...[/blue]")
+    
+    # Determine if static or dynamic
+    if theme_name == "dynamic":
+        # Re-apply dynamic theme with new opacity
+        current_mode = current_theme.get("variant", "dark")
+        current_contrast = current_theme.get("contrast", 0.0)
+        
+        ctx = click.Context(set)
+        ctx.invoke(
+            set,
+            theme_type="dynamic",
+            opacity=value,
+            variant=None,
+            contrast=current_contrast,
+        )
+    else:
+        # Re-apply static theme with new opacity
+        ctx = click.Context(set)
+        ctx.invoke(
+            set,
+            theme_type="static",
+            opacity=value,
+            variant=theme_name,
+            contrast=0.0,
+        )
 
-    new_theme = "latte" if current == "mocha" else "mocha"
 
-    ctx = click.Context(set)
-    ctx.invoke(
-        set,
-        name=new_theme,
-        opacity=opacity,
-        mode=None,
-        contrast=0.0,
-        follow_system=False,
-    )
+@cli.command()
+@click.argument("mode", type=click.Choice(["light", "dark"]))
+def mode(mode: str):
+    """Switch light/dark mode (sets system appearance + updates theme)
+    
+    Behavior:
+    - Always sets macOS system appearance
+    - Static theme: Switches mocha ↔ latte
+    - Dynamic theme: Regenerates with new mode
+    
+    Examples:
+        theme mode dark     # Dark system + mocha (or dynamic dark)
+        theme mode light    # Light system + latte (or dynamic light)
+    """
+    # Set system appearance
+    console.print(f"[blue]🌓 Setting system to {mode} mode...[/blue]")
+    success = set_system_appearance(mode)
+    
+    if not success:
+        console.print("[red]✗ Failed to set system appearance[/red]")
+        return
+    
+    console.print(f"[green]✓ macOS appearance set to {mode}[/green]")
+    
+    # Update theme based on current type
+    theme_data = load_yaml(THEME_DATA)
+    current_theme = theme_data.get("theme", {})
+    current_type = current_theme.get("name")
+    current_opacity = current_theme.get("opacity", 0)
+    
+    if current_type == "dynamic":
+        # Regenerate dynamic theme with new mode
+        current_contrast = current_theme.get("contrast", 0.0)
+        console.print(f"[blue]🔄 Regenerating dynamic theme for {mode} mode...[/blue]")
+        
+        ctx = click.Context(set)
+        ctx.invoke(
+            set,
+            theme_type="dynamic",
+            opacity=current_opacity,
+            variant=None,
+            contrast=current_contrast,
+        )
+    else:
+        # Switch static theme variant
+        new_variant = "latte" if mode == "light" else "mocha"
+        console.print(f"[blue]🎨 Switching to {new_variant}...[/blue]")
+        
+        ctx = click.Context(set)
+        ctx.invoke(
+            set,
+            theme_type="static",
+            opacity=current_opacity,
+            variant=new_variant,
+            contrast=0.0,
+        )
 
 
 @cli.command()
 def status():
-    """Show current theme"""
+    """Show current theme status"""
     theme_data = load_yaml(THEME_DATA)
     theme = theme_data.get("theme", {})
-    # Backwards compat: read opacity or old transparency field
-    opacity = theme.get("opacity", theme.get("transparency", 0))
-
+    opacity = theme.get("opacity", 0)
+    
     console.print(f"\n[bold]🎨 Current Theme[/bold]")
     console.print(f"  Name: {theme.get('name', 'none')}")
     console.print(f"  Variant: {theme.get('variant', 'unknown')}")
     console.print(f"  Opacity: {opacity}% (0=invisible, 100=solid)")
-
-    # Show mode and contrast for dynamic themes
+    
+    # Show additional info for dynamic themes
     if theme.get("name") == "dynamic":
         contrast = theme.get("contrast", 0.0)
         console.print(f"  Contrast: {contrast:+.1f} (-1 to +1)")
         if "source_wallpaper" in theme:
             wallpaper = Path(theme["source_wallpaper"]).name
             console.print(f"  Wallpaper: {wallpaper}")
-
+    
     # Show system appearance
     system_mode = detect_system_appearance()
     console.print(f"  System: {system_mode} mode")
     console.print()
-
-
-@cli.command()
-@click.argument("value", type=click.IntRange(0, 100))
-def opacity(value: int):
-    """Change opacity without changing theme (0=invisible, 100=solid)"""
-    theme_data = load_yaml(THEME_DATA)
-    current_theme = theme_data.get("theme", {}).get("name", "mocha")
-    current_mode = theme_data.get("theme", {}).get("variant", "dark")
-    current_contrast = theme_data.get("theme", {}).get("contrast", 0.0)
-
-    console.print(f"[blue]🔲 Setting opacity to {value}%...[/blue]")
-
-    # Re-apply current theme with new opacity, preserving mode and contrast
-    ctx = click.Context(set)
-    ctx.invoke(
-        set,
-        name=current_theme,
-        opacity=value,
-        mode=current_mode if current_theme == "dynamic" else None,
-        contrast=current_contrast,
-        follow_system=False,
-    )
-
-
-@cli.command()
-@click.argument("mode", type=click.Choice(["light", "dark", "amoled"]))
-@click.option(
-    "-c",
-    "--contrast",
-    type=click.FloatRange(-1.0, 1.0),
-    default=None,
-    help="Contrast adjustment (-1 to 1). Preserves current if not specified.",
-)
-def mode(mode: str, contrast: float | None):
-    """Switch light/dark mode for dynamic theme"""
-    theme_data = load_yaml(THEME_DATA)
-    current_theme = theme_data.get("theme", {}).get("name")
-
-    if current_theme != "dynamic":
-        console.print("[yellow]⚠ Mode switching only works with dynamic theme[/yellow]")
-        console.print(f"Current theme: {current_theme}")
-        console.print("Tip: Run 'theme set dynamic' first")
-        return
-
-    # Preserve current contrast if not specified
-    if contrast is None:
-        contrast = theme_data.get("theme", {}).get("contrast", 0.0)
-
-    console.print(f"[blue]🌓 Switching to {mode} mode...[/blue]")
-
-    # Re-apply dynamic theme with new mode
-    ctx = click.Context(set)
-    ctx.invoke(
-        set,
-        name="dynamic",
-        opacity=None,
-        mode=mode,
-        contrast=contrast,
-        follow_system=False,
-    )
-
-
-@cli.command()
-@click.argument("appearance", type=click.Choice(["light", "dark"]))
-@click.option(
-    "--sync-theme/--no-sync-theme",
-    default=True,
-    help="Regenerate dynamic theme to match (default: yes)",
-)
-def appearance(appearance: str, sync_theme: bool):
-    """Control macOS system appearance"""
-    try:
-        # Set macOS appearance
-        dark_mode = "true" if appearance == "dark" else "false"
-        subprocess.run(
-            [
-                "osascript",
-                "-e",
-                f'tell app "System Events" to tell appearance preferences to set dark mode to {dark_mode}',
-            ],
-            check=True,
-            capture_output=True,
-        )
-
-        console.print(f"[green]✓ macOS appearance set to {appearance}[/green]")
-
-        # Optionally regenerate dynamic theme to match
-        if sync_theme:
-            theme_data = load_yaml(THEME_DATA)
-            current_theme = theme_data.get("theme", {}).get("name")
-
-            if current_theme == "dynamic":
-                # Preserve current contrast setting
-                current_contrast = theme_data.get("theme", {}).get("contrast", 0.0)
-                console.print(
-                    f"[blue]🔄 Regenerating dynamic theme for {appearance} mode...[/blue]"
-                )
-                ctx = click.Context(set)
-                ctx.invoke(
-                    set,
-                    name="dynamic",
-                    opacity=None,
-                    mode=appearance,
-                    contrast=current_contrast,
-                    follow_system=False,
-                )
-            else:
-                console.print(
-                    f"[dim]Current theme ({current_theme}) not affected[/dim]"
-                )
-
-    except subprocess.CalledProcessError as e:
-        console.print(f"[red]✗ Failed to set appearance: {e}[/red]")
-    except Exception as e:
-        console.print(f"[red]✗ Error: {e}[/red]")
 
 
 if __name__ == "__main__":

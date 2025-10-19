@@ -72,15 +72,15 @@ apps:
     
     # Implementation Details (for Python generators)
     generator:
-      colors_function: generate_wezterm_colors
-      opacity_function: generate_wezterm_opacity
+      class: WeztermTheme
+      module: apps.wezterm
       method: external_file
-      location: dot_config/theme-system/scripts/executable_theme-manager.py
-      line_numbers:
-        colors_generator: "46-156"
-        opacity_generator: "158-189"
-        set_command_calls: "333-334"
-      notes: "Generators write directly to ~/.config/wezterm/, bypassing chezmoi for speed"
+      location: dot_config/theme-system/scripts/apps/wezterm.py
+      apply_method: apply_theme
+      functions:
+        - generate_colors
+        - generate_opacity
+      notes: "Modular architecture: app registered in apps/__init__.py, called via app.apply_theme()"
     
     # Color Mappings
     color_mappings:
@@ -183,15 +183,15 @@ apps:
     
     # Implementation Details (for Python generators)
     generator:
-      colors_function: generate_borders_config
-      reload_function: reload_borders
+      class: BordersTheme
+      module: apps.borders
       method: inline_template
-      location: dot_config/theme-system/scripts/executable_theme-manager.py
-      line_numbers:
-        colors_generator: "223-286"
-        reload_function: "288-319"
-        set_command_calls: "513-517"
-      notes: "Generates full bash script with theme colors, then executes it to update borders"
+      location: dot_config/theme-system/scripts/apps/borders.py
+      apply_method: apply_theme
+      functions:
+        - generate_config
+        - reload
+      notes: "Modular architecture: app registered in apps/__init__.py, called via app.apply_theme()"
     
     # Color Mappings
     color_mappings:
@@ -292,17 +292,16 @@ apps:
     
     # Implementation Details (for Python generators)
     generator:
-      colors_function: generate_sketchybar_colors
-      opacity_function: generate_sketchybar_opacity
-      reload_function: reload_sketchybar
+      class: SketchybarTheme
+      module: apps.sketchybar
       method: external_file
-      location: dot_config/theme-system/scripts/executable_theme-manager.py
-      line_numbers:
-        colors_generator: "325-413"
-        opacity_generator: "416-478"
-        reload_function: "481-495"
-        set_command_calls: "732-737"
-      notes: "Generators write bash scripts to ~/.config/sketchybar/, then reload via CLI"
+      location: dot_config/theme-system/scripts/apps/sketchybar.py
+      apply_method: apply_theme
+      functions:
+        - generate_colors
+        - generate_opacity
+        - reload
+      notes: "Modular architecture: app registered in apps/__init__.py, called via app.apply_theme()"
     
     # Color Mappings (Semantic Abstraction Layer)
     color_mappings:
