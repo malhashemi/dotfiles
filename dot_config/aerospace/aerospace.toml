@@ -1,9 +1,15 @@
-after-startup-command = ['exec-and-forget sketchybar','exec-and-forget borders']
+after-startup-command = [
+  'exec-and-forget sketchybar',
+  'exec-and-forget borders',
+]
 
 # Notify Sketchybar about workspace change
 exec-on-workspace-change = [
-  '/bin/bash', '-c', 'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
-  'exec-and-forget', 'borders'
+  '/bin/bash',
+  '-c',
+  'sketchybar --trigger aerospace_workspace_change FOCUSED_WORKSPACE=$AEROSPACE_FOCUSED_WORKSPACE',
+  'exec-and-forget',
+  'borders',
 ]
 
 # Start AeroSpace at login
@@ -62,7 +68,7 @@ run = 'layout floating'
 [[on-window-detected]]
 if.app-name-regex-substring = 'safari'
 run = 'layout floating'
- 
+
 [[on-window-detected]]
 if.app-name-regex-substring = 'camera'
 run = 'layout floating'
@@ -105,11 +111,11 @@ preset = 'qwerty'
 #                 See: https://nikitabobko.github.io/AeroSpace/guide#assign-workspaces-to-monitors
 [gaps]
 inner.horizontal = 15
-inner.vertical =   15
-outer.left =       15
-outer.bottom =     15
-outer.top =        35  # Adjusted for better window positioning
-outer.right =      15
+inner.vertical = 15
+outer.left = 15
+outer.bottom = 15
+outer.top = 40        # Adjusted for better window positioning
+outer.right = 15
 
 # 'main' binding mode declaration
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
@@ -251,7 +257,10 @@ alt-w = 'exec-and-forget open -a /Applications/Warp.app'
 [mode.service.binding]
 esc = ['reload-config', 'mode main']
 r = ['flatten-workspace-tree', 'mode main'] # reset layout
-f = ['layout floating tiling', 'mode main'] # Toggle between floating and tiling layout
+f = [
+  'layout floating tiling',
+  'mode main',
+] # Toggle between floating and tiling layout
 backspace = ['close-all-windows-but-current', 'mode main']
 
 [mode.apps.binding]
