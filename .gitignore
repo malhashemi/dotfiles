@@ -30,3 +30,7 @@ __pycache__/
 
 # Temporary Directory
 tmp/
+
+# Runtime theme state (auto-generated, machine-specific)
+.chezmoidata/theme.yaml
+.chezmoidata/wallpaper-state.yaml
