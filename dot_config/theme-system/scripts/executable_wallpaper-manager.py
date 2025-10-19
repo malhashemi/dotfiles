@@ -93,14 +93,13 @@ def set(path: Path):
         # Preserve current settings
         current_opacity = theme_data.get('theme', {}).get('opacity',
             theme_data.get('theme', {}).get('transparency', 0))
-        current_mode = theme_data.get('theme', {}).get('variant', 'dark')
         current_contrast = theme_data.get('theme', {}).get('contrast', 0.0)
         
         # Build theme command - use uv run explicitly for subprocess compatibility
+        # Note: mode is auto-detected from system appearance by theme-manager
         cmd = ['uv', 'run', str(THEME_MANAGER), 'set', 'dynamic']
         if current_opacity > 0:
             cmd.extend(['-o', str(current_opacity)])
-        cmd.extend(['-m', current_mode])
         if current_contrast != 0.0:
             cmd.extend(['-c', str(current_contrast)])
         
