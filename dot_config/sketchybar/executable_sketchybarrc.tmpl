@@ -2,6 +2,9 @@
 # SketchyBar Configuration - Theme System Integration
 # Colors managed by theme system (static Catppuccin + dynamic Material Design 3)
 
+# Set full PATH from zsh environment for all scripts
+export PATH="/Users/malhashemi/.local/bin:/Users/malhashemi/.bun/bin:/Users/malhashemi/.atuin/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/malhashemi/.local/share/zinit/polaris/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Users/malhashemi/.local/bin:/Users/malhashemi/.cargo/bin:/Applications/Ghostty.app/Contents/MacOS:/Users/malhashemi/go/bin:/Users/malhashemi/Library/Python/3.9/bin"
+
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 
 ##### Theme System Integration #####
@@ -50,6 +53,9 @@ sketchybar --default "${default[@]}"
 # Register custom event for workspace changes
 
 sketchybar --add event aerospace_workspace_change
+
+# Register custom event for theme changes
+sketchybar --add event theme_changed
 
 # Workspace indicators with subtle pill backgrounds for active workspace
 for sid in $(aerospace list-workspaces --all); do
@@ -121,87 +127,301 @@ sketchybar --add item clock left \
   background.drawing=off \
   script="$PLUGIN_DIR/clock.sh"
 
-# Date widget (adjust label.padding_left to move right)
-sketchybar --add item date left \
+##### Right Items #####
+
+# Volume widget
+sketchybar --add item volume right \
+  --set volume \
+  icon="󰕾" \
+  icon.font="$FONT:Regular:20.0" \
+  icon.color="$ACCENT_COLOR" \
+  label.drawing=off \
+  background.drawing=off \
+  script="$PLUGIN_DIR/volume.sh" \
+  --subscribe volume volume_change
+
+# Battery widget (using Nerd Font icons, accent color)
+sketchybar --add item battery right \
+  --set battery \
+  update_freq=120 \
+  icon.font="$FONT:Regular:20.0" \
+  icon.color="$ACCENT_COLOR" \
+  label.font="ttyclock:Regular:16.0" \
+  label.color="$ACCENT_COLOR" \
+  background.drawing=off \
+  script="$PLUGIN_DIR/battery.sh" \
+  --subscribe battery system_woke power_source_change
+
+# Storage widget (free disk space)
+sketchybar --add item storage right \
+  --set storage \
+  update_freq=60 \
+  icon="󰋊" \
+  icon.font="$FONT:Regular:20.0" \
+  icon.color="$ACCENT_COLOR" \
+  label.font="ttyclock:Regular:16.0" \
+  label.color="$ACCENT_COLOR" \
+  background.drawing=off \
+  script="$PLUGIN_DIR/storage.sh"
+
+# RAM widget (memory usage)
+sketchybar --add item ram right \
+  --set ram \
+  update_freq=10 \
+  icon="󰍛" \
+  icon.font="$FONT:Regular:20.0" \
+  icon.color="$ACCENT_COLOR" \
+  label.font="ttyclock:Regular:16.0" \
+  label.color="$ACCENT_COLOR" \
+  background.drawing=off \
+  script="$PLUGIN_DIR/ram.sh"
+
+# CPU widget (processor usage)
+sketchybar --add item cpu right \
+  --set cpu \
+  update_freq=10 \
+  icon="󰻠" \
+  icon.font="$FONT:Regular:20.0" \
+  icon.color="$ACCENT_COLOR" \
+  label.font="ttyclock:Regular:16.0" \
+  label.color="$ACCENT_COLOR" \
+  background.drawing=off \
+  script="$PLUGIN_DIR/cpu.sh"
+
+##### Theme Control Widget #####
+
+# Parent item - shows current theme, toggles popup
+sketchybar --add item theme_control right \
+  --set theme_control \
+  icon="󰏘" \
+  icon.font="$FONT:Regular:20.0" \
+  icon.color="$ACCENT_COLOR" \
+  label="Loading..." \
+  label.font="$FONT:Regular:13.0" \
+  label.color="$LABEL_COLOR" \
+  background.drawing=off \
+  popup.height=25 \
+  popup.background.color=$(add_opacity "$BAR_COLOR") \
+  popup.background.border_color="$ACCENT_COLOR" \
+  popup.background.border_width=3 \
+  popup.background.corner_radius=12 \
+  popup.blur_radius=$BLUR_RADIUS \
+  click_script="sketchybar --set theme_control popup.drawing=toggle" \
+  script="$PLUGIN_DIR/theme/update_status.sh" \
+  --subscribe theme_control theme_changed
+
+# ===== Popup Menu Items =====
+
+# Dynamic theme option
+sketchybar --add item theme.dynamic popup.theme_control \
+  --set theme.dynamic \
+  icon="󰸘" \
+  icon.font="$FONT:Regular:14.0" \
+  icon.color="$ACCENT_COLOR" \
+  label="Dynamic" \
+  label.font="$FONT:Medium:12.0" \
+  label.color="$LABEL_COLOR" \
+  background.drawing=off \
+  script="$PLUGIN_DIR/theme/set_theme.sh dynamic" \
+  --subscribe theme.dynamic mouse.clicked mouse.entered mouse.exited
+
+# Static theme option (opens nested popup)
+sketchybar --add item theme.static popup.theme_control \
+  --set theme.static \
+  icon="󰏘" \
+  icon.font="$FONT:Regular:14.0" \
+  icon.color="$ACCENT_COLOR" \
+  label="Static ›" \
+  label.font="$FONT:Medium:12.0" \
+  label.color="$LABEL_COLOR" \
+  background.drawing=off \
+  popup.background.color=$(add_opacity "$BAR_COLOR") \
+  popup.background.border_color="$ACCENT_COLOR" \
+  popup.background.border_width=2 \
+  popup.background.corner_radius=12 \
+  popup.blur_radius=$BLUR_RADIUS \
+  script="$PLUGIN_DIR/theme/toggle_static_popup.sh" \
+  --subscribe theme.static mouse.clicked mouse.entered mouse.exited
+
+# ===== Nested Popup for Static Variants =====
+
+sketchybar --add item theme.mocha popup.theme.static \
+  --set theme.mocha \
+  label="Mocha" \
+  label.font="$FONT:Medium:12.0" \
+  label.color="$LABEL_COLOR" \
+  icon.drawing=off \
+  background.drawing=off \
+  script="$PLUGIN_DIR/theme/set_theme.sh static mocha" \
+  --subscribe theme.mocha mouse.clicked mouse.entered mouse.exited
+
+sketchybar --add item theme.latte popup.theme.static \
+  --set theme.latte \
+  label="Latte" \
+  label.font="$FONT:Medium:12.0" \
+  label.color="$LABEL_COLOR" \
+  icon.drawing=off \
+  background.drawing=off \
+  script="$PLUGIN_DIR/theme/set_theme.sh static latte" \
+  --subscribe theme.latte mouse.clicked mouse.entered mouse.exited
+
+sketchybar --add item theme.frappe popup.theme.static \
+  --set theme.frappe \
+  label="Frappe" \
+  label.font="$FONT:Medium:12.0" \
+  label.color="$LABEL_COLOR" \
+  icon.drawing=off \
+  background.drawing=off \
+  script="$PLUGIN_DIR/theme/set_theme.sh static frappe" \
+  --subscribe theme.frappe mouse.clicked mouse.entered mouse.exited
+
+sketchybar --add item theme.macchiato popup.theme.static \
+  --set theme.macchiato \
+  label="Macchiato" \
+  label.font="$FONT:Medium:12.0" \
+  label.color="$LABEL_COLOR" \
+  icon.drawing=off \
+  background.drawing=off \
+  script="$PLUGIN_DIR/theme/set_theme.sh static macchiato" \
+  --subscribe theme.macchiato mouse.clicked mouse.entered mouse.exited
+
+# ===== Separator =====
+
+sketchybar --add item theme.separator1 popup.theme_control \
+  --set theme.separator1 \
+  icon.drawing=off \
+  label="───────────────────" \
+  label.color="$OUTLINE" \
+  label.font="$FONT:Regular:8.0" \
+  background.drawing=off
+
+# ===== Mode Toggle =====
+
+sketchybar --add item theme.mode popup.theme_control \
+  --set theme.mode \
+  icon="󰖔" \
+  icon.font="$FONT:Regular:14.0" \
+  icon.color="$ACCENT_COLOR" \
+  label="Dark" \
+  label.font="$FONT:Medium:12.0" \
+  label.color="$LABEL_COLOR" \
+  background.drawing=off \
+  script="$PLUGIN_DIR/theme/toggle_mode.sh" \
+  --subscribe theme.mode mouse.clicked mouse.entered mouse.exited theme_changed
+
+# ===== Separator =====
+
+sketchybar --add item theme.separator2 popup.theme_control \
+  --set theme.separator2 \
+  icon.drawing=off \
+  label="───────────────────" \
+  label.color="$OUTLINE" \
+  label.font="$FONT:Regular:8.0" \
+  background.drawing=off
+
+# ===== Opacity Slider =====
+
+# Opacity label above slider
+sketchybar --add item theme.opacity.label popup.theme_control \
+  --set theme.opacity.label \
+  icon.drawing=off \
+  label="Opacity" \
+  label.font="$FONT:Medium:10.0" \
+  label.color="$OUTLINE" \
+  background.drawing=off
+
+sketchybar --add slider theme.opacity popup.theme_control \
+  --set theme.opacity \
+  slider.width=160 \
+  slider.percentage=65 \
+  slider.highlight_color="$ACCENT_COLOR" \
+  slider.background.color="$SURFACE_DIM" \
+  slider.background.height=5 \
+  slider.background.corner_radius=3 \
+  slider.knob="󰝥" \
+  slider.knob.font="$FONT:Regular:12.0" \
+  slider.knob.color="$ACCENT_COLOR" \
+  label.drawing=off \
+  icon.drawing=off \
+  background.drawing=off \
+  script="$PLUGIN_DIR/theme/set_opacity.sh" \
+  --subscribe theme.opacity mouse.clicked theme_changed
+
+# ===== Contrast Slider (dynamic themes only) =====
+
+# Contrast label above slider
+sketchybar --add item theme.contrast.label popup.theme_control \
+  --set theme.contrast.label \
+  icon.drawing=off \
+  label="Contrast" \
+  label.font="$FONT:Medium:10.0" \
+  label.color="$OUTLINE" \
+  background.drawing=off \
+  y_offset=-4 \
+  drawing=off
+
+sketchybar --add slider theme.contrast popup.theme_control \
+  --set theme.contrast \
+  slider.width=160 \
+  slider.percentage=50 \
+  slider.highlight_color="$ACCENT_COLOR" \
+  slider.background.color="$SURFACE_DIM" \
+  slider.background.height=5 \
+  slider.background.corner_radius=3 \
+  slider.knob="󰝥" \
+  slider.knob.font="$FONT:Regular:12.0" \
+  slider.knob.color="$ACCENT_COLOR" \
+  label.drawing=off \
+  icon.drawing=off \
+  background.drawing=off \
+  drawing=off \
+  script="$PLUGIN_DIR/theme/set_contrast.sh" \
+  --subscribe theme.contrast mouse.clicked theme_changed
+
+# ===== Separator =====
+
+sketchybar --add item theme.separator3 popup.theme_control \
+  --set theme.separator3 \
+  icon.drawing=off \
+  label="───────────────────" \
+  label.color="$OUTLINE" \
+  label.font="$FONT:Regular:8.0" \
+  background.drawing=off
+
+# ===== Wallpaper Button =====
+
+sketchybar --add item theme.wallpaper popup.theme_control \
+  --set theme.wallpaper \
+  icon="󰆐" \
+  icon.font="$FONT:Regular:14.0" \
+  icon.color="$ACCENT_COLOR" \
+  label="Random Wallpaper" \
+  label.font="$FONT:Medium:12.0" \
+  label.color="$LABEL_COLOR" \
+  background.drawing=off \
+  script="$PLUGIN_DIR/theme/random_wallpaper.sh" \
+  --subscribe theme.wallpaper mouse.clicked mouse.entered mouse.exited
+
+# Separator between date and theme (added before date so it appears between them)
+sketchybar --add item separator_date_theme right \
+  --set separator_date_theme \
+  icon="│" \
+  icon.color="$OUTLINE" \
+  icon.padding_right=12 \
+  label.drawing=off \
+  background.drawing=off
+
+# Date widget (leftmost item on right side - added last to appear leftmost)
+sketchybar --add item date right \
   --set date \
   update_freq=30 \
   icon.drawing=off \
   label.font="ttyclock:Regular:28.0" \
   label.color="$ACCENT_COLOR" \
   label.padding_left=0 \
-  width=90 \
+  width=85 \
   background.drawing=off \
   script="$PLUGIN_DIR/date.sh"
-# Separator before clock
-sketchybar --add item separator_date left \
-  --set separator_date \
-  icon="│" \
-  icon.color="$OUTLINE" \
-  icon.padding_left=12 \
-  icon.padding_right=12 \
-  label.drawing=off \
-  background.drawing=off
-
-##### Right Items #####
-
-# Volume widget
-sketchybar --add item volume right \
-           --set volume \
-           icon="󰕾" \
-           icon.font="$FONT:Regular:20.0" \
-           icon.color="$ACCENT_COLOR" \
-           label.drawing=off \
-           background.drawing=off \
-           script="$PLUGIN_DIR/volume.sh" \
-           --subscribe volume volume_change
-
-# Battery widget (using Nerd Font icons, accent color)
-sketchybar --add item battery right \
-           --set battery \
-           update_freq=120 \
-           icon.font="$FONT:Regular:20.0" \
-           icon.color="$ACCENT_COLOR" \
-           label.font="ttyclock:Regular:16.0" \
-           label.color="$ACCENT_COLOR" \
-           background.drawing=off \
-           script="$PLUGIN_DIR/battery.sh" \
-           --subscribe battery system_woke power_source_change
-
-# Storage widget (free disk space)
-sketchybar --add item storage right \
-           --set storage \
-           update_freq=60 \
-           icon="󰋊" \
-           icon.font="$FONT:Regular:20.0" \
-           icon.color="$ACCENT_COLOR" \
-           label.font="ttyclock:Regular:16.0" \
-           label.color="$ACCENT_COLOR" \
-           background.drawing=off \
-           script="$PLUGIN_DIR/storage.sh"
-
-# RAM widget (memory usage)
-sketchybar --add item ram right \
-           --set ram \
-           update_freq=10 \
-           icon="󰍛" \
-           icon.font="$FONT:Regular:20.0" \
-           icon.color="$ACCENT_COLOR" \
-           label.font="ttyclock:Regular:16.0" \
-           label.color="$ACCENT_COLOR" \
-           background.drawing=off \
-           script="$PLUGIN_DIR/ram.sh"
-
-# CPU widget (processor usage)
-sketchybar --add item cpu right \
-           --set cpu \
-           update_freq=10 \
-           icon="󰻠" \
-           icon.font="$FONT:Regular:20.0" \
-           icon.color="$ACCENT_COLOR" \
-           label.font="ttyclock:Regular:16.0" \
-           label.color="$ACCENT_COLOR" \
-           background.drawing=off \
-           script="$PLUGIN_DIR/cpu.sh"
 
 ##### Force all scripts to run the first time (never do this in a script) #####
 
