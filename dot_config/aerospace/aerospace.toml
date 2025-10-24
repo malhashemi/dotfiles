@@ -256,6 +256,9 @@ alt-s = 'exec-and-forget open -a /Applications/Slack.app'
 alt-c = 'exec-and-forget open -a /Applications/Claude.app'
 alt-w = 'exec-and-forget open -a /Applications/Warp.app'
 
+# Theme control - Random wallpaper
+alt-shift-w = 'exec-and-forget ~/.config/sketchybar/plugins/theme/random_wallpaper.sh'
+
 # 'service' binding mode declaration.
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
 [mode.service.binding]
