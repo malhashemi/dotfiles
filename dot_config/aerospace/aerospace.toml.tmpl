@@ -257,7 +257,7 @@ alt-c = 'exec-and-forget open -a /Applications/Claude.app'
 alt-w = 'exec-and-forget open -a /Applications/Warp.app'
 
 # Theme control - Random wallpaper
-alt-shift-w = 'exec-and-forget ~/.config/sketchybar/plugins/theme/random_wallpaper.sh'
+cmd-shift-w = 'exec-and-forget bash -c "export PATH=\"{{ .chezmoi.homeDir }}/.cargo/bin:$PATH\" && {{ .chezmoi.homeDir }}/.config/theme-system/scripts/wallpaper-manager.py random"'
 
 # 'service' binding mode declaration.
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
