@@ -22,11 +22,12 @@ OPACITY=${OPACITY:-0}
 CONTRAST=${CONTRAST:-0.0}
 
 # Determine parent item display
+# Always use the same icon (user's favorite)
+PARENT_ICON="󰏘"
+
 if [[ "$THEME_NAME" == "dynamic" ]]; then
-  PARENT_ICON="󰸘"
   PARENT_LABEL="Dynamic"
 else
-  PARENT_ICON="󰏘"
   # Capitalize first letter
   PARENT_LABEL="$(echo "$THEME_NAME" | awk '{print toupper(substr($0,1,1)) tolower(substr($0,2))}')"
 fi
