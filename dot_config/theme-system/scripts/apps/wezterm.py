@@ -93,6 +93,9 @@ colors.cursor_border = "{mat.get("primary", "#cba6f7")}"
 colors.selection_bg = "{mat.get("primary_container", "#45475a")}"
 colors.selection_fg = "{mat.get("on_primary_container", "#cdd6f4")}"
 
+-- Split border
+colors.split = "{mat.get("primary", "#cba6f7")}"
+
 -- ANSI colors (Mode-aware mapping)
 {ansi_colors}
 
