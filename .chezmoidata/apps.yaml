@@ -7,7 +7,7 @@
 # 3. Automatically invoked by theme-manager.py when running theme commands
 #
 # Schema version: 1.1
-# Last updated: 2025-10-27
+# Last updated: 2025-10-28
 
 # ==========================================================================
 # Implementation Status Summary
@@ -18,6 +18,7 @@
 #   ✅ Borders       - apps/borders.py       - Inline template method (120 lines)
 #   ✅ SketchyBar    - apps/sketchybar.py    - External file method (185 lines)
 #   ✅ Atuin         - apps/atuin.py         - External file method (148 lines)
+#   ✅ CAVA          - apps/cava.py          - External file method (157 lines) [NEW 2025-10-28]
 #   ✅ Flameshot     - apps/flameshot.py     - Inline surgical swap INI (73 lines)
 #   ✅ ncspot        - apps/ncspot.py        - Inline surgical swap TOML (154 lines)
 #   ✅ NeoVim        - apps/nvim.py          - External file method (252 lines) [REFACTORED 2025-10-27]
@@ -25,8 +26,8 @@
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
 #
-# Architecture Completion: 7/7 apps (100%) ✅
-# Total themed apps: 7 modular + 0 legacy = 7 apps
+# Architecture Completion: 8/8 apps (100%) ✅
+# Total themed apps: 8 modular + 0 legacy = 8 apps
 # ==========================================================================
 
 apps:
@@ -1073,6 +1074,152 @@ apps:
       - "Critical for borders integration - starts and maintains borders daemon"
       - "Configuration is static and doesn't change with themes"
       - "Could potentially theme gaps/padding colors in future"
+
+  # ==========================================================================
+  # CAVA - Console-based Audio Visualizer (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  cava:
+    # Basic Info
+    display_name: CAVA
+    config_file: ~/.config/cava/config
+    config_format: ini
+    app_type: audio_visualizer
+    platform: cross_platform
+    homepage: https://github.com/karlstav/cava
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file        # Priority 1: Load from external theme file
+          enabled: true
+          notes: "Generates 8-color gradient theme in ~/.config/cava/themes/"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file        # Priority 1: Load MD3 colors from file
+          enabled: true
+          notes: "Generates dynamic theme with 8-color gradient from Material Design 3"
+    
+    # External File Configuration
+    external_files:
+      theme:
+        path: ~/.config/cava/themes/dynamic
+        format: ini
+        template: null                     # Runtime-only, not templated
+        load_mechanism: "theme = 'dynamic' in [color] section"
+        notes: "Theme file with [color] section and 8-color vertical gradient"
+    
+    # Gradient Configuration
+    gradient:
+      type: vertical
+      direction: "bottom to top"
+      colors: 8
+      mapping: "Color 1 (bottom, low freq) -> Color 8 (top, high freq)"
+      strategy: "Base color -> Mid color -> Bright color with smooth blending"
+      notes: "Creates visual energy flow matching frequency spectrum"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "CAVA is ncurses TUI - transparency controlled by terminal emulator"
+      
+    # Reload Behavior
+    reload:
+      automatic: false                  # No file watching
+      method: signal                    # SIGUSR2 for color-only reload
+      signal: SIGUSR2                   # Color reload (fast, no audio interruption)
+      alternative_signal: SIGUSR1       # Full reload (slower, resets bar heights)
+      manual_command: "pkill -USR2 cava"
+      reload_time: "< 100ms"
+      keyboard_shortcut: "c"            # Reload colors when CAVA is focused
+      notes: "SIGUSR2 designed for theme automation - no audio reinitialization"
+    
+    # Implementation Details (for Python generators)
+    generator:
+      class: CavaTheme
+      module: apps.cava
+      method: external_file
+      location: dot_config/theme-system/scripts/apps/cava.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_gradient
+        - _generate_static_gradient
+        - _create_gradient
+        - _write_theme_file
+        - _reload_cava
+      notes: "Generates 8-color gradient for smooth spectrum visualization"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        strategy: "3-color blend: mauve -> pink -> green"
+        gradient_color_1: "{{ .theme.colors.mauve }}"          # Bottom (darkest)
+        gradient_color_2: "blend(mauve, pink, 0.33)"
+        gradient_color_3: "blend(mauve, pink, 0.66)"
+        gradient_color_4: "{{ .theme.colors.pink }}"           # Middle
+        gradient_color_5: "blend(pink, green, 0.33)"
+        gradient_color_6: "blend(pink, green, 0.66)"
+        gradient_color_7: "{{ .theme.colors.green }}"          # Top
+        gradient_color_8: "green +15% lightness"               # Peak (brightest)
+        notes: "Mauve (user's favorite) -> Pink -> Green creates vibrant spectrum"
+      
+      dynamic:
+        strategy: "3-color blend: primary -> secondary -> tertiary"
+        gradient_color_1: "{{ .theme.material.primary }}"
+        gradient_color_2: "blend(primary, secondary, 0.33)"
+        gradient_color_3: "blend(primary, secondary, 0.66)"
+        gradient_color_4: "{{ .theme.material.secondary }}"
+        gradient_color_5: "blend(secondary, tertiary, 0.33)"
+        gradient_color_6: "blend(secondary, tertiary, 0.66)"
+        gradient_color_7: "{{ .theme.material.tertiary }}"
+        gradient_color_8: "tertiary +15% lightness"
+        notes: "Material Design 3 semantic color progression"
+    
+    # Configuration Integration
+    config_integration:
+      theme_reference:
+        file: ~/.config/cava/config
+        section: "[color]"
+        key: "theme"
+        value: "'dynamic'"
+        update_method: "manual (one-time config change)"
+        notes: "Main config references external theme file"
+    
+    # Terminal Compatibility
+    terminal_compatibility:
+      gradient_support:
+        requires: "ncurses mode + terminal with color definition changes"
+        compatible:
+          - "Gnome Terminal"
+          - "rxvt-unicode"
+          - "WezTerm"
+          - "Most modern terminals"
+        incompatible:
+          - "Konsole (terminal limitation)"
+        workaround: "Use noncurses mode for limited gradient support"
+      notes: "Most terminals support gradients in ncurses mode"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: false                     # Needs testing
+      bootstrap_working: true           # Config already in chezmoi
+      runtime_working: true             # Generator implemented
+      date_implemented: "2025-10-28"
+      implementation_plan: "thoughts/shared/plans/cava-theme-integration.md"
+      research_doc: "thoughts/shared/research/2025-10-28_13-46-26_app-config-analysis-cava.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "CAVA is ncurses audio visualizer (7k+ GitHub stars)"
+      - "8-color gradient provides smooth spectrum visualization"
+      - "SIGUSR2 signal designed for theme automation (fast, non-disruptive)"
+      - "External theme file follows CAVA's native theme system"
+      - "Colors transition from dark (bottom) to bright (top) matching spectrum"
+      - "Terminal emulator controls transparency, not CAVA"
+      - "Keyboard shortcut 'c' reloads colors when CAVA is focused"
+      - "No Catppuccin official port - custom gradient mapping"
 
 # ==========================================================================
 # Schema Field Definitions (for reference)

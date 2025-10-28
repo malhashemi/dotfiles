@@ -12,6 +12,7 @@ from .wezterm import WeztermTheme
 from .borders import BordersTheme
 from .sketchybar import SketchybarTheme
 from .atuin import AtuinTheme
+from .cava import CavaTheme
 from .flameshot import FlameshotTheme
 from .ncspot import NcspotTheme
 from .nvim import NvimTheme
@@ -36,6 +37,7 @@ def get_all_apps(config_home: Path) -> list:
         BordersTheme(config_home),
         SketchybarTheme(config_home),
         AtuinTheme(config_home),
+        CavaTheme(config_home),
         FlameshotTheme(config_home),
         NcspotTheme(config_home),
         NvimTheme(config_home),
@@ -47,6 +49,7 @@ __all__ = [
     "BordersTheme",
     "SketchybarTheme",
     "AtuinTheme",
+    "CavaTheme",
     "FlameshotTheme",
     "NcspotTheme",
     "NvimTheme",
