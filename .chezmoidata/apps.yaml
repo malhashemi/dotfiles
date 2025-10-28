@@ -1,12 +1,33 @@
 # Supported Applications Catalog
 # This file is purely for documentation and planning - NOT parsed at runtime
 # 
-# Actual theming happens by:
-# 1. Writing generator functions in theme-manager.py
-# 2. Manually calling them in the set() command
+# Actual theming happens via modular app architecture:
+# 1. Each app has a class in apps/ directory inheriting from BaseApp
+# 2. Apps registered in apps/__init__.py::get_all_apps()
+# 3. Automatically invoked by theme-manager.py when running theme commands
 #
-# Schema version: 1.0
-# Last updated: 2025-10-16
+# Schema version: 1.1
+# Last updated: 2025-10-27
+
+# ==========================================================================
+# Implementation Status Summary
+# ==========================================================================
+# 
+# Modular Architecture (apps/*.py classes):
+#   ✅ WezTerm       - apps/wezterm.py       - External file method (201 lines)
+#   ✅ Borders       - apps/borders.py       - Inline template method (120 lines)
+#   ✅ SketchyBar    - apps/sketchybar.py    - External file method (185 lines)
+#   ✅ Atuin         - apps/atuin.py         - External file method (148 lines)
+#   ✅ Flameshot     - apps/flameshot.py     - Inline surgical swap INI (73 lines)
+#   ✅ ncspot        - apps/ncspot.py        - Inline surgical swap TOML (154 lines)
+#   ✅ NeoVim        - apps/nvim.py          - External file method (252 lines) [REFACTORED 2025-10-27]
+#
+# Not Themed (service/orchestrator apps):
+#   ⭕ AeroSpace     - Window manager, no theming needed
+#
+# Architecture Completion: 7/7 apps (100%) ✅
+# Total themed apps: 7 modular + 0 legacy = 7 apps
+# ==========================================================================
 
 apps:
   # ==========================================================================
@@ -640,22 +661,21 @@ apps:
     
     # Implementation Details (for Python generators)
     generator:
-      location: dot_config/theme-system/scripts/executable_theme-manager.py
+      class: NvimTheme
+      module: apps.nvim
+      method: external_file
+      location: dot_config/theme-system/scripts/apps/nvim.py
+      apply_method: apply_theme
       functions:
-        - name: generate_nvim_colors
-          lines: "152-295"
-          purpose: "Generates colors-nvim.lua (8-hue MD3 palette) and theme-state.lua"
-          output:
-            - "~/.config/nvim/lua/themes/colors-nvim.lua"
-            - "~/.config/nvim/lua/themes/theme-state.lua"
-        
-        - name: generate_nvim_opacity_data
-          lines: "298-326"
-          purpose: "Generates opacity-data.lua with just values (data/logic separation)"
-          output:
-            - "~/.config/nvim/lua/config/opacity-data.lua"
-      
-      notes: "Simplified from 768 to 536 lines by removing pynvim reload logic. File watcher handles reloads."
+        - generate_colors                 # Generates colors-nvim.lua (8-hue MD3 or empty)
+        - generate_theme_state            # Generates theme-state.lua (extracted from generate_colors)
+        - generate_opacity_data           # Generates opacity-data.lua
+      helpers:
+        - _generate_dynamic_colors        # Dynamic MD3 theme generator
+        - _generate_static_colors         # Static Catppuccin (empty table)
+        - _format_dynamic_lua             # Lua palette formatter
+        - _log_reload_instructions        # Reload message
+      notes: "Modular architecture: registered in apps/__init__.py, called via app.apply_theme(). Complexity: High (252 lines) - 8-hue generation, validation, semantic ANSI."
     
     # Color Mappings
     color_mappings:
@@ -706,8 +726,13 @@ apps:
       bootstrap_working: true             # chezmoi apply sets up configs
       runtime_working: true               # theme set/mode/opacity work automatically
       date_implemented: "2025-10-21"
-      implementation_plan: "thoughts/shared/plans/nvim-theme-architecture-redesign.md"
-      research_doc: "thoughts/shared/research/2025-10-21_05-38-22_nvim-neovide-theme-integration-issues.md"
+      architecture: modular               # Fully modular as of 2025-10-27
+      legacy_removed: true                # blend_hex_colors, generate_nvim_* removed
+      dead_code_removed: true             # blend_hex_colors was dead code
+      date_refactored: "2025-10-27"
+      refactor_line_reduction: 198        # theme-manager.py: 536 → 338 lines
+      implementation_plan: "thoughts/shared/plans/nvim-modular-architecture-refactor-REFINED.md"
+      research_doc: "thoughts/shared/research/2025-10-27_12-40-00_complete-app-architecture-audit.md"
     
     # Known Issues / Notes
     notes:
@@ -716,6 +741,276 @@ apps:
       - "Opacity changes apply immediately in Neovide via opacity-manager.reload()"
       - "Runtime files NOT tracked in chezmoi (they're state, not source)"
       - "No pynvim dependency - file watching handles reloads"
+      - "REFACTORED 2025-10-27: Converted to modular architecture (apps/nvim.py)"
+      - "Most complex app (252 lines): 8-hue generation, validation, semantic ANSI"
+      - "Removed dead code: blend_hex_colors() was never used (duplicate of utils.blend_colors)"
+      - "Reduced theme-manager.py by 198 lines (536 → 338 lines, -37%)"
+
+  # ==========================================================================
+  # Flameshot - Screenshot Annotation Tool (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  flameshot:
+    # Basic Info
+    display_name: Flameshot
+    config_file: ~/.config/flameshot/flameshot.ini
+    config_format: ini
+    app_type: screenshot_tool
+    platform: cross_platform
+    homepage: https://flameshot.org/
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical INI edit
+          enabled: true
+          notes: "Updates uiColor in flameshot.ini with Mauve (user's favorite)"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical INI edit
+          enabled: true
+          notes: "Updates uiColor with Material Design 3 primary color"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "Flameshot UI is always opaque. Screenshot overlay doesn't support transparency."
+      
+    # Reload Behavior
+    reload:
+      automatic: false                  # No config watching
+      method: restart                   # Must restart Flameshot to apply
+      notes: "Changes apply on next Flameshot launch. No need to restart if not running."
+    
+    # Implementation Details (for Python generators)
+    generator:
+      class: FlameshotTheme
+      module: apps.flameshot
+      method: inline                    # Surgical configparser swap
+      location: dot_config/theme-system/scripts/apps/flameshot.py
+      apply_method: apply_theme
+      functions:
+        - _update_ui_color
+      notes: "Modular architecture: app registered in apps/__init__.py, called via app.apply_theme()"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        uiColor: "{{ .theme.colors.mauve }}"
+        notes: "Mauve for UI (user's favorite Catppuccin color)"
+      
+      dynamic:
+        uiColor: "{{ .theme.material.primary }}"
+        notes: "Primary color for UI consistency"
+    
+    # Configuration Details
+    config_details:
+      target_section: "[General]"
+      target_key: "uiColor"
+      parser: "configparser.RawConfigParser"
+      case_sensitivity: "CRITICAL - must preserve camelCase (uiColor not uicolor)"
+      preserve_options: "optionxform = str to prevent lowercasing"
+      notes: "drawColor is user's tool color (resets in UI), not theme-managed"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true           # chezmoi manages static INI
+      runtime_working: true             # theme set commands update uiColor
+      date_implemented: "2025-10-26"
+      research_doc: "thoughts/shared/research/2025-10-26_19-43-49_app-config-analysis-flameshot.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "Minimal INI config with single [General] section"
+      - "uiColor vs drawColor distinction important"
+      - "configparser.optionxform = str preserves camelCase"
+      - "No restart needed if Flameshot not running"
+      - "Changes apply on next launch"
+      - "No official Catppuccin port - manual color setting"
+
+  # ==========================================================================
+  # ncspot - Spotify TUI Client (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  ncspot:
+    # Basic Info
+    display_name: ncspot
+    config_file: ~/.config/ncspot/config.toml
+    config_format: toml
+    app_type: tui
+    platform: cross_platform
+    homepage: https://github.com/hrkfdn/ncspot
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical TOML edit
+          enabled: true
+          notes: "Updates [theme] section with official Catppuccin ncspot colors"
+        - method: terminal_colors          # Priority 2: Fallback for transparency
+          enabled: true
+          notes: "Manual setup - named ANSI colors inherit from terminal"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical TOML edit
+          enabled: true
+          notes: "Updates [theme] section with Material Design 3 colors"
+        - method: terminal_colors          # Priority 2: Fallback
+          enabled: false
+          notes: "Dynamic themes need precise MD3 colors, not terminal palette"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      method: terminal_transparency
+      notes: "ncspot is TUI - transparency controlled by terminal emulator (WezTerm). Hex colors override transparency, named colors respect it."
+      
+    # Reload Behavior
+    reload:
+      automatic: false                  # No file watching
+      method: manual                    # User must invoke reload
+      manual_command: ":reload"
+      reload_time: "< 1s"
+      notes: "Hot-reload via :reload command in ncspot. No restart needed."
+    
+    # Implementation Details (for Python generators)
+    generator:
+      class: NcspotTheme
+      module: apps.ncspot
+      method: inline                    # Surgical tomlkit swap
+      location: dot_config/theme-system/scripts/apps/ncspot.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_colors
+        - _generate_static_colors
+        - _update_theme_section
+      notes: "Modular architecture: app registered in apps/__init__.py, called via app.apply_theme()"
+    
+    # Theme Keys (17 ncspot-specific color keys)
+    theme_keys:
+      - background
+      - primary
+      - secondary
+      - title
+      - playing
+      - playing_bg
+      - highlight
+      - highlight_bg
+      - playing_selected
+      - error
+      - error_bg
+      - statusbar
+      - statusbar_bg
+      - statusbar_progress
+      - cmdline
+      - cmdline_bg
+      - search_match
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        background: "{{ .theme.colors.base }}"
+        primary: "{{ .theme.colors.text }}"
+        secondary: "{{ .theme.colors.teal }}"
+        title: "{{ .theme.colors.mauve }}"
+        playing: "{{ .theme.colors.green }}"
+        playing_bg: "{{ .theme.colors.base }}"
+        highlight: "{{ .theme.colors.text }}"
+        highlight_bg: "{{ .theme.colors.surface2 }}"
+        playing_selected: "{{ .theme.colors.green }}"
+        error: "{{ .theme.colors.base }}"
+        error_bg: "{{ .theme.colors.red }}"
+        statusbar: "{{ .theme.colors.mauve }}"
+        statusbar_bg: "{{ .theme.colors.mantle }}"
+        statusbar_progress: "{{ .theme.colors.mauve }}"
+        cmdline: "{{ .theme.colors.mauve }}"
+        cmdline_bg: "{{ .theme.colors.crust }}"
+        search_match: "{{ .theme.colors.red }}"
+        notes: "Based on official Catppuccin ncspot themes from github.com/catppuccin/ncspot"
+      
+      dynamic:
+        background: "{{ .theme.material.background }}"
+        primary: "{{ .theme.material.on_surface }}"
+        secondary: "{{ .theme.material.on_surface_variant }}"
+        title: "{{ .theme.material.primary }}"
+        playing: "{{ .theme.material.tertiary }}"
+        playing_bg: "{{ .theme.material.surface_container_low }}"
+        highlight: "{{ .theme.material.on_primary_container }}"
+        highlight_bg: "{{ .theme.material.primary_container }}"
+        playing_selected: "{{ .theme.material.tertiary }}"
+        error: "{{ .theme.material.on_error }}"
+        error_bg: "{{ .theme.material.error }}"
+        statusbar: "{{ .theme.material.primary }}"
+        statusbar_bg: "{{ .theme.material.surface_container_highest }}"
+        statusbar_progress: "{{ .theme.material.primary }}"
+        cmdline: "{{ .theme.material.primary }}"
+        cmdline_bg: "{{ .theme.material.surface_container_high }}"
+        search_match: "{{ .theme.material.error }}"
+        notes: "Material Design 3 semantic color mapping"
+    
+    # Configuration Details
+    config_details:
+      target_section: "[theme]"
+      parser: "tomlkit"
+      comment_preservation: true
+      notes: "tomlkit preserves comments and formatting while updating only theme values"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/ncspot"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      available_accents:
+        - mauve
+        - blue
+        - pink
+        - green
+        - red
+        - peach
+        - yellow
+        - teal
+      notes: "Official themes with multiple accent color variations"
+    
+    # Terminal Colors Fallback
+    terminal_colors:
+      method: "Manual configuration by user"
+      format: "Named ANSI colors (black, white, red, etc.)"
+      transparency: "Respects terminal transparency"
+      limitation: "Hex colors override transparency"
+      example_config:
+        background: "black"
+        primary: "white"
+        title: "magenta"
+        playing: "green"
+      notes: "Documented in research as fallback for transparency lovers"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: false                     # Needs testing
+      bootstrap_working: true           # Config already in chezmoi
+      runtime_working: true             # Generator implemented
+      date_implemented: "2025-10-27"
+      research_doc: "thoughts/shared/research/2025-10-27_12-27-17_app-config-analysis-ncspot.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "ncspot is ncurses TUI written in Rust (5.4k+ GitHub stars)"
+      - "Official Catppuccin port with all flavors and accents"
+      - "Hot-reload via :reload command - no restart needed"
+      - "Hex colors provide precise theming but override transparency"
+      - "Named ANSI colors available as manual fallback for transparency"
+      - "tomlkit preserves comments in config during updates"
+      - "Terminal emulator (WezTerm) controls actual transparency"
+      - "Theme generator tool available at ncspot-theme-generator.vaa.red"
 
   # ==========================================================================
   # AeroSpace - Tiling Window Manager (NOT THEMED)
@@ -818,11 +1113,13 @@ schema:
       - instant: "No reload needed (e.g., shell prompts regenerate)"
     
     generator:
-      colors_function: "Python function name in theme-manager.py"
-      opacity_function: "Python function name in theme-manager.py (if applicable)"
-      method: "Implementation approach (external_file, surgical_swap, full_template)"
-      location: "File path where generators are defined"
-      line_numbers: "Approximate line numbers for reference"
+      class: "App class name (e.g., WeztermTheme, NcspotTheme)"
+      module: "Python module path (e.g., apps.wezterm, apps.ncspot)"
+      method: "Implementation approach (external_file, inline, inline_template)"
+      location: "File path where class is defined (e.g., dot_config/theme-system/scripts/apps/wezterm.py)"
+      apply_method: "Main method called by theme-manager (always apply_theme)"
+      functions: "List of helper methods (e.g., generate_colors, generate_opacity, reload)"
+      notes: "Additional implementation details"
   
   validation:
     script: "dot_config/theme-system/scripts/executable_validate-apps.py"
