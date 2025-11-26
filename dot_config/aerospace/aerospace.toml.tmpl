@@ -97,6 +97,16 @@ run = 'layout floating'
 if.app-name-regex-substring = 'discord'
 run = 'layout floating'
 
+[[on-window-detected]]
+if.app-name-regex-substring = 'aqua'
+run = 'layout floating'
+
+[[on-window-detected]]
+if.app-name-regex-substring = 'flameshot'
+run = 'layout floating'
+
+
+
 # Possible values: (qwerty|dvorak)
 # See https://nikitabobko.github.io/AeroSpace/guide#key-mapping
 [key-mapping]
@@ -252,9 +262,6 @@ alt-b = 'exec-and-forget open -a /Applications/Zen.app'
 # Secondary application shortcuts
 alt-t = 'exec-and-forget open -a /Applications/Telegram.app'
 alt-o = 'exec-and-forget open -a /Applications/Obsidian.app'
-alt-s = 'exec-and-forget open -a /Applications/Slack.app'
-alt-c = 'exec-and-forget open -a /Applications/Claude.app'
-alt-w = 'exec-and-forget open -a /Applications/Warp.app'
 
 # Theme control - Random wallpaper
 cmd-shift-w = 'exec-and-forget bash -c "export PATH=\"{{ .chezmoi.homeDir }}/.cargo/bin:$PATH\" && {{ .chezmoi.homeDir }}/.config/theme-system/scripts/wallpaper-manager.py random"'
@@ -270,8 +277,6 @@ f = [
 ] # Toggle between floating and tiling layout
 backspace = ['close-all-windows-but-current', 'mode main']
 
-[mode.apps.binding]
-alt-w = ['exec-and-forget open -a /Applications/Warp.app', 'mode main']
 
 # [workspace-to-monitor-force-assignment]
 # Removed force assignments to allow free workspace movement between monitors
