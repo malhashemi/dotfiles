@@ -7,7 +7,7 @@
 # 3. Automatically invoked by theme-manager.py when running theme commands
 #
 # Schema version: 1.1
-# Last updated: 2025-10-28
+# Last updated: 2025-11-26
 
 # ==========================================================================
 # Implementation Status Summary
@@ -18,16 +18,17 @@
 #   ✅ Borders       - apps/borders.py       - Inline template method (120 lines)
 #   ✅ SketchyBar    - apps/sketchybar.py    - External file method (185 lines)
 #   ✅ Atuin         - apps/atuin.py         - External file method (148 lines)
-#   ✅ CAVA          - apps/cava.py          - External file method (157 lines) [NEW 2025-10-28]
+#   ✅ CAVA          - apps/cava.py          - External file method (157 lines)
 #   ✅ Flameshot     - apps/flameshot.py     - Inline surgical swap INI (73 lines)
 #   ✅ ncspot        - apps/ncspot.py        - Inline surgical swap TOML (154 lines)
-#   ✅ NeoVim        - apps/nvim.py          - External file method (252 lines) [REFACTORED 2025-10-27]
+#   ✅ NeoVim        - apps/nvim.py          - External file method (252 lines)
+#   ✅ Starship      - apps/starship.py      - Inline surgical swap TOML (175 lines) [NEW 2025-11-26]
 #
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
 #
-# Architecture Completion: 8/8 apps (100%) ✅
-# Total themed apps: 8 modular + 0 legacy = 8 apps
+# Architecture Completion: 9/9 apps (100%) ✅
+# Total themed apps: 9 modular + 0 legacy = 9 apps
 # ==========================================================================
 
 apps:
@@ -1012,6 +1013,115 @@ apps:
       - "tomlkit preserves comments in config during updates"
       - "Terminal emulator (WezTerm) controls actual transparency"
       - "Theme generator tool available at ncspot-theme-generator.vaa.red"
+
+  # ==========================================================================
+  # Starship - Cross-Platform Shell Prompt (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  starship:
+    # Basic Info
+    display_name: Starship
+    config_file: ~/.config/starship/starship.toml
+    config_format: toml
+    app_type: shell_prompt
+    platform: cross_platform
+    homepage: https://starship.rs/
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical TOML edit
+          enabled: true
+          notes: "Updates palette reference and regenerates [palettes.name] section"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical TOML edit
+          enabled: true
+          notes: "Generates dynamic palette with Material Design 3 colors"
+    
+    # Native Palette System
+    palette_system:
+      reference_key: "palette"
+      section_format: "[palettes.{name}]"
+      color_count: 26
+      clean_switching: true
+      notes: "Starship's native palette system - removes old palettes on switch for clean config"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "Starship only controls text colors. Transparency handled by terminal emulator."
+      
+    # Reload Behavior
+    reload:
+      automatic: true                   # Config re-read on every prompt
+      method: on_demand
+      manual_command: null              # No command needed
+      reload_time: "< 1ms"
+      notes: "Instant - starship reads config fresh on every prompt render"
+    
+    # Implementation Details
+    generator:
+      class: StarshipTheme
+      module: apps.starship
+      method: inline                    # Surgical tomlkit swap
+      location: dot_config/theme-system/scripts/apps/starship.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_palette
+        - _generate_static_palette
+        - _update_config
+      notes: "Modular architecture: registered in apps/__init__.py, called via app.apply_theme()"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        palette_structure: "26 Catppuccin colors (rosewater through crust)"
+        notes: "Direct mapping from Catppuccin palette"
+      
+      dynamic:
+        palette_structure: "26 colors mapped from Material Design 3"
+        strategy: "Map MD3 semantic colors to Catppuccin-style names"
+        notes: "Maintains compatibility with existing module styles"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/starship"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      notes: "Official port provides palette definitions we mirror"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences: none
+      notes: "Same starship.toml works on all platforms - no templating needed"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true           # Config already added via chezmoi add
+      runtime_working: true             # Generator working
+      date_implemented: "2025-11-26"
+      research_doc: "thoughts/shared/research/2025-11-25_21-30-00_app-config-analysis-starship.md"
+      implementation_plan: "thoughts/shared/plans/starship-theme-integration.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "Starship is Rust binary with excellent cross-platform support"
+      - "Native palette system aligns perfectly with our theming approach"
+      - "No external file support - must use inline method"
+      - "Instant reload on every prompt - seamless theme switching"
+      - "Clean switching removes old palettes to keep config tidy"
+      - "Preserves all user module configs during palette updates"
+      - "Official Catppuccin port at github.com/catppuccin/starship"
+      - "No opacity support - terminal handles transparency"
 
   # ==========================================================================
   # AeroSpace - Tiling Window Manager (NOT THEMED)

@@ -16,17 +16,19 @@ from .cava import CavaTheme
 from .flameshot import FlameshotTheme
 from .ncspot import NcspotTheme
 from .nvim import NvimTheme
+from .starship import StarshipTheme
+from .btop import BtopTheme
 
 
 def get_all_apps(config_home: Path) -> list:
     """Get all registered theme-aware applications
-    
+
     Args:
         config_home: Path to ~/.config directory
-        
+
     Returns:
         List of app instances ready to receive theme updates
-        
+
     Example:
         >>> apps = get_all_apps(Path.home() / ".config")
         >>> for app in apps:
@@ -41,6 +43,8 @@ def get_all_apps(config_home: Path) -> list:
         FlameshotTheme(config_home),
         NcspotTheme(config_home),
         NvimTheme(config_home),
+        StarshipTheme(config_home),
+        BtopTheme(config_home),
     ]
 
 
@@ -53,5 +57,7 @@ __all__ = [
     "FlameshotTheme",
     "NcspotTheme",
     "NvimTheme",
+    "StarshipTheme",
+    "BtopTheme",
     "get_all_apps",
 ]
