@@ -1,0 +1,34 @@
+# Platform-specific ignores
+{{- if ne .chezmoi.os "darwin" }}
+.config/aerospace/**
+.config/sketchybar/**
+{{- end }}
+
+{{- if ne .chezmoi.os "linux" }}
+.config/hyprland/**
+.config/waybar/**
+{{- end }}
+
+# Always ignore
+.git/
+.DS_Store
+.opencode/
+thoughts/
+.extern/
+
+# Python cache
+**/__pycache__/
+**/*.pyc
+
+# ncspot runtime state (changes constantly)
+.config/ncspot/userstate.cbor
+
+# Theme system dynamically generates these at runtime
+# (based on wallpaper colors - don't let chezmoi overwrite them)
+.config/sketchybar/colors-sketchybar.sh
+.config/sketchybar/opacity-sketchybar.sh
+.config/wezterm/colors-wezterm.lua
+.config/wezterm/opacity-wezterm.lua
+.config/borders/bordersrc
+.config/atuin/themes/dynamic.toml
+.config/ncspot/config.toml

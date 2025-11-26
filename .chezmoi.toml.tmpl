@@ -19,6 +19,17 @@
     config_home = "{{ .chezmoi.homeDir }}/.config"
     cache_dir = "{{ .chezmoi.homeDir }}/.cache"
     {{- end }}
+    
+    # Headless detection for VPS vs desktop
+    {{- if contains "MacBook" $hostname }}
+    is_headless = false
+    {{- else if contains "vps" $hostname }}
+    is_headless = true
+    {{- else if contains "dev-arch" $hostname }}
+    is_headless = true
+    {{- else }}
+    is_headless = false
+    {{- end }}
 
 [diff]
     pager = "delta"

@@ -1,0 +1,59 @@
+# ============================================================================
+# SSH Client Configuration
+# Managed by chezmoi - DO NOT EDIT DIRECTLY
+# ============================================================================
+
+# Global SSH Settings
+Host *
+	AddKeysToAgent yes
+{{- if eq .chezmoi.os "darwin" }}
+	UseKeychain yes
+{{- end }}
+	IdentityFile ~/.ssh/id_ed25519
+	ServerAliveInterval 60
+	ServerAliveCountMax 3
+	Compression yes
+	TCPKeepAlive yes
+	
+	# Security settings
+	HashKnownHosts yes
+	StrictHostKeyChecking ask
+	VerifyHostKeyDNS yes
+
+# ============================================================================
+# Tailscale Mesh VPN Hosts
+# ============================================================================
+{{- if .tailscale_enabled }}
+
+# Arch VPS Development Box
+Host dev-hub
+	HostName {{ .tailscale_hosts.dev_hub }}
+	User {{ .chezmoi.username }}
+	ForwardAgent yes
+	RemoteForward 52698 localhost:52698  # For remote editing
+
+# Arch Desktop (miniPC)
+Host arch-desktop
+	HostName {{ .tailscale_hosts.arch_desktop }}
+	User {{ .chezmoi.username }}
+{{- end }}
+
+# ============================================================================
+# Common Services
+# ============================================================================
+
+# GitHub
+Host github.com
+	HostName github.com
+	User git
+	IdentityFile ~/.ssh/id_ed25519
+	AddKeysToAgent yes
+{{- if eq .chezmoi.os "darwin" }}
+	UseKeychain yes
+{{- end }}
+
+# GitHub (alternative shorthand)
+Host gh
+	HostName github.com
+	User git
+	IdentityFile ~/.ssh/id_ed25519

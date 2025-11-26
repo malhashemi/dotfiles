@@ -13,14 +13,28 @@ compinit
 # Zinit Plugin Manager
 # ============================================================================
 
-# Source Zinit from Homebrew installation
-source /opt/homebrew/Cellar/zinit/3.14.0/zinit.zsh
+{{- if eq .chezmoi.os "darwin" }}
+# macOS: Source Zinit from Homebrew (symlinked path, version-agnostic)
+source /opt/homebrew/opt/zinit/zinit.zsh
 
-# Load ZSH plugins
+# Load ZSH plugins from Homebrew
 source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
 source /opt/homebrew/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
-# Removed zsh-autocomplete - it's incompatible with menu-complete tab cycling
 source /opt/homebrew/share/zsh-autopair/autopair.zsh
+{{- else }}
+# Linux: Self-managed Zinit installation
+ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
+[ ! -d $ZINIT_HOME ] && mkdir -p "$(dirname $ZINIT_HOME)"
+[ ! -d $ZINIT_HOME/.git ] && git clone https://github.com/zdharma-continuum/zinit.git "$ZINIT_HOME"
+source "${ZINIT_HOME}/zinit.zsh"
+
+# Load plugins via Zinit
+zinit light zsh-users/zsh-autosuggestions
+zinit light zdharma-continuum/fast-syntax-highlighting
+zinit light hlissner/zsh-autopair
+{{- end }}
+
+# Removed zsh-autocomplete - it's incompatible with menu-complete tab cycling
 
 # Configure tab for cycling through completions (standard ZSH completion)
 bindkey '\t' menu-complete
@@ -48,7 +62,6 @@ bindkey '^j' down-line-or-search
 export LANG=en_US.UTF-8
 export EDITOR="nvim"
 export GOPATH="$HOME/go"
-export PATH="/opt/homebrew/bin:/opt/homebrew/sbin:$PATH:$GOPATH/bin:$HOME/Library/Python/3.9/bin"
 export XDG_CONFIG_HOME="$HOME/.config"
 
 # FZF Configuration (kept for compatibility with tools that still use it)
@@ -110,6 +123,10 @@ alias dx="docker exec -it"
 alias http="xh"
 alias lg="lazygit"
 
+# Arabic text reading (fribidi for proper RTL display)
+alias acat="fribidi"                    # Read Arabic from stdin/pipe
+alias ar="fribidi"                      # Short alias for Arabic reading
+
 # Television aliases for quick access
 alias tvf="tv files"  # Quick file search
 alias tvd="tv dirs"   # Quick directory search
@@ -132,7 +149,11 @@ fcd() {
 # Fuzzy find file and copy path to clipboard
 f() {
     local file=$(find . -type f -not -path '*/.*' | fzf --preview 'bat --color=always {}')
+{{- if eq .chezmoi.os "darwin" }}
     [ -n "$file" ] && echo "$file" | pbcopy
+{{- else }}
+    [ -n "$file" ] && echo "$file" | wl-copy || xclip -selection clipboard
+{{- end }}
 }
 
 # Fuzzy find file and open in Neovide
@@ -141,10 +162,12 @@ fv() {
     [ -n "$file" ] && neovide "$file"
 }
 
-# Fuzzy find and focus aerospace window (still using fzf as TV doesn't have this channel)
+{{- if eq .chezmoi.os "darwin" }}
+# Fuzzy find and focus aerospace window (macOS only)
 ff() {
     aerospace list-windows --all | fzf | awk '{print $1}' | xargs -I {} aerospace focus --window-id {}
 }
+{{- end }}
 
 # Yazi with directory change on exit
 function y() {
@@ -154,6 +177,26 @@ function y() {
         cd -- "$cwd"
     fi
     rm -f -- "$tmp"
+}
+
+# Read Arabic file with proper RTL display
+# Usage: afile filename.txt
+function afile() {
+    if [ -z "$1" ]; then
+        echo "Usage: afile <filename>"
+        return 1
+    fi
+    cat "$1" | fribidi | less -R
+}
+
+# Tail Arabic logs with proper RTL display  
+# Usage: atail filename.log
+function atail() {
+    if [ -z "$1" ]; then
+        echo "Usage: atail <filename>"
+        return 1
+    fi
+    tail -f "$1" | fribidi
 }
 
 # ============================================================================
@@ -184,14 +227,17 @@ if command -v aws &> /dev/null; then
     complete -C '/usr/local/bin/aws_completer' aws
 fi
 
+{{- if not .is_headless }}
 # Display system info on terminal startup
 fastfetch --config examples/13
-export PATH="/Users/malhashemi/.bun/bin:/Users/malhashemi/.atuin/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/malhashemi/.local/share/zinit/polaris/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Users/malhashemi/.local/bin:/Users/malhashemi/.cargo/bin:/Applications/Ghostty.app/Contents/MacOS:/Users/malhashemi/go/bin:/Users/malhashemi/Library/Python/3.9/bin"
+{{- end }}
 
-# Task Master aliases added on 9/10/2025
-alias tm='task-master'
-alias taskmaster='task-master'
-
+{{- if eq .chezmoi.os "darwin" }}
+export PATH="/Users/malhashemi/.bun/bin:/Users/malhashemi/.atuin/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Users/malhashemi/.local/bin:/Users/malhashemi/.cargo/bin:/Applications/Ghostty.app/Contents/MacOS:/Users/malhashemi/go/bin:/Users/malhashemi/Library/Python/3.9/bin"
+{{- else }}
+# Linux PATH - keep simple, let other tools manage
+export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/go/bin:$PATH"
+{{- end }}
 
 # Zed
 
