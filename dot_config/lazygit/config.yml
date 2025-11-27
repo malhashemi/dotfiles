@@ -1,0 +1,71 @@
+# lazygit configuration
+# Theme colors are managed by theme-system - do not edit gui.theme manually
+
+gui:
+  # Nerd font icons (enable if using Nerd Font)
+  nerdFontsVersion: "3"
+  
+  # Modern rounded borders
+  border: rounded
+  
+  # Expand focused panel for better visibility
+  expandFocusedSidePanel: true
+  
+  # Show file tree in files panel
+  showFileTree: true
+  
+  # Theme - managed by theme-manager.py
+  theme:
+    activeBorderColor:
+      - '#cba6f7'
+      - bold
+    inactiveBorderColor:
+      - '#a6adc8'
+    searchingActiveBorderColor:
+      - '#f9e2af'
+      - bold
+    optionsTextColor:
+      - '#89b4fa'
+    selectedLineBgColor:
+      - '#313244'
+    inactiveViewSelectedLineBgColor:
+      - '#45475a'
+    cherryPickedCommitFgColor:
+      - '#89b4fa'
+    cherryPickedCommitBgColor:
+      - '#45475a'
+    markedBaseCommitFgColor:
+      - '#89b4fa'
+    markedBaseCommitBgColor:
+      - '#f9e2af'
+    unstagedChangesColor:
+      - '#f38ba8'
+    defaultFgColor:
+      - '#cdd6f4'
+
+git:
+  # Use delta for beautiful diffs (if installed)
+  paging:
+    colorArg: always
+    pager: delta --dark --paging=never
+  
+  # Auto-fetch for up-to-date branch info
+  autoFetch: true
+  autoRefresh: true
+  
+  # Commit message settings
+  commit:
+    autoWrapCommitMessage: true
+    autoWrapWidth: 72
+  
+  # Log visualization
+  log:
+    order: topo-order
+    showGraph: always
+
+# Custom commands - add your own here
+# customCommands:
+#   - key: 'O'
+#     context: 'commits'
+#     command: 'gh browse {{.SelectedLocalCommit.Hash}}'
+#     description: 'Open commit in GitHub'
