@@ -22,13 +22,15 @@
 #   ✅ Flameshot     - apps/flameshot.py     - Inline surgical swap INI (73 lines)
 #   ✅ ncspot        - apps/ncspot.py        - Inline surgical swap TOML (154 lines)
 #   ✅ NeoVim        - apps/nvim.py          - External file method (252 lines)
-#   ✅ Starship      - apps/starship.py      - Inline surgical swap TOML (175 lines) [NEW 2025-11-26]
+#   ✅ Starship      - apps/starship.py      - Inline surgical swap TOML (174 lines) [NEW 2025-11-26]
+#   ✅ btop          - apps/btop.py          - External file method (201 lines) [NEW 2025-11-26]
+#   ✅ Television    - apps/television.py    - Hybrid method (119 lines) [NEW 2025-11-26]
 #
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
 #
-# Architecture Completion: 9/9 apps (100%) ✅
-# Total themed apps: 9 modular + 0 legacy = 9 apps
+# Architecture Completion: 11/11 apps (100%) ✅
+# Total themed apps: 11 modular + 0 legacy = 11 apps
 # ==========================================================================
 
 apps:
@@ -1122,6 +1124,233 @@ apps:
       - "Preserves all user module configs during palette updates"
       - "Official Catppuccin port at github.com/catppuccin/starship"
       - "No opacity support - terminal handles transparency"
+
+  # ==========================================================================
+  # btop - System Monitor (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  btop:
+    # Basic Info
+    display_name: btop
+    config_file: ~/.config/btop/btop.conf
+    config_format: conf
+    app_type: system_monitor
+    platform: cross_platform
+    homepage: https://github.com/aristocratos/btop
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file          # Priority 1: Generate .theme file
+          enabled: true
+          notes: "Generates Catppuccin theme in ~/.config/btop/themes/"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file          # Priority 1: Generate .theme file
+          enabled: true
+          notes: "Generates dynamic.theme with Material Design 3 colors"
+    
+    # External File Configuration
+    external_files:
+      theme:
+        path: ~/.config/btop/themes/dynamic.theme
+        format: btop_theme
+        template: null                     # Runtime-only, not templated
+        load_mechanism: "color_theme setting in btop.conf"
+        notes: "btop native .theme format with 30+ color keys and gradient support"
+    
+    # Theme Format Details
+    theme_format:
+      color_keys: 30+
+      gradient_support: true
+      gradients:
+        - "temp_start/mid/end"
+        - "cpu_start/mid/end"
+        - "free_start/mid/end"
+        - "cached_start/mid/end"
+        - "available_start/mid/end"
+        - "used_start/mid/end"
+        - "download_start/mid/end"
+        - "upload_start/mid/end"
+        - "process_start/mid/end"
+      notes: "Rich gradient support for meters and graphs"
+    
+    # Opacity Support
+    opacity:
+      supported: true
+      method: config_key
+      config_key: "theme_background"
+      values:
+        transparent: "False"              # Empty main_bg for terminal transparency
+        opaque: "True"
+      notes: "Set theme_background=False and theme[main_bg]='' for transparency"
+      
+    # Reload Behavior
+    reload:
+      automatic: false                   # No file watching
+      method: signal
+      signal: SIGUSR2
+      manual_command: "pkill -USR2 btop"
+      reload_time: "< 100ms"
+      notes: "SIGUSR2 may crash if sent within ~8 seconds of btop startup"
+    
+    # Implementation Details
+    generator:
+      class: BtopTheme
+      module: apps.btop
+      method: external_file
+      location: dot_config/theme-system/scripts/apps/btop.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_theme
+        - _generate_static_theme
+        - _reload_btop
+      notes: "Modular architecture: registered in apps/__init__.py, called via app.apply_theme()"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        main_fg: "text"
+        hi_fg: "mauve"
+        selected_bg: "surface1"
+        selected_fg: "mauve"
+        inactive_fg: "overlay0"
+        cpu_box: "mauve"
+        mem_box: "green"
+        net_box: "maroon"
+        proc_box: "blue"
+        notes: "Mauve as primary accent (user preference)"
+      
+      dynamic:
+        main_fg: "on_surface"
+        hi_fg: "primary"
+        selected_bg: "surface_container_high"
+        selected_fg: "primary"
+        inactive_fg: "outline"
+        cpu_box: "primary"
+        mem_box: "tertiary"
+        net_box: "secondary"
+        proc_box: "primary"
+        notes: "Material Design 3 semantic color mapping"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences: "none"
+      notes: "Same config works on all platforms"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true            # Config added via chezmoi add
+      runtime_working: true              # Generator working
+      date_implemented: "2025-11-26"
+      research_doc: "thoughts/shared/research/2025-11-26_11-31-45_app-config-analysis-btop.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "btop is C++ system monitor (15k+ GitHub stars)"
+      - "Native .theme format with 30+ color keys"
+      - "Gradient support for meters, graphs, and processes"
+      - "SIGUSR2 reload - avoid within 8 seconds of startup"
+      - "theme_background=False enables terminal transparency"
+      - "No Catppuccin official port - custom theme generation"
+      - "Preserves user's transparency preference during theme switches"
+
+  # ==========================================================================
+  # Television - Fuzzy Finder TUI (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  television:
+    # Basic Info
+    display_name: Television
+    config_file: ~/.config/television/config.toml
+    config_format: toml
+    app_type: tui
+    platform: cross_platform
+    homepage: https://github.com/alexpasmantier/television
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: builtin                 # Priority 1: Use downloaded catppuccin themes
+          enabled: true
+          notes: "Uses official Catppuccin theme files in themes/ directory"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file           # Priority 1: Generate dynamic.toml
+          enabled: true
+          notes: "Generates themes/dynamic.toml with Material Design 3 colors"
+    
+    # External File Configuration
+    external_files:
+      theme:
+        path: ~/.config/television/themes/dynamic.toml
+        format: toml
+        template: null                     # Runtime-only, not templated
+        load_mechanism: "theme = 'dynamic' in [ui] section of config.toml"
+        notes: "Theme file with 17 color keys for dynamic theme"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "TUI app - transparency controlled by terminal emulator"
+      
+    # Reload Behavior
+    reload:
+      automatic: false
+      method: on_demand
+      manual_command: null                 # Next tv invocation reads new config
+      reload_time: "instant"
+      notes: "On-demand tool - config read fresh on each invocation"
+    
+    # Implementation Details
+    generator:
+      class: TelevisionTheme
+      module: apps.television
+      method: hybrid                       # builtin for static, external_file for dynamic
+      location: dot_config/theme-system/scripts/apps/television.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_theme
+        - _update_config
+      notes: "Modular architecture: registered in apps/__init__.py"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/television"
+      builtin: true                        # Also has builtin catppuccin theme
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences: none
+      notes: "Same config works on all platforms"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      date_implemented: "2025-11-26"
+      research_doc: "thoughts/shared/research/2025-11-26_20-45-49_app-config-analysis-television.md"
+      implementation_plan: "thoughts/shared/plans/television-theme-integration.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "Television is Rust TUI fuzzy finder with excellent theme support"
+      - "12 builtin themes including catppuccin"
+      - "Official Catppuccin port with all flavors and accent colors"
+      - "On-demand tool - config read fresh on each invocation"
+      - "User has tv aliases in zshrc: tvf, tvd, tvg, tvh"
 
   # ==========================================================================
   # AeroSpace - Tiling Window Manager (NOT THEMED)

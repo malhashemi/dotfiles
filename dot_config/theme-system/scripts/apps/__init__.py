@@ -18,6 +18,7 @@ from .ncspot import NcspotTheme
 from .nvim import NvimTheme
 from .starship import StarshipTheme
 from .btop import BtopTheme
+from .television import TelevisionTheme
 
 
 def get_all_apps(config_home: Path) -> list:
@@ -45,6 +46,7 @@ def get_all_apps(config_home: Path) -> list:
         NvimTheme(config_home),
         StarshipTheme(config_home),
         BtopTheme(config_home),
+        TelevisionTheme(config_home),
     ]
 
 
@@ -59,5 +61,6 @@ __all__ = [
     "NvimTheme",
     "StarshipTheme",
     "BtopTheme",
+    "TelevisionTheme",
     "get_all_apps",
 ]
