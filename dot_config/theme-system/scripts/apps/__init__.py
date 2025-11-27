@@ -21,6 +21,8 @@ from .btop import BtopTheme
 from .television import TelevisionTheme
 from .bottom import BottomTheme
 from .opencode import OpencodeTheme
+from .lazygit import LazygitTheme
+from .posting import PostingTheme
 
 
 def get_all_apps(config_home: Path) -> list:
@@ -51,6 +53,8 @@ def get_all_apps(config_home: Path) -> list:
         TelevisionTheme(config_home),
         BottomTheme(config_home),
         OpencodeTheme(config_home),
+        LazygitTheme(config_home),
+        PostingTheme(config_home),
     ]
 
 
@@ -68,5 +72,7 @@ __all__ = [
     "TelevisionTheme",
     "BottomTheme",
     "OpencodeTheme",
+    "LazygitTheme",
+    "PostingTheme",
     "get_all_apps",
 ]

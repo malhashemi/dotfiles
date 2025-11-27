@@ -7,7 +7,7 @@
 # 3. Automatically invoked by theme-manager.py when running theme commands
 #
 # Schema version: 1.1
-# Last updated: 2025-11-27
+# Last updated: 2025-11-28
 
 # ==========================================================================
 # Implementation Status Summary
@@ -25,13 +25,16 @@
 #   ✅ Starship      - apps/starship.py      - Inline surgical swap TOML (174 lines)
 #   ✅ btop          - apps/btop.py          - External file method (201 lines)
 #   ✅ Television    - apps/television.py    - Hybrid method (119 lines)
-#   ✅ bottom        - apps/bottom.py        - Inline surgical swap TOML (207 lines) [NEW 2025-11-27]
+#   ✅ bottom        - apps/bottom.py        - Inline surgical swap TOML (207 lines)
+#   ✅ OpenCode      - apps/opencode.py      - Builtin theme method
+#   ✅ lazygit       - apps/lazygit.py       - Inline surgical swap YAML (140 lines) [NEW 2025-11-28]
+#   ✅ Posting       - apps/posting.py       - External file method YAML (175 lines) [NEW 2025-11-28]
 #
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
 #
-# Architecture Completion: 12/12 apps (100%) ✅
-# Total themed apps: 12 modular + 0 legacy = 12 apps
+# Architecture Completion: 15/15 apps (100%) ✅
+# Total themed apps: 15 modular + 0 legacy = 15 apps
 # ==========================================================================
 
 apps:
@@ -1454,6 +1457,143 @@ apps:
       - "Built-in themes: gruvbox, nord (and light variants)"
 
   # ==========================================================================
+  # lazygit - Terminal UI for Git (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  lazygit:
+    # Basic Info
+    display_name: lazygit
+    config_file: ~/.config/lazygit/config.yml
+    config_format: yaml
+    app_type: tui
+    platform: cross_platform
+    homepage: https://github.com/jesseduffield/lazygit
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical YAML edit
+          enabled: true
+          notes: "Updates gui.theme section with Catppuccin colors"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical YAML edit
+          enabled: true
+          notes: "Updates gui.theme section with Material Design 3 colors"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "TUI app - transparency controlled by terminal emulator"
+      
+    # Reload Behavior
+    reload:
+      automatic: false
+      method: on_demand
+      manual_command: null
+      reload_time: "instant"
+      notes: "On-demand app - config read fresh on each lazygit invocation"
+    
+    # Implementation Details
+    generator:
+      class: LazygitTheme
+      module: apps.lazygit
+      method: inline
+      location: dot_config/theme-system/scripts/apps/lazygit.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_colors
+        - _generate_static_colors
+        - _update_theme_section
+      notes: "Modular architecture: registered in apps/__init__.py"
+    
+    # Theme Keys (12 lazygit-specific color keys)
+    theme_keys:
+      - activeBorderColor
+      - inactiveBorderColor
+      - searchingActiveBorderColor
+      - optionsTextColor
+      - selectedLineBgColor
+      - inactiveViewSelectedLineBgColor
+      - cherryPickedCommitFgColor
+      - cherryPickedCommitBgColor
+      - markedBaseCommitFgColor
+      - markedBaseCommitBgColor
+      - unstagedChangesColor
+      - defaultFgColor
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        activeBorderColor: "[mauve, bold]"
+        inactiveBorderColor: "[overlay0]"
+        optionsTextColor: "[blue]"
+        selectedLineBgColor: "[surface1]"
+        unstagedChangesColor: "[red]"
+        defaultFgColor: "[text]"
+        notes: "Based on official Catppuccin lazygit themes"
+      
+      dynamic:
+        activeBorderColor: "[primary, bold]"
+        inactiveBorderColor: "[outline]"
+        optionsTextColor: "[primary]"
+        selectedLineBgColor: "[surface_container_high]"
+        unstagedChangesColor: "[error]"
+        defaultFgColor: "[on_surface]"
+        notes: "Material Design 3 semantic color mapping"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/lazygit"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      available_accents:
+        - blue
+        - mauve
+        - green
+        - red
+        - yellow
+        - pink
+        - teal
+        - lavender
+        - flamingo
+        - rosewater
+        - sapphire
+        - sky
+        - peach
+        - maroon
+      notes: "Official port with all flavors and 14 accent colors"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences: none
+      notes: "Same config works on all platforms - no templating needed"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      date_implemented: "2025-11-28"
+      research_doc: "thoughts/shared/research/2025-11-27_20-16-38_app-config-analysis-lazygit.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "lazygit is Go TUI (68.6k+ GitHub stars)"
+      - "Cross-platform: macOS, Linux, Windows, Termux"
+      - "On-demand app - config read fresh on each invocation"
+      - "No external theme file support - must use inline method"
+      - "Uses ruamel.yaml for surgical updates preserving comments"
+      - "TUI app - inherits terminal transparency"
+      - "Official Catppuccin port at github.com/catppuccin/lazygit"
+      - "Color values are lists: [color, modifier?] format"
+
+  # ==========================================================================
   # AeroSpace - Tiling Window Manager (NOT THEMED)
   # ==========================================================================
   aerospace:
@@ -1660,6 +1800,129 @@ apps:
       - "Terminal emulator controls transparency, not CAVA"
       - "Keyboard shortcut 'c' reloads colors when CAVA is focused"
       - "No Catppuccin official port - custom gradient mapping"
+
+  # ==========================================================================
+  # Posting - TUI HTTP Client (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  posting:
+    # Basic Info
+    display_name: Posting
+    config_file: ~/.config/posting/config.yaml
+    config_format: yaml
+    app_type: tui
+    platform: cross_platform
+    homepage: https://posting.sh/
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates catppuccin-{variant}-mauve.yaml in themes directory"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates dynamic.yaml with Material Design 3 colors"
+    
+    # External File Configuration
+    external_files:
+      theme:
+        path: ~/.local/share/posting/themes/{theme_name}.yaml
+        format: yaml
+        template: null
+        load_mechanism: "theme = '<name>' in config.yaml"
+        notes: "Theme files with 8 core colors + extended styling"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "TUI app - transparency NOT supported by Textual framework. Background matches terminal theme color instead."
+    
+    # Reload Behavior
+    reload:
+      automatic: true
+      method: file_watch
+      config_key: watch_themes
+      reload_time: "< 100ms"
+      notes: "Textual framework watches theme files; instant reload"
+    
+    # Implementation Details
+    generator:
+      class: PostingTheme
+      module: apps.posting
+      method: external_file
+      location: dot_config/theme-system/scripts/apps/posting.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_theme
+        - _generate_static_theme
+        - _update_config
+      notes: "Modular architecture: registered in apps/__init__.py"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        primary: "{{ .theme.colors.mauve }}"
+        secondary: "{{ .theme.colors.blue }}"
+        accent: "{{ .theme.colors.green }}"
+        background: "{{ .theme.colors.base }}"
+        surface: "{{ .theme.colors.surface0 }}"
+        error: "{{ .theme.colors.red }}"
+        success: "{{ .theme.colors.green }}"
+        warning: "{{ .theme.colors.yellow }}"
+        notes: "Mauve as primary accent (user preference)"
+      
+      dynamic:
+        primary: "{{ .theme.material.primary }}"
+        secondary: "{{ .theme.material.secondary }}"
+        accent: "{{ .theme.material.tertiary }}"
+        background: "{{ .theme.material.background }}"
+        surface: "{{ .theme.material.surface_container }}"
+        error: "{{ .theme.material.error }}"
+        success: "{{ .theme.material.tertiary }}"
+        warning: "{{ .theme.material.secondary }}"
+        notes: "Material Design 3 semantic mapping"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/posting"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      notes: "Official port provides reference implementation"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences: none
+      installation: "uv tool install --python 3.13 posting"
+      notes: "Same config works on all platforms"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true
+      runtime_working: true
+      date_implemented: "2025-11-28"
+      research_doc: "thoughts/shared/research/2025-11-28_22-45-00_app-config-analysis-posting.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "Posting is Python TUI HTTP client (10.7k+ GitHub stars)"
+      - "Built with Textual framework"
+      - "Cross-platform: macOS, Linux, Windows, likely Termux"
+      - "Live theme reload via filesystem watching (enabled by default)"
+      - "Theme files go to ~/.local/share/posting/themes/ (XDG_DATA_HOME)"
+      - "Transparent backgrounds NOT supported - uses matching background color"
+      - "Official Catppuccin port at github.com/catppuccin/posting"
+      - "8 core colors + extended sections (text_area, url, syntax, method)"
 
 # ==========================================================================
 # Schema Field Definitions (for reference)

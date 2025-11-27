@@ -1,0 +1,12 @@
+# Posting configuration
+# Theme is managed by theme-manager.py
+theme: dynamic
+watch_themes: true
+load_user_themes: true
+load_builtin_themes: true
+
+response:
+  prettify_json: true
+
+heading:
+  visible: true
