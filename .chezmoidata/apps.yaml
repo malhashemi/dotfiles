@@ -7,7 +7,7 @@
 # 3. Automatically invoked by theme-manager.py when running theme commands
 #
 # Schema version: 1.1
-# Last updated: 2025-11-26
+# Last updated: 2025-11-27
 
 # ==========================================================================
 # Implementation Status Summary
@@ -22,15 +22,16 @@
 #   ✅ Flameshot     - apps/flameshot.py     - Inline surgical swap INI (73 lines)
 #   ✅ ncspot        - apps/ncspot.py        - Inline surgical swap TOML (154 lines)
 #   ✅ NeoVim        - apps/nvim.py          - External file method (252 lines)
-#   ✅ Starship      - apps/starship.py      - Inline surgical swap TOML (174 lines) [NEW 2025-11-26]
-#   ✅ btop          - apps/btop.py          - External file method (201 lines) [NEW 2025-11-26]
-#   ✅ Television    - apps/television.py    - Hybrid method (119 lines) [NEW 2025-11-26]
+#   ✅ Starship      - apps/starship.py      - Inline surgical swap TOML (174 lines)
+#   ✅ btop          - apps/btop.py          - External file method (201 lines)
+#   ✅ Television    - apps/television.py    - Hybrid method (119 lines)
+#   ✅ bottom        - apps/bottom.py        - Inline surgical swap TOML (207 lines) [NEW 2025-11-27]
 #
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
 #
-# Architecture Completion: 11/11 apps (100%) ✅
-# Total themed apps: 11 modular + 0 legacy = 11 apps
+# Architecture Completion: 12/12 apps (100%) ✅
+# Total themed apps: 12 modular + 0 legacy = 12 apps
 # ==========================================================================
 
 apps:
@@ -1351,6 +1352,106 @@ apps:
       - "Official Catppuccin port with all flavors and accent colors"
       - "On-demand tool - config read fresh on each invocation"
       - "User has tv aliases in zshrc: tvf, tvd, tvg, tvh"
+
+  # ==========================================================================
+  # bottom - System Monitor (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  bottom:
+    # Basic Info
+    display_name: bottom
+    config_file: ~/.config/bottom/bottom.toml
+    config_format: toml
+    app_type: tui
+    platform: cross_platform
+    homepage: https://github.com/ClementTsang/bottom
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical TOML edit
+          enabled: true
+          notes: "Updates [styles] section with Catppuccin colors"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: inline                   # Priority 1: Surgical TOML edit
+          enabled: true
+          notes: "Updates [styles] section with Material Design 3 colors"
+    
+    # Built-in Themes (NOT used - we generate custom)
+    builtin_themes:
+      - "default"
+      - "default-light"
+      - "gruvbox"
+      - "gruvbox-light"
+      - "nord"
+      - "nord-light"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "TUI app - transparency controlled by terminal emulator"
+      
+    # Reload Behavior
+    reload:
+      automatic: false                   # No file watching
+      method: manual                     # Must restart application
+      manual_command: "q (quit) then btm (restart)"
+      signal_support: false
+      notes: "NO hot-reload capability - requires restart to apply changes"
+    
+    # Implementation Details
+    generator:
+      class: BottomTheme
+      module: apps.bottom
+      method: inline                     # Surgical tomlkit swap
+      location: dot_config/theme-system/scripts/apps/bottom.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_styles
+        - _generate_static_styles
+        - _update_styles_sections
+      notes: "Modular architecture: registered in apps/__init__.py, called via app.apply_theme()"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/bottom"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      installation_method: "Paste into bottom.toml (no separate theme file)"
+      notes: "Official port exists but we generate our own for dynamic support"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences:
+        - "cache_color not available on Windows"
+      notes: "Same config works on all platforms except minor Windows differences"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: false
+      bootstrap_working: true
+      runtime_working: true
+      date_implemented: "2025-11-27"
+      research_doc: "thoughts/shared/research/2025-11-27_08-39-10_app-config-analysis-bottom.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "bottom is Rust system monitor (18k+ GitHub stars)"
+      - "Cross-platform: macOS, Linux, Windows, Termux"
+      - "NO hot-reload - requires restart to apply config changes"
+      - "No external theme file support - must embed in main config"
+      - "Uses tomlkit for surgical updates preserving comments"
+      - "TUI app - inherits terminal transparency"
+      - "Official Catppuccin port at github.com/catppuccin/bottom"
+      - "Built-in themes: gruvbox, nord (and light variants)"
 
   # ==========================================================================
   # AeroSpace - Tiling Window Manager (NOT THEMED)
