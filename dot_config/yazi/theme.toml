@@ -1,0 +1,67 @@
+# ============================================================================
+# Yazi Theme Configuration
+# ============================================================================
+# Documentation: https://yazi-rs.github.io/docs/configuration/theme
+# 
+# This file references external flavor files for theming.
+# Flavors are managed by the theme system (theme-manager.py).
+#
+# Static themes: catppuccin-mocha, catppuccin-latte, catppuccin-frappe, catppuccin-macchiato
+# Dynamic theme: dynamic (generated from wallpaper via Material Design 3)
+# ============================================================================
+
+[flavor]
+# Use dark flavor by default (switched by theme-manager.py)
+dark = "catppuccin-mocha"
+light = "catppuccin-latte"
+
+# ============================================================================
+# Override specific styles from flavor (optional)
+# ============================================================================
+# You can override individual styles from your chosen flavor here.
+# These will be merged with the flavor's styles.
+
+# Example overrides:
+# [mgr]
+# cwd = { fg = "#cba6f7" }  # Purple for current directory
+# border_style = { fg = "#6c7086" }
+
+# ============================================================================
+# File type rules (extend or override flavor)
+# ============================================================================
+# [filetype]
+# prepend_rules = [
+#     # Custom file type colors
+#     { name = "*.rs", fg = "#f9e2af" },  # Rust files in yellow
+# ]
+
+# ============================================================================
+# Icon definitions (extend or override flavor)
+# ============================================================================
+# [icon]
+# prepend_dirs = [
+#     { name = ".config", text = "" },
+# ]
+# prepend_files = [
+#     { name = "Cargo.toml", text = "" },
+# ]
+
+# ============================================================================
+# Notes:
+# ============================================================================
+#
+# Flavor locations:
+#   ~/.config/yazi/flavors/catppuccin-mocha.yazi/flavor.toml
+#   ~/.config/yazi/flavors/catppuccin-latte.yazi/flavor.toml
+#   ~/.config/yazi/flavors/dynamic.yazi/flavor.toml (generated)
+#
+# Switching themes:
+#   theme set mocha      - Uses catppuccin-mocha flavor
+#   theme set latte      - Uses catppuccin-latte flavor
+#   theme set dynamic    - Uses dynamic flavor (MD3 from wallpaper)
+#
+# Hot reload:
+#   NOT SUPPORTED - Restart yazi to apply theme changes
+#   Press 'q' to quit and re-run 'y' to see new theme
+#
+# ============================================================================

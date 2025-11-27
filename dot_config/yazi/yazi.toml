@@ -1,0 +1,174 @@
+# ============================================================================
+# Yazi Configuration - Power User Setup
+# ============================================================================
+# Documentation: https://yazi-rs.github.io/docs/configuration/yazi
+# Cross-platform: macOS, Linux, Windows, Termux
+# ============================================================================
+
+[mgr]
+# Layout: [parent, current, preview] column widths (0 = hidden)
+ratio = [1, 4, 3]
+
+# Sorting
+sort_by = "natural"         # Human-friendly: 1, 2, 10 (not 1, 10, 2)
+sort_sensitive = false      # Case-insensitive sorting
+sort_reverse = false
+sort_dir_first = true       # Directories before files
+sort_translit = false       # No transliteration
+
+# Display
+show_hidden = false         # Toggle with 'H' key
+show_symlink = true         # Show symlink targets
+
+# Line mode: what to show beside filenames
+linemode = "size"           # size, mtime, permissions, owner, none
+
+# Scrolling
+scrolloff = 8               # Lines to keep visible above/below cursor
+
+# Selection behavior
+select_chars = "@"          # Mark character for selected files
+
+# Mouse support
+mouse_events = ["click", "scroll", "touch", "move", "drag"]
+
+# Title format in terminal
+title_format = "Yazi: {cwd}"
+
+[preview]
+# Maximum preview dimensions (for image caching)
+# Increase for 4K displays, decrease for faster scrolling
+max_width = 1920
+max_height = 1080
+
+# Code preview
+wrap = "no"
+tab_size = 2
+
+# Image quality (50-90: higher = better quality, slower)
+image_quality = 75
+
+# Image downscaling filter
+# Options: "nearest" (fastest), "triangle", "catmull-rom", "lanczos3" (best)
+image_filter = "lanczos3"
+
+# Delay before rendering images (ms) - helps with fast scrolling
+image_delay = 30
+
+[opener]
+# Text editor
+edit = [
+    { run = '$EDITOR "$@"', block = true, for = "unix" },
+    { run = '%EDITOR% %*', block = true, for = "windows" },
+]
+
+# Default open action (platform-specific)
+open = [
+    { run = 'open "$@"', desc = "Open", for = "macos" },
+    { run = 'xdg-open "$@"', desc = "Open", for = "linux" },
+    { run = 'start "" "%1"', orphan = true, for = "windows" },
+    { run = 'termux-open "$@"', orphan = true, for = "android" },
+]
+
+# Reveal in file manager
+reveal = [
+    { run = 'open -R "$1"', desc = "Reveal in Finder", for = "macos" },
+    { run = '''nautilus --select "$1"''', desc = "Reveal in Files", for = "linux" },
+]
+
+# Media player
+play = [
+    { run = 'mpv "$@"', orphan = true, for = "unix" },
+]
+
+# Archive extraction
+extract = [
+    { run = 'unar "$1"', desc = "Extract", for = "unix" },
+    { run = '7z x "%1" -o"%1_extracted"', desc = "Extract with 7zip", for = "windows" },
+]
+
+# Lazygit
+lazygit = [
+    { run = 'lazygit -p "$1"', block = true, for = "unix" },
+]
+
+[open]
+# Custom open rules - prepend to defaults
+prepend_rules = [
+    # Config files
+    { name = "*.json", use = ["edit", "open"] },
+    { name = "*.yaml", use = ["edit", "open"] },
+    { name = "*.yml", use = ["edit", "open"] },
+    { name = "*.toml", use = ["edit", "open"] },
+    { name = "*.md", use = ["edit", "open"] },
+    { name = "*.txt", use = ["edit", "open"] },
+
+    # Code files
+    { name = "*.lua", use = "edit" },
+    { name = "*.py", use = "edit" },
+    { name = "*.rs", use = "edit" },
+    { name = "*.go", use = "edit" },
+    { name = "*.js", use = "edit" },
+    { name = "*.ts", use = "edit" },
+    { name = "*.sh", use = "edit" },
+    { name = "*.zsh", use = "edit" },
+
+    # Text files by MIME
+    { mime = "text/*", use = "edit" },
+    
+    # Media
+    { mime = "{audio,video}/*", use = "play" },
+    
+    # Archives
+    { mime = "application/zip", use = "extract" },
+    { mime = "application/x-tar", use = "extract" },
+    { mime = "application/x-gzip", use = "extract" },
+    { mime = "application/x-7z-compressed", use = "extract" },
+    { mime = "application/x-rar", use = "extract" },
+]
+
+[tasks]
+# Concurrent task workers for file operations
+micro_workers = 10          # Small tasks
+macro_workers = 25          # Large tasks
+bizarre_retry = 5           # Retry count for failed tasks
+
+# Hide preload tasks from task list
+suppress_preload = true
+
+# Memory limits for image decoding
+image_alloc = 536870912     # 512MB maximum
+image_bound = [0, 0]        # No size limit
+
+[plugin]
+# Prepend custom previewers
+prepend_previewers = [
+    # Add custom previewers here
+    # { name = "*.md", run = "glow" },
+]
+
+# Prepend custom fetchers
+prepend_fetchers = [
+    # Add custom fetchers here
+]
+
+[input]
+cursor_blink = true
+
+# ============================================================================
+# Installation Notes:
+# ============================================================================
+# 
+# macOS (Homebrew):
+#   brew install yazi ffmpegthumbnailer ffmpeg 7zip jq poppler fd ripgrep fzf zoxide imagemagick font-symbols-only-nerd-font
+#
+# Arch Linux:
+#   sudo pacman -S yazi ffmpeg 7zip jq poppler fd ripgrep fzf zoxide resvg imagemagick
+#
+# Windows (scoop):
+#   scoop install yazi 7zip jq poppler fd ripgrep fzf zoxide imagemagick
+#
+# Termux:
+#   pkg install yazi
+#
+# ============================================================================

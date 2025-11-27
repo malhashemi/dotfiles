@@ -1,0 +1,185 @@
+# Catppuccin Mocha Flavor for Yazi
+# Based on: https://github.com/catppuccin/yazi
+# Accent: Mauve (#cba6f7)
+
+# ============================================================================
+# Manager (main file list)
+# ============================================================================
+[mgr]
+cwd = { fg = "#94e2d5" }                                    # Teal - current directory
+hovered = { reversed = true }
+preview_hovered = { underline = true }
+find_keyword = { fg = "#f9e2af", bold = true, italic = true, underline = true }
+find_position = { fg = "#f5c2e7", bg = "reset", bold = true, italic = true }
+marker_copied = { fg = "#a6e3a1", bg = "#a6e3a1" }          # Green
+marker_cut = { fg = "#f38ba8", bg = "#f38ba8" }             # Red
+marker_marked = { fg = "#94e2d5", bg = "#94e2d5" }          # Teal
+marker_selected = { fg = "#f9e2af", bg = "#f9e2af" }        # Yellow
+border_style = { fg = "#6c7086" }                           # Overlay0
+border_symbol = "│"
+count_copied = { fg = "#1e1e2e", bg = "#a6e3a1" }
+count_cut = { fg = "#1e1e2e", bg = "#f38ba8" }
+count_selected = { fg = "#1e1e2e", bg = "#f9e2af" }
+
+# Syntax highlighting theme for code preview
+syntect_theme = ""
+
+# ============================================================================
+# Tabs
+# ============================================================================
+[tabs]
+active = { fg = "#1e1e2e", bg = "#cba6f7", bold = true }    # Mauve accent
+inactive = { fg = "#cba6f7", bg = "#313244" }               # Mauve on Surface0
+
+# ============================================================================
+# Mode indicators (bottom left)
+# ============================================================================
+[mode]
+normal_main = { fg = "#1e1e2e", bg = "#cba6f7", bold = true }
+normal_alt = { fg = "#cba6f7", bg = "#313244" }
+select_main = { fg = "#1e1e2e", bg = "#a6e3a1", bold = true }
+select_alt = { fg = "#a6e3a1", bg = "#313244" }
+unset_main = { fg = "#1e1e2e", bg = "#f2cdcd", bold = true }
+unset_alt = { fg = "#f2cdcd", bg = "#313244" }
+
+# ============================================================================
+# Status bar (bottom)
+# ============================================================================
+[status]
+sep_left = { open = "", close = "", fg = "#585b70", bg = "#585b70" }
+sep_right = { open = "", close = "", fg = "#585b70", bg = "#585b70" }
+sep_style = { fg = "#1e1e2e", bg = "#585b70" }
+
+# Progress indicator
+progress_label = { fg = "#cdd6f4", bold = true }
+progress_normal = { fg = "#cba6f7", bg = "#313244" }
+progress_error = { fg = "#f38ba8", bg = "#313244" }
+
+# Permissions
+perm_sep = { fg = "#6c7086" }
+perm_type = { fg = "#cba6f7" }
+perm_read = { fg = "#f9e2af" }
+perm_write = { fg = "#f38ba8" }
+perm_exec = { fg = "#a6e3a1" }
+
+# ============================================================================
+# Confirmation dialogs
+# ============================================================================
+[confirm]
+border = { fg = "#cba6f7" }
+title = { fg = "#cba6f7" }
+content = { fg = "#cdd6f4" }
+list = { fg = "#cdd6f4" }
+btn_yes = { bg = "#a6e3a1" }
+btn_no = { bg = "#f38ba8" }
+btn_label = { bold = true }
+
+# ============================================================================
+# Input fields
+# ============================================================================
+[input]
+border = { fg = "#cba6f7" }
+title = { fg = "#cba6f7" }
+value = { fg = "#cdd6f4" }
+value_bg = { bg = "#313244" }
+selected = { reversed = true }
+
+# ============================================================================
+# Completion menu
+# ============================================================================
+[cmp]
+border = { fg = "#cba6f7" }
+active = { fg = "#1e1e2e", bg = "#cba6f7" }
+inactive = { fg = "#cdd6f4" }
+
+# ============================================================================
+# Help popup
+# ============================================================================
+[help]
+on = { fg = "#94e2d5" }
+run = { fg = "#cba6f7" }
+desc = { fg = "#cdd6f4" }
+hovered = { reversed = true, bold = true }
+footer = { fg = "#6c7086" }
+
+# ============================================================================
+# Which-key popup
+# ============================================================================
+[which]
+sep = { fg = "#585b70" }
+cols = 3
+mask = { bg = "#313244" }
+rest = { fg = "#6c7086" }
+cand = { fg = "#94e2d5" }
+desc = { fg = "#cdd6f4" }
+
+# ============================================================================
+# Notifications
+# ============================================================================
+[notify]
+title_info = { fg = "#a6e3a1" }
+title_warn = { fg = "#f9e2af" }
+title_error = { fg = "#f38ba8" }
+
+# ============================================================================
+# Picker menus
+# ============================================================================
+[pick]
+border = { fg = "#cba6f7" }
+active = { fg = "#1e1e2e", bg = "#cba6f7" }
+inactive = { fg = "#cdd6f4" }
+
+# ============================================================================
+# Task manager
+# ============================================================================
+[tasks]
+border = { fg = "#cba6f7" }
+title = { fg = "#cba6f7" }
+hovered = { fg = "#cba6f7", underline = true }
+
+# ============================================================================
+# Spot preview
+# ============================================================================
+[spot]
+border = { fg = "#cba6f7" }
+title = { fg = "#cba6f7" }
+
+# ============================================================================
+# File type colors
+# ============================================================================
+[filetype]
+rules = [
+    # Directories
+    { url = "*/", fg = "#89b4fa" },
+
+    # Executables
+    { is = "exec", fg = "#a6e3a1" },
+
+    # Media files
+    { mime = "image/*", fg = "#f5c2e7" },
+    { mime = "{audio,video}/*", fg = "#f9e2af" },
+
+    # Documents
+    { mime = "application/pdf", fg = "#f38ba8" },
+    { mime = "application/*zip*", fg = "#f2cdcd" },
+    { mime = "application/x-tar", fg = "#f2cdcd" },
+    { mime = "application/x-bzip*", fg = "#f2cdcd" },
+    { mime = "application/x-7z*", fg = "#f2cdcd" },
+    { mime = "application/x-rar", fg = "#f2cdcd" },
+    { mime = "application/x-xz", fg = "#f2cdcd" },
+
+    # Plain text / config files
+    { mime = "text/*", fg = "#cdd6f4" },
+
+    # Symlinks
+    { is = "link", fg = "#94e2d5" },
+    { is = "orphan", fg = "#f38ba8" },
+]
+
+# ============================================================================
+# Icons (optional - can be extended)
+# ============================================================================
+[icon]
+prepend_dirs = []
+prepend_files = []
+prepend_exts = []

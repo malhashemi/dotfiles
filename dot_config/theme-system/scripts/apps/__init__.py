@@ -23,6 +23,7 @@ from .bottom import BottomTheme
 from .opencode import OpencodeTheme
 from .lazygit import LazygitTheme
 from .posting import PostingTheme
+from .yazi import YaziTheme
 
 
 def get_all_apps(config_home: Path) -> list:
@@ -55,6 +56,7 @@ def get_all_apps(config_home: Path) -> list:
         OpencodeTheme(config_home),
         LazygitTheme(config_home),
         PostingTheme(config_home),
+        YaziTheme(config_home),
     ]
 
 
@@ -74,5 +76,6 @@ __all__ = [
     "OpencodeTheme",
     "LazygitTheme",
     "PostingTheme",
+    "YaziTheme",
     "get_all_apps",
 ]

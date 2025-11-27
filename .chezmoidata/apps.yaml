@@ -1924,6 +1924,103 @@ apps:
       - "Official Catppuccin port at github.com/catppuccin/posting"
       - "8 core colors + extended sections (text_area, url, syntax, method)"
 
+  # ==========================================================================
+  # Yazi - Terminal File Manager (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  yazi:
+    # Basic Info
+    display_name: Yazi
+    config_file: ~/.config/yazi/yazi.toml
+    config_format: toml
+    app_type: tui
+    platform: cross_platform
+    homepage: https://yazi-rs.github.io/
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Uses flavor system with pre-created Catppuccin flavors"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates dynamic.yazi/flavor.toml with MD3 colors"
+    
+    # External File Configuration
+    external_files:
+      flavor:
+        path: ~/.config/yazi/flavors/{theme}.yazi/flavor.toml
+        format: toml
+        template: null
+        load_mechanism: "[flavor] dark/light reference in theme.toml"
+        notes: "Flavor directory with flavor.toml containing all UI colors"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "TUI app - transparency via terminal emulator (use bg = 'reset' in flavor)"
+    
+    # Reload Behavior
+    reload:
+      automatic: false
+      method: manual
+      manual_command: "Restart yazi (q then y)"
+      notes: "Hot reload deliberately NOT supported for performance"
+    
+    # Implementation Details
+    generator:
+      class: YaziTheme
+      module: apps.yazi
+      method: external_file
+      location: dot_config/theme-system/scripts/apps/yazi.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_flavor
+        - _update_theme_reference
+      notes: "Generates flavor.toml for dynamic themes, updates theme.toml reference"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/yazi"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      notes: "Official port with all flavors, also in yazi-rs/flavors"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences: "[opener] section uses 'for' attribute for platform-specific commands"
+      notes: "Same config works on all platforms with platform-specific openers"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: false
+      bootstrap_working: true
+      runtime_working: true
+      date_implemented: "2025-11-28"
+      research_doc: "thoughts/shared/research/2025-11-28_08-30-00_app-config-analysis-yazi.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "Yazi is Rust async file manager (blazing fast)"
+      - "Flavor system perfect for theme integration"
+      - "NO hot reload - restart required (design choice for performance)"
+      - "Image preview works with WezTerm out-of-box (Inline Images Protocol)"
+      - "Shell wrapper y() function enables cd on exit (already in zshrc)"
+      - "Official Catppuccin port at github.com/catppuccin/yazi"
+      - "Plugin system via ya pkg for extensibility"
+      - "Cross-platform: macOS, Linux, Windows, Termux"
+      - "Dependencies: ffmpegthumbnailer, ffmpeg, 7zip, jq, poppler, fd, rg"
+
 # ==========================================================================
 # Schema Field Definitions (for reference)
 # ==========================================================================

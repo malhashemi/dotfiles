@@ -1,0 +1,171 @@
+# ============================================================================
+# Yazi Keybindings - Power User Configuration
+# ============================================================================
+# Documentation: https://yazi-rs.github.io/docs/configuration/keymap
+# Note: Use prepend_keymap to add to defaults, keymap to replace entirely
+# ============================================================================
+
+# ============================================================================
+# Manager (main file list) keybindings
+# ============================================================================
+[mgr]
+prepend_keymap = [
+    # --------------------------------------------------------------------------
+    # Quick Directory Bookmarks (g prefix)
+    # --------------------------------------------------------------------------
+    { on = ["g", "h"], run = "cd ~", desc = "Go to Home" },
+    { on = ["g", "d"], run = "cd ~/Downloads", desc = "Go to Downloads" },
+    { on = ["g", "c"], run = "cd ~/.config", desc = "Go to .config" },
+    { on = ["g", "p"], run = "cd ~/Projects", desc = "Go to Projects" },
+    { on = ["g", "t"], run = "cd ~/tmp", desc = "Go to tmp" },
+    { on = ["g", "D"], run = "cd ~/Documents", desc = "Go to Documents" },
+    { on = ["g", "l"], run = "cd ~/.local/share/chezmoi", desc = "Go to dotfiles" },
+
+    # --------------------------------------------------------------------------
+    # Tool Integration (g prefix continued)
+    # --------------------------------------------------------------------------
+    { on = ["g", "g"], run = '''shell 'lazygit' --block''', desc = "Open lazygit" },
+    { on = ["g", "s"], run = '''shell "$SHELL" --block''', desc = "Open shell" },
+    { on = ["g", "e"], run = '''shell '$EDITOR .' --block''', desc = "Open in $EDITOR" },
+    { on = ["g", "n"], run = '''shell 'nvim .' --block''', desc = "Open in NeoVim" },
+
+    # --------------------------------------------------------------------------
+    # Copy Operations (c prefix)
+    # --------------------------------------------------------------------------
+    { on = ["c", "c"], run = "copy path", desc = "Copy absolute path" },
+    { on = ["c", "d"], run = "copy dirname", desc = "Copy directory path" },
+    { on = ["c", "f"], run = "copy filename", desc = "Copy filename" },
+    { on = ["c", "n"], run = "copy name_without_ext", desc = "Copy name without extension" },
+
+    # --------------------------------------------------------------------------
+    # File Operations
+    # --------------------------------------------------------------------------
+    { on = ["a"], run = "create", desc = "Create file/directory" },
+    { on = ["A"], run = "create --dir", desc = "Create directory" },
+    { on = ["R"], run = "rename --hovered", desc = "Rename file" },
+    # d = move to trash (built-in, works on macOS/Linux)
+    # D = permanently delete (bypass trash)
+
+    # --------------------------------------------------------------------------
+    # Search Operations (s prefix)
+    # --------------------------------------------------------------------------
+    { on = ["s", "f"], run = "search --via=fd", desc = "Search by name (fd)" },
+    { on = ["s", "g"], run = "search --via=rg", desc = "Search by content (rg)" },
+    { on = ["s", "n"], run = "search", desc = "Search (default)" },
+
+    # Flat view (recursive listing)
+    { on = ["s", "d"], run = "search --via=fd -d=3", desc = "Flat view (depth 3)" },
+
+    # --------------------------------------------------------------------------
+    # Filter Operations
+    # --------------------------------------------------------------------------
+    { on = ["f", "f"], run = "filter --smart", desc = "Filter files" },
+    { on = ["f", "c"], run = "filter --clear", desc = "Clear filter" },
+
+    # --------------------------------------------------------------------------
+    # Selection
+    # --------------------------------------------------------------------------
+    { on = ["<Space>"], run = ["toggle", "arrow 1"], desc = "Toggle selection + move down" },
+    { on = ["V"], run = "toggle_all", desc = "Toggle select all" },
+    { on = ["v"], run = "visual_mode", desc = "Visual mode" },
+
+    # --------------------------------------------------------------------------
+    # View Controls
+    # --------------------------------------------------------------------------
+    { on = ["H"], run = "hidden toggle", desc = "Toggle hidden files" },
+    { on = ["<C-h>"], run = "hidden toggle", desc = "Toggle hidden files" },
+    
+    # Sorting
+    { on = [";", "n"], run = "sort natural --reverse=no", desc = "Sort by name" },
+    { on = [";", "N"], run = "sort natural --reverse", desc = "Sort by name (reverse)" },
+    { on = [";", "m"], run = "sort mtime --reverse=no", desc = "Sort by modified time" },
+    { on = [";", "M"], run = "sort mtime --reverse", desc = "Sort by modified (reverse)" },
+    { on = [";", "s"], run = "sort size --reverse=no", desc = "Sort by size" },
+    { on = [";", "S"], run = "sort size --reverse", desc = "Sort by size (reverse)" },
+    { on = [";", "e"], run = "sort extension --reverse=no", desc = "Sort by extension" },
+
+    # Linemode (what shows beside filenames)
+    { on = [";", "l", "s"], run = "linemode size", desc = "Linemode: size" },
+    { on = [";", "l", "m"], run = "linemode mtime", desc = "Linemode: modified time" },
+    { on = [";", "l", "p"], run = "linemode permissions", desc = "Linemode: permissions" },
+    { on = [";", "l", "o"], run = "linemode owner", desc = "Linemode: owner" },
+    { on = [";", "l", "n"], run = "linemode none", desc = "Linemode: none" },
+
+    # --------------------------------------------------------------------------
+    # Tab Management
+    # --------------------------------------------------------------------------
+    { on = ["t", "n"], run = "tab_create --current", desc = "New tab (current dir)" },
+    { on = ["t", "c"], run = "tab_close", desc = "Close tab" },
+    { on = ["t", "l"], run = "tab_switch 1 --relative", desc = "Next tab" },
+    { on = ["t", "h"], run = "tab_switch -1 --relative", desc = "Previous tab" },
+    { on = ["<Tab>"], run = "tab_switch 1 --relative", desc = "Next tab" },
+    { on = ["<S-Tab>"], run = "tab_switch -1 --relative", desc = "Previous tab" },
+
+    # --------------------------------------------------------------------------
+    # Quick Actions
+    # --------------------------------------------------------------------------
+    { on = ["<Enter>"], run = "open", desc = "Open file" },
+    # l = enter directory / open file (default, not overridden)
+    { on = ["o"], run = "open --interactive", desc = "Open with..." },
+    { on = ["O"], run = "open --hovered --interactive", desc = "Open hovered with..." },
+    
+    # Archive operations (e = extract, keeps x free for cut)
+    { on = ["e"], run = "extract", desc = "Extract archive" },
+    
+    # Permissions
+    { on = ["c", "m"], run = '''shell 'chmod +x "$@"' --confirm''', desc = "Make executable" },
+]
+
+# ============================================================================
+# Input mode keybindings
+# ============================================================================
+[input]
+prepend_keymap = [
+    # Emacs-style navigation
+    { on = ["<C-a>"], run = "move 0", desc = "Move to start" },
+    { on = ["<C-e>"], run = "move 999", desc = "Move to end" },
+    { on = ["<C-f>"], run = "move 1", desc = "Move forward" },
+    { on = ["<C-b>"], run = "move -1", desc = "Move backward" },
+    { on = ["<C-w>"], run = "backward_kill_word", desc = "Delete word backward" },
+    { on = ["<C-u>"], run = "kill_to_start", desc = "Delete to start" },
+    { on = ["<C-k>"], run = "kill_to_end", desc = "Delete to end" },
+]
+
+# ============================================================================
+# Completion keybindings
+# ============================================================================
+[cmp]
+prepend_keymap = [
+    { on = ["<Tab>"], run = "arrow 1", desc = "Next completion" },
+    { on = ["<S-Tab>"], run = "arrow -1", desc = "Previous completion" },
+]
+
+# ============================================================================
+# Help keybindings
+# ============================================================================
+[help]
+prepend_keymap = [
+    { on = ["q"], run = "escape", desc = "Close help" },
+    { on = ["<Esc>"], run = "escape", desc = "Close help" },
+]
+
+# ============================================================================
+# Notes:
+# ============================================================================
+# 
+# Default keybindings reference:
+# https://github.com/sxyazi/yazi/blob/shipped/yazi-config/preset/keymap-default.toml
+#
+# Key defaults preserved:
+#   q           - Quit (with cd if using shell wrapper)
+#   Q           - Quit without cd
+#   h/j/k/l     - Navigation
+#   y/p/P       - Yank/paste
+#   r           - Rename (bulk rename with selection)
+#   /           - Search within current directory
+#   n/N         - Next/previous search result
+#   z           - Fuzzy file navigation (fzf)
+#   Z           - Zoxide directory jump
+#   ?           - Help
+#
+# ============================================================================
