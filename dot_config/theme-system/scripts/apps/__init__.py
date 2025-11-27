@@ -20,6 +20,7 @@ from .starship import StarshipTheme
 from .btop import BtopTheme
 from .television import TelevisionTheme
 from .bottom import BottomTheme
+from .opencode import OpencodeTheme
 
 
 def get_all_apps(config_home: Path) -> list:
@@ -49,6 +50,7 @@ def get_all_apps(config_home: Path) -> list:
         BtopTheme(config_home),
         TelevisionTheme(config_home),
         BottomTheme(config_home),
+        OpencodeTheme(config_home),
     ]
 
 
@@ -65,5 +67,6 @@ __all__ = [
     "BtopTheme",
     "TelevisionTheme",
     "BottomTheme",
+    "OpencodeTheme",
     "get_all_apps",
 ]
