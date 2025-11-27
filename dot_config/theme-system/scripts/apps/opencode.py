@@ -123,13 +123,10 @@ class OpencodeTheme(BaseApp):
                 # Text
                 "text": {"dark": "onSurface", "light": "onSurface"},
                 "textMuted": {"dark": "onSurfaceVariant", "light": "onSurfaceVariant"},
-                # Background
-                "background": {"dark": "background", "light": "background"},
-                "backgroundPanel": {"dark": "surface", "light": "surface"},
-                "backgroundElement": {
-                    "dark": "surfaceContainer",
-                    "light": "surfaceContainer",
-                },
+                # Background - use "none" to inherit from terminal (avoids double backgrounds)
+                "background": {"dark": "none", "light": "none"},
+                "backgroundPanel": {"dark": "none", "light": "none"},
+                "backgroundElement": {"dark": "none", "light": "none"},
                 # Border
                 "border": {"dark": "outlineVariant", "light": "outlineVariant"},
                 "borderActive": {"dark": "outline", "light": "outline"},
@@ -146,7 +143,7 @@ class OpencodeTheme(BaseApp):
                 "diffHighlightRemoved": {"dark": "error", "light": "error"},
                 "diffAddedBg": {"dark": "diffAddedBg", "light": "diffAddedBg"},
                 "diffRemovedBg": {"dark": "diffRemovedBg", "light": "diffRemovedBg"},
-                "diffContextBg": {"dark": "surface", "light": "surface"},
+                "diffContextBg": {"dark": "none", "light": "none"},
                 "diffLineNumber": {"dark": "outlineVariant", "light": "outlineVariant"},
                 "diffAddedLineNumberBg": {
                     "dark": "diffAddedLineNumberBg",
