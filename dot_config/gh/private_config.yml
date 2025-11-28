@@ -1,0 +1,43 @@
+# GitHub CLI configuration
+# Managed by chezmoi - https://cli.github.com/manual/gh_config
+version: 1
+
+# Git operations - use SSH for key-based auth
+git_protocol: ssh
+
+# Editor/Pager
+editor: nvim
+pager: less
+
+# Prompting
+prompt: enabled
+prefer_editor_prompt: disabled
+
+# Accessibility (uses terminal colors)
+color_labels: disabled
+accessible_colors: disabled
+accessible_prompter: disabled
+spinner: enabled
+
+# Aliases - https://cli.github.com/manual/gh_alias
+aliases:
+    # PR navigation
+    co: pr checkout
+    pv: pr view -w
+    
+    # PR workflows
+    dpr: pr create --draft --assignee @me
+    lpr: pr list --assignee @me
+    prs: pr status
+    lr: pr list --search "is:open review-requested:@me"
+    
+    # Issues
+    bugs: issue list --label=bugs
+    mine: issue list --assignee @me
+    
+    # Repository
+    browse: repo view -w
+    
+    # Utility
+    user: api user
+    runs: run list --limit 5
