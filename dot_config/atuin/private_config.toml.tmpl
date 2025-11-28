@@ -257,57 +257,31 @@ records = true
 ## The port that should be used for TCP on non unix systems
 # tcp_port = 8889
 
-# [theme]
-## Color theme to use for rendering in the terminal.
-## There are some built-in themes, including the base theme ("default"),
-## "autumn" and "marine". You can add your own themes to the "./themes" subdirectory of your
-## Atuin config (or ATUIN_THEME_DIR, if provided) as TOML files whose keys should be one or
-## more of AlertInfo, AlertWarn, AlertError, Annotation, Base, Guidance, Important, and
-## the string values as lowercase entries from this list:
-##    https://ogeon.github.io/docs/palette/master/palette/named/index.html
-## If you provide a custom theme file, it should be  called "NAME.toml" and the theme below
-## should be the stem, i.e. `theme = "NAME"` for your chosen NAME.
-# name = "autumn"
-
-## Whether the theme manager should output normal or extra information to help fix themes.
-## Boolean, true or false. If unset, left up to the theme manager.
-# debug = true
-
 [search]
 ## The list of enabled filter modes, in order of priority.
 ## The "workspace" mode is skipped when not in a workspace or workspaces = false.
 ## Default filter mode can be overridden with the filter_mode setting.
 # filters = [ "global", "host", "session", "workspace", "directory" ]
 
-# [theme]
-# name = "catppuccin-mocha-mauve"
-
-# [theme]
-# name = "catppuccin-mocha-mauve"
-
-# [theme]
-# name = "catppuccin-mocha-mauve"
-
-# [theme]
-# name = "catppuccin-mocha-mauve"
-
-# [theme]
-# name = "catppuccin-mocha-mauve"
-
-# [theme]
-# name = "catppuccin-mocha-mauve"
-
-# [theme]
-# name = "catppuccin-mocha-mauve"
-
-# [theme]
-# name = "catppuccin-mocha-mauve"
-
-# [theme]
-# name = "catppuccin-mocha-mauve"
-
-# [theme]
-# name = "catppuccin-mocha-mauve"
+# =============================================================================
+# Theme Configuration
+# =============================================================================
+# This section is managed by both chezmoi (bootstrap) and theme-manager.py (runtime).
+# The theme name is read from .chezmoidata/theme.yaml to ensure consistency.
+#
+# Available themes:
+#   - "dynamic" - Material Design 3 colors from wallpaper
+#   - "catppuccin-mocha-mauve" - Dark theme
+#   - "catppuccin-latte-mauve" - Light theme
+#   - "catppuccin-frappe-mauve" - Dark theme (less saturated)
+#   - "catppuccin-macchiato-mauve" - Dark theme (warmer)
+#
+# Change theme with: theme set mocha|latte|frappe|macchiato|dynamic
+# =============================================================================
 
 [theme]
+{{- if eq .theme.name "dynamic" }}
 name = "dynamic"
+{{- else }}
+name = "catppuccin-{{ .theme.name }}-mauve"
+{{- end }}
