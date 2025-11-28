@@ -32,6 +32,7 @@
 #   ✅ Yazi          - apps/yazi.py          - External file method (flavor.toml) [NEW 2025-11-28]
 #   ✅ gitui         - apps/gitui.py         - External file method RON (130 lines) [NEW 2025-11-28]
 #   ✅ Zed           - apps/zed.py           - Hybrid method (builtin + external) [NEW 2025-11-28]
+#   ✅ glow          - apps/glow.py          - External file method JSON (glamour) [NEW 2025-11-28]
 #
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
@@ -39,8 +40,8 @@
 # Managed but NOT themed:
 #   ⭕ gh (GitHub CLI) - No theming needed, just config preferences
 #
-# Architecture Completion: 18/18 apps (100%) ✅
-# Total themed apps: 18 modular + 0 legacy = 18 apps
+# Architecture Completion: 19/19 apps (100%) ✅
+# Total themed apps: 19 modular + 0 legacy = 19 apps
 # ==========================================================================
 
 apps:
@@ -2257,6 +2258,106 @@ apps:
       - "NO opacity/transparency support (feature requested but not implemented)"
       - "Windows config path differs from macOS/Linux"
       - "Icon theme syncs with color theme for Catppuccin"
+
+  # ==========================================================================
+  # glow - TUI Markdown Viewer (NEW 2025-11-28)
+  # ==========================================================================
+  glow:
+    # Basic Info
+    display_name: glow
+    config_file: ~/.config/glow/glow.yml
+    config_format: yaml
+    app_type: tui
+    platform: cross_platform
+    homepage: https://github.com/charmbracelet/glow
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Uses pre-installed Catppuccin glamour JSON themes"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates dynamic.json with Material Design 3 colors"
+    
+    # External File Configuration
+    external_files:
+      theme:
+        path: ~/.config/glow/themes/{theme_name}.json
+        format: json
+        template: null
+        load_mechanism: "style key in glow.yml points to JSON path"
+        notes: "Glamour style JSON with markdown elements + Chroma syntax highlighting"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "TUI app - transparency controlled by terminal emulator"
+    
+    # Reload Behavior
+    reload:
+      automatic: false
+      method: on_demand
+      manual_command: null
+      reload_time: instant
+      notes: "On-demand CLI tool - config read fresh on each invocation"
+    
+    # Implementation Details
+    generator:
+      class: GlowTheme
+      module: apps.glow
+      method: external_file
+      location: dot_config/theme-system/scripts/apps/glow.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_theme
+        - _build_glamour_style
+        - _build_chroma_style
+        - _update_config
+      notes: "Generates glamour JSON for dynamic themes, uses pre-installed Catppuccin for static"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/glamour"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      notes: "Official glamour themes, also works with slides, GitHub CLI, GitLab CLI"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences:
+        - "Config at ~/Library/Preferences/glow/ on macOS (official), ~/.config/glow/ also works"
+      notes: "Same config works on all platforms - store in ~/.config/glow/"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true
+      runtime_working: true
+      date_implemented: "2025-11-28"
+      research_doc: "thoughts/shared/research/2025-11-28_12-41-19_app-config-analysis-glow.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "glow is Charmbracelet's TUI markdown viewer (17k+ GitHub stars)"
+      - "Uses glamour library for JSON-based markdown styling"
+      - "Official Catppuccin port at github.com/catppuccin/glamour"
+      - "No hot-reload - on-demand CLI reads config fresh each invocation"
+      - "50+ style keys including full Chroma syntax highlighting"
+      - "Built-in themes: auto, dark, light, dracula, tokyo-night, pink, ascii, notty"
+      - "Cross-platform: macOS, Linux, Windows, Termux"
+      - "TUI app - transparency controlled by terminal emulator"
 
 # ==========================================================================
 # Schema Field Definitions (for reference)
