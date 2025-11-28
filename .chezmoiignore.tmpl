@@ -9,6 +9,11 @@
 .config/waybar/**
 {{- end }}
 
+# GUI-only apps - exclude on headless systems
+{{- if .is_headless }}
+.config/zed/
+{{- end }}
+
 # Always ignore
 .git/
 .DS_Store
@@ -23,6 +28,10 @@ thoughts/
 # ncspot runtime state (changes constantly)
 .config/ncspot/userstate.cbor
 
+# gh (GitHub CLI) - sensitive files (tokens, ephemeral state)
+.config/gh/hosts.yml
+.config/gh/state.yml
+
 # Theme system dynamically generates these at runtime
 # (based on wallpaper colors - don't let chezmoi overwrite them)
 .config/sketchybar/colors-sketchybar.sh
@@ -32,3 +41,4 @@ thoughts/
 .config/borders/bordersrc
 .config/atuin/themes/dynamic.toml
 .config/ncspot/config.toml
+.config/zed/themes/dynamic.json

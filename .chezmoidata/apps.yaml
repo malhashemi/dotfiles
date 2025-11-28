@@ -2145,6 +2145,115 @@ apps:
       - "Vim-style keybindings included (key_bindings.ron)"
       - "Faster than lazygit (Rust vs Go) but less popular"
 
+  # ==========================================================================
+  # Zed - GPU-Accelerated Code Editor (NEW 2025-11-28)
+  # ==========================================================================
+  zed:
+    # Basic Info
+    display_name: Zed
+    config_file: ~/.config/zed/settings.json
+    config_format: jsonc
+    app_type: gui_editor
+    platform: cross_platform
+    homepage: https://zed.dev/
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: builtin
+          enabled: true
+          notes: "Uses official Catppuccin extension themes"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates dynamic.json theme file in themes/ directory"
+    
+    # External File Configuration
+    external_files:
+      theme:
+        path: ~/.config/zed/themes/dynamic.json
+        format: json
+        template: null
+        load_mechanism: "theme reference in settings.json"
+        notes: "Zed theme file following v0.2.0 schema"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "Zed does not support window transparency (feature requested but not implemented)"
+    
+    # Reload Behavior
+    reload:
+      automatic: true
+      method: file_watch
+      manual_command: null
+      reload_time: "< 1s"
+      notes: "settings.json hot-reloads automatically. Theme files in themes/ require restart."
+    
+    # Implementation Details
+    generator:
+      class: ZedTheme
+      module: apps.zed
+      method: hybrid
+      location: dot_config/theme-system/scripts/apps/zed.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_theme
+        - _build_style
+        - _update_config
+      notes: "Hybrid: builtin for static, external_file for dynamic"
+    
+    # Theme Structure
+    config_structure:
+      theme:
+        mode: "system"
+        light: "theme name for light mode"
+        dark: "theme name for dark mode"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/zed"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      icon_theme: "Catppuccin Icons (separate extension)"
+      notes: "Official extension available in Zed Extensions marketplace"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: partial
+      platform_differences:
+        macos: "~/.config/zed/"
+        linux: "~/.config/zed/ or $XDG_CONFIG_HOME/zed/"
+        windows: "%USERPROFILE%\\AppData\\Roaming\\Zed\\"
+      notes: "Config format identical, paths differ on Windows"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true
+      runtime_working: true
+      date_implemented: "2025-11-28"
+      research_doc: "thoughts/shared/research/2025-11-28_01-16-35_app-config-analysis-zed.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "Zed is GPU-accelerated code editor (Rust-based)"
+      - "Official Catppuccin extension available with all flavors"
+      - "Config uses JSONC (JSON with comments) - comment loss on write"
+      - "Settings hot-reload automatically"
+      - "Theme files in themes/ directory require Zed restart"
+      - "NO opacity/transparency support (feature requested but not implemented)"
+      - "Windows config path differs from macOS/Linux"
+      - "Icon theme syncs with color theme for Catppuccin"
+
 # ==========================================================================
 # Schema Field Definitions (for reference)
 # ==========================================================================
