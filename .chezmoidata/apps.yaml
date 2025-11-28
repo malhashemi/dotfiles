@@ -31,12 +31,16 @@
 #   ✅ Posting       - apps/posting.py       - External file method YAML (175 lines) [NEW 2025-11-28]
 #   ✅ Yazi          - apps/yazi.py          - External file method (flavor.toml) [NEW 2025-11-28]
 #   ✅ gitui         - apps/gitui.py         - External file method RON (130 lines) [NEW 2025-11-28]
+#   ✅ Zed           - apps/zed.py           - Hybrid method (builtin + external) [NEW 2025-11-28]
 #
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
 #
-# Architecture Completion: 17/17 apps (100%) ✅
-# Total themed apps: 17 modular + 0 legacy = 17 apps
+# Managed but NOT themed:
+#   ⭕ gh (GitHub CLI) - No theming needed, just config preferences
+#
+# Architecture Completion: 18/18 apps (100%) ✅
+# Total themed apps: 18 modular + 0 legacy = 18 apps
 # ==========================================================================
 
 apps:
