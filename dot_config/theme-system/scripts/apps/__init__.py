@@ -24,6 +24,7 @@ from .opencode import OpencodeTheme
 from .lazygit import LazygitTheme
 from .posting import PostingTheme
 from .yazi import YaziTheme
+from .gitui import GituiTheme
 
 
 def get_all_apps(config_home: Path) -> list:
@@ -57,6 +58,7 @@ def get_all_apps(config_home: Path) -> list:
         LazygitTheme(config_home),
         PostingTheme(config_home),
         YaziTheme(config_home),
+        GituiTheme(config_home),
     ]
 
 
@@ -77,5 +79,6 @@ __all__ = [
     "LazygitTheme",
     "PostingTheme",
     "YaziTheme",
+    "GituiTheme",
     "get_all_apps",
 ]

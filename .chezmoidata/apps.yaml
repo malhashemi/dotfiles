@@ -29,12 +29,14 @@
 #   ✅ OpenCode      - apps/opencode.py      - Builtin theme method
 #   ✅ lazygit       - apps/lazygit.py       - Inline surgical swap YAML (140 lines) [NEW 2025-11-28]
 #   ✅ Posting       - apps/posting.py       - External file method YAML (175 lines) [NEW 2025-11-28]
+#   ✅ Yazi          - apps/yazi.py          - External file method (flavor.toml) [NEW 2025-11-28]
+#   ✅ gitui         - apps/gitui.py         - External file method RON (130 lines) [NEW 2025-11-28]
 #
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
 #
-# Architecture Completion: 15/15 apps (100%) ✅
-# Total themed apps: 15 modular + 0 legacy = 15 apps
+# Architecture Completion: 17/17 apps (100%) ✅
+# Total themed apps: 17 modular + 0 legacy = 17 apps
 # ==========================================================================
 
 apps:
@@ -2020,6 +2022,128 @@ apps:
       - "Plugin system via ya pkg for extensibility"
       - "Cross-platform: macOS, Linux, Windows, Termux"
       - "Dependencies: ffmpegthumbnailer, ffmpeg, 7zip, jq, poppler, fd, rg"
+
+  # ==========================================================================
+  # gitui - Blazingly Fast Terminal UI for Git (NEW 2025-11-28)
+  # ==========================================================================
+  gitui:
+    # Basic Info
+    display_name: gitui
+    config_file: ~/.config/gitui/theme.ron
+    config_format: ron
+    app_type: tui
+    platform: cross_platform
+    homepage: https://github.com/gitui-org/gitui
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates theme.ron with Catppuccin colors"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates theme.ron with Material Design 3 colors"
+    
+    # External File Configuration
+    external_files:
+      theme:
+        path: ~/.config/gitui/theme.ron
+        format: ron
+        template: null
+        load_mechanism: "Auto-loaded from config directory"
+        notes: "RON format with 21 color keys wrapped in Some()"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "TUI app - transparency controlled by terminal emulator"
+    
+    # Reload Behavior
+    reload:
+      automatic: false
+      method: manual
+      manual_command: "Quit (q) and restart gitui"
+      signal_support: false
+      notes: "NO hot-reload capability - must restart to apply changes"
+    
+    # Implementation Details
+    generator:
+      class: GituiTheme
+      module: apps.gitui
+      method: external_file
+      location: dot_config/theme-system/scripts/apps/gitui.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_colors
+        - _generate_static_colors
+        - _format_ron
+      notes: "Generates complete theme.ron file; RON format via string templating"
+    
+    # Color Keys (21 gitui-specific color keys)
+    theme_keys:
+      - selected_tab
+      - command_fg
+      - selection_bg
+      - selection_fg
+      - cmdbar_bg
+      - cmdbar_extra_lines_bg
+      - disabled_fg
+      - diff_line_add
+      - diff_line_delete
+      - diff_file_added
+      - diff_file_removed
+      - diff_file_moved
+      - diff_file_modified
+      - commit_hash
+      - commit_time
+      - commit_author
+      - danger_fg
+      - push_gauge_bg
+      - push_gauge_fg
+      - tag_fg
+      - branch_fg
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      repository: "https://github.com/catppuccin/gitui"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      notes: "Official port with all flavors; uses Whiskers templating"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences:
+        - "Windows uses %APPDATA%\\gitui\\ (handled by chezmoi)"
+      notes: "Same config works on all platforms"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: false
+      date_implemented: "2025-11-28"
+      research_doc: "thoughts/shared/research/2025-11-28_00-35-00_app-config-analysis-gitui.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "gitui is Rust TUI (18k+ GitHub stars)"
+      - "Cross-platform: macOS, Linux, Windows, Termux"
+      - "NO hot-reload - must restart to apply config changes"
+      - "RON format (unique) - no native Python library, use string templating"
+      - "Official Catppuccin port at github.com/catppuccin/gitui"
+      - "21 color keys for comprehensive theming"
+      - "Use 'Reset' for selected_tab to inherit terminal transparency"
+      - "Vim-style keybindings included (key_bindings.ron)"
+      - "Faster than lazygit (Rust vs Go) but less popular"
 
 # ==========================================================================
 # Schema Field Definitions (for reference)
