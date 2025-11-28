@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+{{ if ne .chezmoi.os "darwin" -}}
+# Skip on non-macOS systems
+exit 0
+{{ end -}}
+
+set -e
+
+echo "=========================================="
+echo "  macOS Package Installation"
+echo "=========================================="
+
+# Check for Homebrew
+if ! command -v brew &> /dev/null; then
+    echo "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    
+    # Add Homebrew to PATH for this session
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
+
+echo ""
+echo "Adding taps..."
+echo "-------------------------------------------"
+brew tap charmbracelet/tap
+brew tap felixkratz/formulae
+brew tap gromgit/brewtils
+brew tap lhvy/tap
+brew tap nikitabobko/tap
+brew tap oven-sh/bun
+brew tap sst/tap
+brew tap valkyrie00/bbrew
+
+echo ""
+echo "Installing core CLI tools..."
+echo "-------------------------------------------"
+brew install \
+    chezmoi \
+    git gh lazygit gitui git-delta \
+    neovim \
+    bat eza fd ripgrep fzf \
+    zoxide yazi television \
+    just jq tree xh
+
+echo ""
+echo "Installing shell enhancements..."
+echo "-------------------------------------------"
+brew install \
+    starship \
+    atuin \
+    zinit \
+    zsh-autosuggestions \
+    zsh-fast-syntax-highlighting \
+    zsh-autocomplete \
+    zsh-autopair
+
+echo ""
+echo "Installing TUI apps..."
+echo "-------------------------------------------"
+brew install \
+    btop bottom \
+    ncspot spotify_player spotifyd \
+    cava \
+    posting
+
+echo ""
+echo "Installing languages & runtimes..."
+echo "-------------------------------------------"
+brew install \
+    rust go lua \
+    node oven-sh/bun/bun deno \
+    uv pipx
+
+echo ""
+echo "Installing language servers..."
+echo "-------------------------------------------"
+brew install \
+    lua-language-server \
+    typescript-language-server \
+    yaml-language-server \
+    vscode-langservers-extracted \
+    cmake-language-server \
+    dockerfile-language-server \
+    tailwindcss-language-server \
+    sql-language-server \
+    kotlin-language-server \
+    texlab marksman zls taplo
+
+echo ""
+echo "Installing macOS-specific tools..."
+echo "-------------------------------------------"
+brew install \
+    felixkratz/formulae/borders \
+    felixkratz/formulae/sketchybar \
+    matugen wallpaper
+
+echo ""
+echo "Installing utilities..."
+echo "-------------------------------------------"
+brew install \
+    mosh \
+    ffmpeg imagemagick \
+    p7zip sevenzip unzip \
+    rclone \
+    speedtest-cli gping \
+    fastfetch \
+    figlet toilet cmatrix lhvy/tap/pipes-rs tty-clock
+
+echo ""
+echo "Installing other dev tools..."
+echo "-------------------------------------------"
+brew install \
+    sst/tap/opencode \
+    charmbracelet/tap/crush \
+    gromgit/brewtils/taproom \
+    valkyrie00/bbrew/bbrew \
+    biome repomix dart-sdk llvm cmake-language-server
+
+echo ""
+echo "Installing GUI apps (casks)..."
+echo "-------------------------------------------"
+brew install --cask \
+    wezterm \
+    neovide-app \
+    aerospace \
+    flameshot \
+    docker-desktop \
+    visual-studio-code
+
+echo ""
+echo "Installing fonts..."
+echo "-------------------------------------------"
+brew install --cask \
+    font-jetbrains-mono \
+    font-jetbrains-mono-nerd-font \
+    font-hack-nerd-font \
+    font-monocraft \
+    font-fontawesome \
+    font-symbols-only-nerd-font \
+    font-barlow \
+    font-inter
+
+echo ""
+echo "Installing Go tools..."
+echo "-------------------------------------------"
+go install github.com/nametake/golangci-lint-langserver@latest
+go install golang.org/x/tools/gopls@latest
+go install honnef.co/go/tools/cmd/staticcheck@latest
+
+echo ""
+echo "=========================================="
+echo "  Installation Complete!"
+echo "=========================================="
+echo ""
+echo "Next steps:"
+echo "  1. Restart your terminal"
+echo "  2. Run: chezmoi apply"
+echo "  3. Start services: brew services start borders && brew services start sketchybar"
+echo "  4. Configure aerospace in System Settings > Login Items"
+echo ""
