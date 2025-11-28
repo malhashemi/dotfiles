@@ -93,7 +93,13 @@ echo "-------------------------------------------"
 brew install \
     felixkratz/formulae/borders \
     felixkratz/formulae/sketchybar \
-    matugen wallpaper
+    wallpaper
+
+# matugen is not in Homebrew - install via cargo
+if ! command -v matugen &> /dev/null; then
+    echo "Installing matugen via cargo..."
+    cargo install matugen
+fi
 
 echo ""
 echo "Installing utilities..."
@@ -120,26 +126,20 @@ brew install \
 echo ""
 echo "Installing GUI apps (casks)..."
 echo "-------------------------------------------"
-brew install --cask \
-    wezterm \
-    neovide-app \
-    aerospace \
-    flameshot \
-    docker-desktop \
-    visual-studio-code
+# Install casks individually to handle errors gracefully
+# (some casks have buggy definitions that fail even when installed)
+for cask in wezterm neovide-app aerospace flameshot docker-desktop visual-studio-code; do
+    brew install --cask "$cask" 2>/dev/null || echo "  ⚠️  $cask: skipped (already installed or error)"
+done
 
 echo ""
 echo "Installing fonts..."
 echo "-------------------------------------------"
-brew install --cask \
-    font-jetbrains-mono \
-    font-jetbrains-mono-nerd-font \
-    font-hack-nerd-font \
-    font-monocraft \
-    font-fontawesome \
-    font-symbols-only-nerd-font \
-    font-barlow \
-    font-inter
+for font in font-jetbrains-mono font-jetbrains-mono-nerd-font font-hack-nerd-font \
+            font-monocraft font-fontawesome font-symbols-only-nerd-font \
+            font-barlow font-inter; do
+    brew install --cask "$font" 2>/dev/null || echo "  ⚠️  $font: skipped (already installed or error)"
+done
 
 echo ""
 echo "Installing Go tools..."
