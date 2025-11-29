@@ -208,9 +208,20 @@ done
 
 print_header "NPM Packages"
 if command -v npm &>/dev/null; then
+    # Map package names to binary names for existence check
+    declare -A npm_bins=(
+        ["typescript-language-server"]="typescript-language-server"
+        ["vscode-langservers-extracted"]="vscode-html-language-server"
+        ["@anthropic-ai/claude-code"]="claude"
+        ["prettier"]="prettier"
+        ["eslint"]="eslint"
+    )
+    
     for pkg in typescript-language-server vscode-langservers-extracted \
                @anthropic-ai/claude-code prettier eslint; do
-        if npm list -g "$pkg" &>/dev/null; then
+        bin="${npm_bins[$pkg]}"
+        # Check if binary exists (installed via npm OR pacman/AUR)
+        if command -v "$bin" &>/dev/null || npm list -g "$pkg" &>/dev/null; then
             print_skip "$pkg"
         elif sudo npm install -g "$pkg" &>/dev/null; then
             print_success "$pkg"
@@ -331,4 +342,6 @@ echo ""
 echo -e "  ${YELLOW}Note: Log out and back in for docker group to take effect${NC}"
 echo ""
 
-[[ $FAILED -gt 0 ]] && exit 1 || exit 0
+# Always exit 0 - failed packages are warnings, not blockers
+# This allows chezmoi to continue applying dotfiles
+exit 0
