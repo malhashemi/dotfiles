@@ -65,6 +65,26 @@ atuin login        # Shell history sync
 
 > **Note**: AeroSpace auto-starts at login and launches SketchyBar + Borders automatically.
 
+### Managing Secrets
+
+| Task | Steps |
+|------|-------|
+| **Update existing secret** | Edit in Bitwarden → `bw sync` → `chezmoi apply` |
+| **Add new secret** | 1. Add field in Bitwarden<br>2. Add line to `dot_secrets.tmpl`<br>3. `chezmoi apply` |
+| **After `bw logout`** | `bw login` → recreate `~/.bitwarden_session` |
+
+**Adding a new secret example:**
+
+```bash
+# 1. In Bitwarden: Add custom field "OPENAI_API_KEY" to dotfiles-secrets item
+
+# 2. In dot_secrets.tmpl: Add the export line
+export OPENAI_API_KEY="{{ $secrets.OPENAI_API_KEY.value }}"
+
+# 3. Apply
+bw sync && chezmoi apply
+```
+
 ---
 
 ## Theme System
