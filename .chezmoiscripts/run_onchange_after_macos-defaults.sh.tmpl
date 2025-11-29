@@ -1,0 +1,122 @@
+#!/usr/bin/env bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+{{ if ne .chezmoi.os "darwin" -}}
+# Skip on non-macOS systems
+exit 0
+{{ end -}}
+
+set -e
+
+echo "=========================================="
+echo "  macOS System Defaults"
+echo "=========================================="
+
+###############################################################################
+# DOCK
+###############################################################################
+echo "Configuring Dock..."
+defaults write com.apple.dock autohide -bool true
+echo "  ✓ Dock: auto-hide enabled"
+
+###############################################################################
+# MENU BAR
+###############################################################################
+echo "Configuring Menu Bar..."
+defaults write NSGlobalDomain _HIHideMenuBar -bool true
+echo "  ✓ Menu bar: auto-hide enabled"
+echo "  ⚠️  Note: May require logout on Ventura/Sonoma/Tahoe"
+
+###############################################################################
+# FINDER
+###############################################################################
+echo "Configuring Finder..."
+defaults write NSGlobalDomain AppleShowAllExtensions -bool true
+defaults write com.apple.finder ShowPathbar -bool true
+defaults write com.apple.finder ShowStatusBar -bool true
+defaults write com.apple.finder FXDefaultSearchScope -string "SCcf"
+defaults write com.apple.desktopservices DSDontWriteNetworkStores -bool true
+defaults write com.apple.desktopservices DSDontWriteUSBStores -bool true
+defaults write com.apple.finder _FXSortFoldersFirst -bool true
+defaults write com.apple.finder FXEnableExtensionChangeWarning -bool false
+echo "  ✓ Finder configured"
+
+###############################################################################
+# KEYBOARD (FOR VIM USERS) - USER APPROVED
+###############################################################################
+echo "Configuring Keyboard..."
+defaults write NSGlobalDomain KeyRepeat -int 2
+defaults write NSGlobalDomain InitialKeyRepeat -int 15
+defaults write NSGlobalDomain ApplePressAndHoldEnabled -bool false
+defaults write NSGlobalDomain AppleKeyboardUIMode -int 3
+echo "  ✓ Keyboard configured (fast repeat enabled)"
+echo "  ⚠️  Key repeat changes require logout"
+
+###############################################################################
+# SCREENSHOTS
+###############################################################################
+echo "Configuring Screenshots..."
+mkdir -p "${HOME}/Pictures/Screenshots"
+defaults write com.apple.screencapture location -string "${HOME}/Pictures/Screenshots"
+defaults write com.apple.screencapture disable-shadow -bool true
+echo "  ✓ Screenshots will save to ~/Pictures/Screenshots"
+
+###############################################################################
+# TEXT INPUT
+###############################################################################
+echo "Configuring Text Input..."
+defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+echo "  ✓ Text input configured for coding"
+
+###############################################################################
+# SAVE/PRINT DIALOGS
+###############################################################################
+echo "Configuring Dialogs..."
+defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode -bool true
+defaults write NSGlobalDomain NSNavPanelExpandedStateForSaveMode2 -bool true
+defaults write NSGlobalDomain PMPrintingExpandedStateForPrint -bool true
+defaults write NSGlobalDomain PMPrintingExpandedStateForPrint2 -bool true
+defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
+echo "  ✓ Dialogs configured"
+
+###############################################################################
+# CAPS LOCK ↔ ESCAPE SWAP
+###############################################################################
+echo "Configuring Caps Lock ↔ Escape swap..."
+
+# Apply immediately for current session
+hidutil property --set '{"UserKeyMapping":[
+    {"HIDKeyboardModifierMappingSrc": 0x700000029, "HIDKeyboardModifierMappingDst": 0x700000039},
+    {"HIDKeyboardModifierMappingSrc": 0x700000039, "HIDKeyboardModifierMappingDst": 0x700000029}
+]}' >/dev/null
+
+# Load LaunchAgent for persistence (if not already loaded)
+launchctl load -w ~/Library/LaunchAgents/com.local.KeyRemapping.plist 2>/dev/null || true
+
+echo "  ✓ Caps Lock ↔ Escape swapped"
+
+###############################################################################
+# RESTART AFFECTED APPLICATIONS
+###############################################################################
+echo ""
+echo "Restarting affected applications..."
+
+for app in "Dock" "Finder" "SystemUIServer"; do
+    killall "${app}" &> /dev/null || true
+done
+
+echo "  ✓ Dock, Finder, SystemUIServer restarted"
+
+###############################################################################
+# SUMMARY
+###############################################################################
+echo ""
+echo "=========================================="
+echo "  macOS Defaults Applied!"
+echo "=========================================="
+echo ""
+echo "⚠️  Some settings require logout to take effect:"
+echo "   • Key repeat rate"
+echo "   • Menu bar auto-hide (on newer macOS)"
+echo ""
