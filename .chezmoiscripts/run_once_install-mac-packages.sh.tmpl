@@ -100,7 +100,7 @@ brew install \
 # matugen is not in Homebrew - install via cargo
 if ! command -v matugen &> /dev/null; then
     echo "Installing matugen via cargo..."
-    cargo install matugen
+    cargo install --locked matugen
 fi
 
 echo ""
@@ -123,7 +123,8 @@ brew install \
     charmbracelet/tap/crush \
     gromgit/brewtils/taproom \
     valkyrie00/bbrew/bbrew \
-    biome repomix dart-sdk llvm cmake-language-server
+    biome repomix dart-sdk llvm cmake-language-server \
+    gemini-cli
 
 echo ""
 echo "Installing GUI apps (casks)..."
@@ -149,6 +150,30 @@ echo "-------------------------------------------"
 go install github.com/nametake/golangci-lint-langserver@latest
 go install golang.org/x/tools/gopls@latest
 go install honnef.co/go/tools/cmd/staticcheck@latest
+
+echo ""
+echo "Installing Cargo tools..."
+echo "-------------------------------------------"
+# just-lsp - Language server for Just task runner files
+# Note: taplo is installed via Homebrew above
+cargo install --locked just-lsp
+
+echo ""
+echo "Installing npm global tools..."
+echo "-------------------------------------------"
+# AI coding assistant
+npm install -g @anthropic-ai/claude-code
+
+# Code formatters and linters (complement biome for legacy projects)
+npm install -g prettier
+npm install -g eslint
+
+# Language servers (not available in Homebrew)
+npm install -g @astrojs/language-server
+npm install -g svelte-language-server
+
+# Testing
+npm install -g playwright
 
 echo ""
 echo "=========================================="
