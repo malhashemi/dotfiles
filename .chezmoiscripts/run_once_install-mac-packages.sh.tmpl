@@ -71,7 +71,24 @@ brew_pkg() {
 # Install cask
 brew_cask() {
     local cask="$1"
+    # Map cask names to app names for detection
+    local app_name
+    case "$cask" in
+        ghostty) app_name="Ghostty" ;;
+        zen) app_name="Zen" ;;
+        wezterm) app_name="WezTerm" ;;
+        neovide-app) app_name="Neovide" ;;
+        aerospace) app_name="AeroSpace" ;;
+        docker-desktop) app_name="Docker" ;;
+        visual-studio-code) app_name="Visual Studio Code" ;;
+        *) app_name="" ;;
+    esac
+    
+    # Check if managed by Homebrew
     if brew list --cask "$cask" &>/dev/null; then
+        print_skip "$cask"
+    # Check if app exists in /Applications (installed outside Homebrew)
+    elif [[ -n "$app_name" && -d "/Applications/${app_name}.app" ]]; then
         print_skip "$cask"
     elif brew install --cask "$cask" &>/dev/null; then
         print_success "$cask"
