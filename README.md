@@ -19,6 +19,7 @@ Cross-platform dotfiles managed by [chezmoi](https://chezmoi.io/) with a unified
 ### Prerequisites
 
 - Git with SSH key configured for GitHub
+- [Bitwarden](https://bitwarden.com/) account (for secrets management)
 - (Optional) [Tailscale](https://tailscale.com/) for cross-machine sync
 
 ### Installation
@@ -28,17 +29,38 @@ Cross-platform dotfiles managed by [chezmoi](https://chezmoi.io/) with a unified
 brew install chezmoi  # macOS
 # or: sh -c "$(curl -fsLS get.chezmoi.io)"  # Universal
 
-# Initialize and apply
+# Initialize (installs packages, shows setup instructions)
 chezmoi init git@github.com:malhashemi/dotfiles.git
-chezmoi diff    # Review changes
-chezmoi apply   # Apply everything
 ```
 
-### Post-Install (Manual Steps)
+### Secrets Setup (Required Before Apply)
+
+Secrets are stored in Bitwarden and pulled by chezmoi. **Do this before `chezmoi apply`:**
+
+```bash
+# 1. Login to Bitwarden
+bw login
+
+# 2. Create persistent session (one-time)
+bw unlock --raw > ~/.bitwarden_session
+chmod 600 ~/.bitwarden_session
+```
+
+> **First time?** Create a Bitwarden item named `dotfiles-secrets` with custom fields for your API keys.
+> See `~/.local/share/chezmoi/dot_secrets.example` for required fields.
+
+### Apply Configuration
+
+```bash
+chezmoi diff    # Review changes
+chezmoi apply   # Apply everything (secrets included)
+```
+
+### Post-Install (Optional)
 
 ```bash
 gh auth login      # GitHub CLI authentication
-atuin login        # Shell history sync (optional)
+atuin login        # Shell history sync
 ```
 
 > **Note**: AeroSpace auto-starts at login and launches SketchyBar + Borders automatically.

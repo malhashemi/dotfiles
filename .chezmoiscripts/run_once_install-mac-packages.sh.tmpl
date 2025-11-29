@@ -144,7 +144,7 @@ done
 print_header "Core CLI Tools"
 for pkg in chezmoi git gh lazygit gitui git-delta neovim \
            bat eza fd ripgrep fzf zoxide yazi television \
-           just jq tree xh; do
+           just jq tree xh bitwarden-cli; do
     brew_pkg "$pkg"
 done
 
@@ -279,10 +279,23 @@ fi
 
 echo -e "${DIM}  ─────────────────────────────────────────────────────${NC}"
 echo ""
-echo -e "  ${BOLD}Next steps:${NC}"
-echo -e "     ${CYAN}1.${NC} Restart your terminal"
-echo -e "     ${CYAN}2.${NC} Run: ${BOLD}gh auth login${NC}"
-echo -e "     ${CYAN}3.${NC} Run: ${BOLD}atuin login${NC} ${DIM}(optional)${NC}"
+echo -e "  ${BOLD}${YELLOW}⚠ IMPORTANT: Setup Bitwarden before next chezmoi apply${NC}"
+echo ""
+echo -e "  ${BOLD}Bitwarden Setup (required for secrets):${NC}"
+echo -e "     ${CYAN}1.${NC} ${BOLD}bw login${NC}                    ${DIM}# Login to your vault${NC}"
+echo -e "     ${CYAN}2.${NC} ${BOLD}bw unlock --raw > ~/.bitwarden_session${NC}"
+echo -e "        ${DIM}# Persist session locally${NC}"
+echo -e "     ${CYAN}3.${NC} ${BOLD}chmod 600 ~/.bitwarden_session${NC}"
+echo ""
+echo -e "  ${DIM}Ensure 'dotfiles-secrets' item exists in Bitwarden with fields:${NC}"
+echo -e "  ${DIM}IDRIVE_ACCESS_KEY_ID, IDRIVE_SECRET_ACCESS_KEY, IDRIVE_ENDPOINT,${NC}"
+echo -e "  ${DIM}IDRIVE_REGION, BRAVE_API_KEY, CLAUDE_CODE_OAUTH_TOKEN, EXA_API_KEY${NC}"
+echo ""
+echo -e "  ${BOLD}Other setup:${NC}"
+echo -e "     ${CYAN}•${NC} ${BOLD}gh auth login${NC}              ${DIM}# GitHub CLI${NC}"
+echo -e "     ${CYAN}•${NC} ${BOLD}atuin login${NC}                ${DIM}# Shell history sync (optional)${NC}"
+echo ""
+echo -e "  ${DIM}Then run: ${NC}${BOLD}chezmoi apply${NC}${DIM} to complete setup${NC}"
 echo ""
 echo -e "  ${DIM}AeroSpace will auto-start at login${NC}"
 echo ""
