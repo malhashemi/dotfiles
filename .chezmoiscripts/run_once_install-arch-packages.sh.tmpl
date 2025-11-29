@@ -342,6 +342,4 @@ echo ""
 echo -e "  ${YELLOW}Note: Log out and back in for docker group to take effect${NC}"
 echo ""
 
-# Always exit 0 - failed packages are warnings, not blockers
-# This allows chezmoi to continue applying dotfiles
-exit 0
+[[ $FAILED -gt 0 ]] && exit 1 || exit 0
