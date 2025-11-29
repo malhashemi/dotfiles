@@ -280,8 +280,10 @@ records = true
 # =============================================================================
 
 [theme]
-{{- if eq .theme.name "dynamic" }}
+{{- $themeName := "mocha" }}
+{{- if .theme }}{{ $themeName = .theme.name }}{{ end }}
+{{- if eq $themeName "dynamic" }}
 name = "dynamic"
 {{- else }}
-name = "catppuccin-{{ .theme.name }}-mauve"
+name = "catppuccin-{{ $themeName }}-mauve"
 {{- end }}

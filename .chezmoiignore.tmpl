@@ -53,6 +53,10 @@
 
 # Wallpaper color extraction (no wallpaper on headless - uses push/apply sync)
 .config/matugen/
+
+# Secrets file (requires Bitwarden unlocked - enable manually if needed)
+# To enable: bw unlock --raw > ~/.bitwarden_session && chezmoi apply
+.secrets
 {{- end }}
 
 # -----------------------------------------------------------------------------
