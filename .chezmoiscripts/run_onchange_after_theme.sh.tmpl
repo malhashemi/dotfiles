@@ -1,5 +1,5 @@
 #!/bin/bash
-# Hash: {{ .theme | toJson }}
+# Hash: {{ if hasKey . "theme" }}{{ .theme | toJson }}{{ else }}{}{{ end }}
 
 echo "🔄 Reloading applications..."
 
