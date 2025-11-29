@@ -1,0 +1,334 @@
+#!/usr/bin/env bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+{{ if ne .chezmoi.os "linux" -}}
+exit 0
+{{ end -}}
+{{ if not (lookPath "pacman") -}}
+exit 0
+{{ end -}}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  Arch Linux Package Installation                                              ║
+# ║  Managed by chezmoi                                                          ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m'
+
+# Counters
+INSTALLED=0
+SKIPPED=0
+FAILED=0
+FAILED_LIST=()
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Helper Functions
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header() {
+    echo ""
+    echo -e "${BOLD}${MAGENTA}▓▒░ ${1}${NC}"
+    echo -e "${DIM}─────────────────────────────────────────────────────${NC}"
+}
+
+print_success() {
+    echo -e "  ${GREEN}✓${NC} ${1}"
+    ((INSTALLED++))
+}
+
+print_skip() {
+    echo -e "  ${DIM}○ ${1} (already installed)${NC}"
+    ((SKIPPED++))
+}
+
+print_fail() {
+    echo -e "  ${RED}✗${NC} ${1}"
+    ((FAILED++))
+    FAILED_LIST+=("$1")
+}
+
+print_info() {
+    echo -e "  ${BLUE}→${NC} ${1}"
+}
+
+# Install pacman package
+pacman_pkg() {
+    local pkg="$1"
+    if pacman -Qi "$pkg" &>/dev/null; then
+        print_skip "$pkg"
+    elif sudo pacman -S --noconfirm --needed "$pkg" &>/dev/null; then
+        print_success "$pkg"
+    else
+        print_fail "$pkg"
+    fi
+}
+
+# Install AUR package (via yay or paru)
+aur_pkg() {
+    local pkg="$1"
+    if pacman -Qi "$pkg" &>/dev/null; then
+        print_skip "$pkg"
+    elif command -v yay &>/dev/null; then
+        if yay -S --noconfirm --needed "$pkg" &>/dev/null; then
+            print_success "$pkg"
+        else
+            print_fail "$pkg (AUR)"
+        fi
+    elif command -v paru &>/dev/null; then
+        if paru -S --noconfirm --needed "$pkg" &>/dev/null; then
+            print_success "$pkg"
+        else
+            print_fail "$pkg (AUR)"
+        fi
+    else
+        print_fail "$pkg (no AUR helper)"
+    fi
+}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  Start Installation                                                          ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+echo ""
+echo -e "${BOLD}${CYAN}"
+echo "  ┌─────────────────────────────────────────────────────┐"
+echo "  │         Arch Linux Package Installation             │"
+echo "  │                  ◆ chezmoi ◆                        │"
+echo "  └─────────────────────────────────────────────────────┘"
+echo -e "${NC}"
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Check for AUR helper
+# ─────────────────────────────────────────────────────────────────────────────────
+
+if ! command -v yay &>/dev/null && ! command -v paru &>/dev/null; then
+    print_header "Installing yay (AUR helper)"
+    print_info "Building yay from source..."
+    
+    # Install build dependencies
+    sudo pacman -S --noconfirm --needed base-devel git &>/dev/null
+    
+    # Clone and build yay
+    tmpdir=$(mktemp -d)
+    git clone https://aur.archlinux.org/yay.git "$tmpdir/yay" &>/dev/null
+    cd "$tmpdir/yay" && makepkg -si --noconfirm &>/dev/null
+    cd - &>/dev/null
+    rm -rf "$tmpdir"
+    
+    if command -v yay &>/dev/null; then
+        print_success "yay"
+    else
+        print_fail "yay (manual install required)"
+    fi
+fi
+
+# Update package database
+print_header "Updating Package Database"
+sudo pacman -Sy &>/dev/null && echo -e "  ${GREEN}✓${NC} Package database updated"
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Packages (Pacman - Official Repos)
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "Core CLI Tools (pacman)"
+for pkg in git neovim bat eza fd ripgrep fzf zoxide jq tree unzip wget curl; do
+    pacman_pkg "$pkg"
+done
+
+print_header "Shell (pacman)"
+for pkg in zsh starship; do
+    pacman_pkg "$pkg"
+done
+
+print_header "TUI Applications (pacman)"
+for pkg in btop bottom; do
+    pacman_pkg "$pkg"
+done
+
+print_header "Languages & Runtimes (pacman)"
+for pkg in rust go lua nodejs npm python python-pip python-pipx; do
+    pacman_pkg "$pkg"
+done
+
+print_header "Utilities (pacman)"
+for pkg in mosh ffmpeg imagemagick p7zip rclone gping fastfetch figlet fribidi openssh; do
+    pacman_pkg "$pkg"
+done
+
+print_header "Development (pacman)"
+for pkg in base-devel cmake llvm clang docker docker-compose; do
+    pacman_pkg "$pkg"
+done
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Packages (AUR)
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "Core CLI Tools (AUR)"
+for pkg in chezmoi github-cli lazygit gitui git-delta-bin yazi television xh bitwarden-cli; do
+    aur_pkg "$pkg"
+done
+
+print_header "Shell (AUR)"
+for pkg in atuin; do
+    aur_pkg "$pkg"
+done
+
+print_header "TUI Applications (AUR)"
+for pkg in glow posting; do
+    aur_pkg "$pkg"
+done
+
+print_header "Languages & Runtimes (AUR)"
+for pkg in bun-bin deno pnpm uv; do
+    aur_pkg "$pkg"
+done
+
+print_header "Language Servers (AUR)"
+for pkg in lua-language-server yaml-language-server taplo-cli marksman-bin; do
+    aur_pkg "$pkg"
+done
+
+print_header "Development (AUR)"
+for pkg in opencode-bin; do
+    aur_pkg "$pkg"
+done
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# NPM Global Packages
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "NPM Packages"
+if command -v npm &>/dev/null; then
+    for pkg in typescript-language-server vscode-langservers-extracted \
+               @anthropic-ai/claude-code prettier eslint; do
+        if npm list -g "$pkg" &>/dev/null; then
+            print_skip "$pkg"
+        elif sudo npm install -g "$pkg" &>/dev/null; then
+            print_success "$pkg"
+        else
+            print_fail "npm:$pkg"
+        fi
+    done
+else
+    print_info "npm not available, skipping"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Cargo Packages
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "Cargo Packages"
+if command -v cargo &>/dev/null; then
+    for pkg in matugen just-lsp; do
+        if command -v "$pkg" &>/dev/null; then
+            print_skip "$pkg"
+        elif cargo install --locked "$pkg" &>/dev/null; then
+            print_success "$pkg"
+        else
+            print_fail "cargo:$pkg"
+        fi
+    done
+else
+    print_info "cargo not available, skipping"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Go Packages
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "Go Packages"
+if command -v go &>/dev/null; then
+    for pkg in github.com/nametake/golangci-lint-langserver \
+               golang.org/x/tools/gopls; do
+        name=$(basename "$pkg")
+        if go install "${pkg}@latest" &>/dev/null; then
+            print_success "$name"
+        else
+            print_fail "go:$name"
+        fi
+    done
+else
+    print_info "go not available, skipping"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Post-Install Setup
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "Post-Install Setup"
+
+# Set zsh as default shell
+if [[ "$SHELL" != *"zsh"* ]]; then
+    print_info "Setting zsh as default shell..."
+    chsh -s /usr/bin/zsh && print_success "Default shell → zsh" || print_fail "chsh"
+else
+    print_skip "zsh (already default)"
+fi
+
+# Enable docker service
+if command -v docker &>/dev/null; then
+    if ! systemctl is-enabled docker &>/dev/null; then
+        sudo systemctl enable docker &>/dev/null && print_success "docker service enabled"
+    else
+        print_skip "docker service"
+    fi
+    # Add user to docker group
+    if ! groups | grep -q docker; then
+        sudo usermod -aG docker "$USER" && print_success "Added $USER to docker group"
+    else
+        print_skip "docker group"
+    fi
+fi
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  Summary                                                                      ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+echo ""
+echo -e "${BOLD}${CYAN}"
+echo "  ┌─────────────────────────────────────────────────────┐"
+echo "  │                    Summary                          │"
+echo "  └─────────────────────────────────────────────────────┘"
+echo -e "${NC}"
+echo -e "     ${GREEN}✓ Installed${NC}    ${INSTALLED}"
+echo -e "     ${DIM}○ Skipped${NC}      ${SKIPPED}"
+echo -e "     ${RED}✗ Failed${NC}       ${FAILED}"
+echo ""
+
+if [[ ${#FAILED_LIST[@]} -gt 0 ]]; then
+    echo -e "  ${YELLOW}Failed packages:${NC}"
+    for pkg in "${FAILED_LIST[@]}"; do
+        echo -e "     ${DIM}•${NC} $pkg"
+    done
+    echo ""
+fi
+
+echo -e "${DIM}  ─────────────────────────────────────────────────────${NC}"
+echo ""
+echo -e "  ${BOLD}${YELLOW}⚠ IMPORTANT: Setup Bitwarden before next chezmoi apply${NC}"
+echo ""
+echo -e "  ${BOLD}Bitwarden Setup (required for secrets):${NC}"
+echo -e "     ${CYAN}1.${NC} ${BOLD}bw login${NC}                    ${DIM}# Login to your vault${NC}"
+echo -e "     ${CYAN}2.${NC} ${BOLD}bw unlock --raw > ~/.bitwarden_session${NC}"
+echo -e "        ${DIM}# Persist session locally${NC}"
+echo -e "     ${CYAN}3.${NC} ${BOLD}chmod 600 ~/.bitwarden_session${NC}"
+echo ""
+echo -e "  ${BOLD}Other setup:${NC}"
+echo -e "     ${CYAN}•${NC} ${BOLD}gh auth login${NC}              ${DIM}# GitHub CLI${NC}"
+echo -e "     ${CYAN}•${NC} ${BOLD}atuin login${NC}                ${DIM}# Shell history sync (optional)${NC}"
+echo ""
+echo -e "  ${DIM}Then run: ${NC}${BOLD}chezmoi apply${NC}${DIM} to complete setup${NC}"
+echo ""
+echo -e "  ${YELLOW}Note: Log out and back in for docker group to take effect${NC}"
+echo ""
+
+[[ $FAILED -gt 0 ]] && exit 1 || exit 0

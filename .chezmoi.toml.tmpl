@@ -15,7 +15,15 @@
     {{- else if eq $os "linux" }}
     is_mac = false
     is_linux = true
+    {{- if lookPath "pacman" }}
+    package_manager = "pacman"
+    {{- else if lookPath "apt" }}
     package_manager = "apt"
+    {{- else if lookPath "dnf" }}
+    package_manager = "dnf"
+    {{- else }}
+    package_manager = "unknown"
+    {{- end }}
     config_home = "{{ .chezmoi.homeDir }}/.config"
     cache_dir = "{{ .chezmoi.homeDir }}/.cache"
     {{- end }}
@@ -23,6 +31,8 @@
     # Headless detection for VPS vs desktop
     {{- if contains "MacBook" $hostname }}
     is_headless = false
+    {{- else if eq $hostname "dev-hub" }}
+    is_headless = true
     {{- else if contains "vps" $hostname }}
     is_headless = true
     {{- else if contains "dev-arch" $hostname }}
