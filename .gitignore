@@ -32,5 +32,6 @@ __pycache__/
 tmp/
 
 # Runtime theme state (auto-generated, machine-specific)
-.chezmoidata/theme.yaml
+# Note: theme.yaml is tracked with default values for fresh installs
+# Local modifications from `theme set` commands will show in git status
 .chezmoidata/wallpaper-state.yaml
