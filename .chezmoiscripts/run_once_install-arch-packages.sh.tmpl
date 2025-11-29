@@ -139,7 +139,7 @@ sudo pacman -Sy &>/dev/null && echo -e "  ${GREEN}✓${NC} Package database upda
 # ─────────────────────────────────────────────────────────────────────────────────
 
 print_header "Core CLI Tools (pacman)"
-for pkg in git neovim bat eza fd ripgrep fzf zoxide jq tree unzip wget curl; do
+for pkg in git git-delta neovim bat eza fd ripgrep fzf zoxide jq tree unzip wget curl; do
     pacman_pkg "$pkg"
 done
 
@@ -173,7 +173,7 @@ done
 # ─────────────────────────────────────────────────────────────────────────────────
 
 print_header "Core CLI Tools (AUR)"
-for pkg in chezmoi github-cli lazygit gitui git-delta-bin yazi television xh bitwarden-cli; do
+for pkg in chezmoi github-cli lazygit gitui yazi television xh bitwarden-cli; do
     aur_pkg "$pkg"
 done
 
