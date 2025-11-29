@@ -17,6 +17,9 @@ class ZedTheme(BaseApp):
     Dynamic themes: Generate themes/dynamic.json and update reference
     """
 
+    # GUI-only app - skip on headless systems
+    requires_gui = True
+
     def __init__(self, config_home: Path):
         super().__init__("Zed", config_home)
         self.config_file = config_home / "zed/settings.json"

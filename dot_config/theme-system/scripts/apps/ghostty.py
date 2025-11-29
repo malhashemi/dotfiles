@@ -15,6 +15,9 @@ class GhosttyTheme(BaseApp):
     Dynamic themes: Generate colors-ghostty.conf with MD3 colors
     """
 
+    # GUI-only app - skip on headless systems
+    requires_gui = True
+
     def __init__(self, config_home: Path):
         super().__init__("Ghostty", config_home)
         self.config_file = config_home / "ghostty/config"

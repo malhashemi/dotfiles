@@ -7,32 +7,35 @@ from utils import get_material_colors, get_catppuccin_colors, is_dynamic_theme
 
 class BordersTheme(BaseApp):
     """Borders (JankyBorders) window border system theme generator
-    
+
     Generates:
     - bordersrc: Bash script with border colors and settings
-    
+
     Borders must be reloaded by executing the bordersrc script, which
     passes options as arguments to update the running borders instance.
     """
-    
+
+    # GUI-only app - skip on headless systems (macOS-only anyway)
+    requires_gui = True
+
     def __init__(self, config_home: Path):
         super().__init__("Borders", config_home)
         self.config_file = config_home / "borders/bordersrc"
-    
+
     def apply_theme(self, theme_data: dict) -> None:
         """Apply theme to borders"""
         self.generate_config(theme_data)
         self.reload()
-    
+
     def generate_config(self, theme_data: dict) -> None:
         """Generate bordersrc configuration script"""
         self.log_progress("Generating borders configuration", emoji="🔲")
-        
+
         if is_dynamic_theme(theme_data):
             active_color, inactive_color, comment = self._get_dynamic_colors(theme_data)
         else:
             active_color, inactive_color, comment = self._get_static_colors(theme_data)
-        
+
         bash_content = f"""#!/bin/bash
 
 # borders Configuration - {comment}
@@ -49,63 +52,65 @@ options=(
 
 borders "${{options[@]}}"
 """
-        
+
         self.write_file(self.config_file, bash_content, executable=True)
-    
+
     def reload(self) -> None:
         """Reload borders by executing bordersrc script
-        
+
         When borders is already running (via AeroSpace), you must provide
         arguments to update it. Executing bordersrc passes the options array
         as arguments, updating the running instance instantly (< 100ms).
-        
+
         Note: Running 'borders' without arguments when already running produces:
         "A borders instance is already running and no valid arguments where provided"
         """
         if not self.config_file.exists():
             self.log_warning("borders config not found, skipping reload")
             return
-        
+
         if not self.command_exists("borders"):
             self.log_warning("borders not installed (brew install borders), skipping")
             return
-        
+
         # Execute bordersrc script - it runs: borders "${options[@]}"
         # This passes the color options as arguments, updating the running instance
-        success = self.run_command([str(self.config_file)], error_msg="borders reload failed")
-        
+        success = self.run_command(
+            [str(self.config_file)], error_msg="borders reload failed"
+        )
+
         if success:
             self.log_success("Reloaded borders")
-    
+
     def _get_dynamic_colors(self, theme_data: dict) -> tuple[str, str, str]:
         """Get colors for dynamic theme
-        
+
         Returns:
             (active_color, inactive_color, comment) tuple with colors stripped of #
         """
         mat = get_material_colors(theme_data)
-        
+
         # Active: Primary color (wallpaper accent)
         # Inactive: Surface container (subtle background)
         active_color = mat.get("primary", "#cba6f7").lstrip("#")
         inactive_color = mat.get("surface_container", "#313244").lstrip("#")
         comment = "Dynamic theme: Material Design 3 from wallpaper"
-        
+
         return active_color, inactive_color, comment
-    
+
     def _get_static_colors(self, theme_data: dict) -> tuple[str, str, str]:
         """Get colors for static Catppuccin theme
-        
+
         Returns:
             (active_color, inactive_color, comment) tuple with colors stripped of #
         """
         ctp = get_catppuccin_colors(theme_data)
         theme_name = theme_data.get("theme", {}).get("name", "mocha")
-        
+
         # User preference: Mauve for active (favorite color)
         # Surface0 for inactive (subtle, recedes)
         active_color = ctp.get("mauve", "#cba6f7").lstrip("#")
         inactive_color = ctp.get("surface0", "#313244").lstrip("#")
         comment = f"Static theme: Catppuccin {theme_name.title()} with Mauve accents"
-        
+
         return active_color, inactive_color, comment
