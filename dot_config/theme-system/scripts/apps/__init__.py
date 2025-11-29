@@ -28,6 +28,7 @@ from .gitui import GituiTheme
 from .zed import ZedTheme
 from .glow import GlowTheme
 from .ghostty import GhosttyTheme
+from .obsidian import ObsidianTheme
 
 
 def get_all_apps(config_home: Path) -> list:
@@ -65,6 +66,7 @@ def get_all_apps(config_home: Path) -> list:
         ZedTheme(config_home),
         GlowTheme(config_home),
         GhosttyTheme(config_home),
+        ObsidianTheme(config_home),
     ]
 
 
@@ -89,5 +91,6 @@ __all__ = [
     "ZedTheme",
     "GlowTheme",
     "GhosttyTheme",
+    "ObsidianTheme",
     "get_all_apps",
 ]
