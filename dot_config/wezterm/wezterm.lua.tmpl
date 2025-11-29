@@ -10,6 +10,58 @@ local config = wezterm.config_builder()
 
 config.colors = require("colors-wezterm")
 
+-- ============================================================================
+-- DYNAMIC COLOR PUSH (fixes WezTerm per-pane palette caching bug)
+-- ============================================================================
+-- When config reloads, WezTerm updates window-level colors but NOT per-pane
+-- terminal state. This causes OSC 10/11 queries to return stale values.
+-- Fix: Push colors to all panes via OSC sequences on config reload.
+
+local function push_colors_to_pane(pane)
+	-- Reload the colors module to get fresh values
+	package.loaded["colors-wezterm"] = nil
+	local ok, colors = pcall(require, "colors-wezterm")
+	if not ok or not colors then return end
+
+	-- Push ANSI colors 0-7 (OSC 4)
+	if colors.ansi then
+		for i, color in ipairs(colors.ansi) do
+			pane:inject_output(string.format("\x1b]4;%d;%s\x07", i - 1, color))
+		end
+	end
+
+	-- Push bright colors 8-15 (OSC 4)
+	if colors.brights then
+		for i, color in ipairs(colors.brights) do
+			pane:inject_output(string.format("\x1b]4;%d;%s\x07", i + 7, color))
+		end
+	end
+
+	-- Push foreground (OSC 10)
+	if colors.foreground then
+		pane:inject_output(string.format("\x1b]10;%s\x07", colors.foreground))
+	end
+
+	-- Push background (OSC 11)
+	if colors.background then
+		pane:inject_output(string.format("\x1b]11;%s\x07", colors.background))
+	end
+
+	-- Push cursor color (OSC 12)
+	if colors.cursor_bg then
+		pane:inject_output(string.format("\x1b]12;%s\x07", colors.cursor_bg))
+	end
+end
+
+-- Push colors to ALL panes when config reloads
+wezterm.on("window-config-reloaded", function(window, pane)
+	for _, tab in ipairs(window:mux_window():tabs()) do
+		for _, p in ipairs(tab:panes()) do
+			push_colors_to_pane(p)
+		end
+	end
+end)
+
 -- Load opacity settings
 local opacity = require("opacity-wezterm")
 if opacity.enabled then
