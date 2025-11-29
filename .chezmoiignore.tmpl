@@ -1,49 +1,134 @@
-# Platform-specific ignores
+# =============================================================================
+# .chezmoiignore.tmpl - Platform-Conditional Ignore Rules
+# =============================================================================
+# 
+# Platform Detection Variables (from .chezmoi.toml.tmpl):
+#   .chezmoi.os   - "darwin", "linux", "windows"
+#   .is_headless  - true for VPS/servers without GUI
+#
+# Sections:
+#   1. Platform-specific exclusions (macOS-only, Linux-only)
+#   2. Headless system exclusions (GUI, audio, wallpaper apps)
+#   3. Always ignore (git, cache, development)
+#   4. Ephemeral/sensitive files
+#   5. Runtime-generated theme files
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# 1. Platform-Specific Exclusions
+# -----------------------------------------------------------------------------
+
+# macOS-only apps (window manager, status bar, borders)
 {{- if ne .chezmoi.os "darwin" }}
-.config/aerospace/**
-.config/sketchybar/**
+.config/aerospace/
+.config/sketchybar/
+.config/borders/
 {{- end }}
 
+# Linux-only apps (future Hyprland/Wayland setup)
 {{- if ne .chezmoi.os "linux" }}
-.config/hyprland/**
-.config/waybar/**
+.config/hyprland/
+.config/waybar/
 {{- end }}
 
-# GUI-only apps - exclude on headless systems
+# -----------------------------------------------------------------------------
+# 2. Headless System Exclusions
+# -----------------------------------------------------------------------------
+# Dev-box and other headless systems don't need GUI/audio apps.
+# Note: theme-system IS included (uses push/apply sync for dynamic themes)
+
 {{- if .is_headless }}
-.config/zed/
-.config/ghostty/
+# GUI terminal emulators (accessed via SSH, not locally)
 .config/wezterm/
-.config/flameshot/
+.config/ghostty/
 .config/neovide/
+
+# GUI applications
+.config/zed/
+.config/flameshot/
+
+# Audio/media apps (no audio output on headless)
+.config/cava/
+.config/ncspot/
+
+# Wallpaper color extraction (no wallpaper on headless - uses push/apply sync)
+.config/matugen/
 {{- end }}
 
-# Always ignore
+# -----------------------------------------------------------------------------
+# 3. Always Ignore (All Platforms)
+# -----------------------------------------------------------------------------
+
+# Git and OS artifacts
 .git/
 .DS_Store
+
+# Development tooling (managed separately)
 .opencode/
-thoughts/
 .extern/
+thoughts/
 
 # Python cache
 **/__pycache__/
 **/*.pyc
 
-# ncspot runtime state (changes constantly)
+# -----------------------------------------------------------------------------
+# 4. Ephemeral/Sensitive Files
+# -----------------------------------------------------------------------------
+
+# ncspot runtime state (binary file, changes constantly)
 .config/ncspot/userstate.cbor
 
-# gh (GitHub CLI) - sensitive files (tokens, ephemeral state)
+# GitHub CLI sensitive data (tokens, session state)
 .config/gh/hosts.yml
 .config/gh/state.yml
 
-# Theme system dynamically generates these at runtime
-# (based on wallpaper colors - don't let chezmoi overwrite them)
-.config/sketchybar/colors-sketchybar.sh
-.config/sketchybar/opacity-sketchybar.sh
+# -----------------------------------------------------------------------------
+# 5. Runtime-Generated Theme Files
+# -----------------------------------------------------------------------------
+# Theme system generates these dynamically. Chezmoi manages templates for
+# bootstrap, but runtime files are written directly by theme-manager.py.
+# These MUST be ignored to prevent chezmoi from overwriting theme changes.
+
+# WezTerm (external file method)
 .config/wezterm/colors-wezterm.lua
 .config/wezterm/opacity-wezterm.lua
+
+# SketchyBar (external file method)
+.config/sketchybar/colors-sketchybar.sh
+.config/sketchybar/opacity-sketchybar.sh
+
+# Borders (inline template output)
 .config/borders/bordersrc
-.config/atuin/themes/dynamic.toml
-.config/ncspot/config.toml
-.config/zed/themes/dynamic.json
+
+# Ghostty (external file method)
 .config/ghostty/colors-ghostty.conf
+
+# Atuin (external file method)
+.config/atuin/themes/dynamic.toml
+
+# NeoVim (external file method)
+.config/nvim/lua/themes/colors-nvim.lua
+.config/nvim/lua/themes/theme-state.lua
+.config/nvim/lua/config/opacity-data.lua
+
+# btop (external file method)
+.config/btop/themes/dynamic.theme
+
+# Television (external file for dynamic)
+.config/television/themes/dynamic.toml
+
+# CAVA (external file method)
+.config/cava/themes/dynamic
+
+# Glow (external file method)
+.config/glow/themes/dynamic.json
+
+# Yazi (flavor directory for dynamic)
+.config/yazi/flavors/dynamic.yazi/
+
+# Zed (external file for dynamic)
+.config/zed/themes/dynamic.json
+
+# ncspot (inline method - entire config modified by theme system)
+.config/ncspot/config.toml
