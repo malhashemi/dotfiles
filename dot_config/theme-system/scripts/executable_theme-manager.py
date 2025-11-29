@@ -37,8 +37,29 @@ console = Console()
 
 # Paths
 HOME = Path.home()
-CHEZMOI_SOURCE = HOME / ".local/share/chezmoi"
 CONFIG_HOME = HOME / ".config"
+
+
+def get_chezmoi_source() -> Path:
+    """Get chezmoi source directory dynamically.
+
+    Tries: 1) chezmoi source-path command, 2) XDG_DATA_HOME, 3) default
+    """
+    try:
+        result = subprocess.run(
+            ["chezmoi", "source-path"], capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            return Path(result.stdout.strip())
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass
+
+    # Fallback to XDG standard
+    xdg_data = os.environ.get("XDG_DATA_HOME", HOME / ".local/share")
+    return Path(xdg_data) / "chezmoi"
+
+
+CHEZMOI_SOURCE = get_chezmoi_source()
 THEME_DATA = CHEZMOI_SOURCE / ".chezmoidata/theme.yaml"
 WALLPAPER_DATA = CHEZMOI_SOURCE / ".chezmoidata/wallpaper-state.yaml"
 THEMES_DIR = CHEZMOI_SOURCE / "dot_config/theme-system/themes"
