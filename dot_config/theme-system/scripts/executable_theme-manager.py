@@ -15,6 +15,9 @@ Simplified commands:
 """
 
 import json
+import os
+import subprocess
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 import click
@@ -40,6 +43,37 @@ THEME_DATA = CHEZMOI_SOURCE / ".chezmoidata/theme.yaml"
 WALLPAPER_DATA = CHEZMOI_SOURCE / ".chezmoidata/wallpaper-state.yaml"
 THEMES_DIR = CHEZMOI_SOURCE / "dot_config/theme-system/themes"
 LOCK_FILE = HOME / ".cache/theme-system-running"
+USER_DATA = CHEZMOI_SOURCE / ".chezmoidata/user.yaml"
+
+
+# Headless detection
+
+
+def is_headless() -> bool:
+    """Detect if running in a headless environment.
+
+    Detection methods:
+    1. Explicit environment variable: THEME_HEADLESS=1
+    2. No DISPLAY on Linux (X11/Wayland not available)
+
+    Returns:
+        True if headless environment detected, False otherwise
+    """
+    # Explicit override via environment variable
+    if os.environ.get("THEME_HEADLESS", "").lower() in ("1", "true", "yes"):
+        return True
+
+    # macOS always has GUI (even via SSH, we're configuring local machine)
+    if sys.platform == "darwin":
+        return False
+
+    # Linux: Check for display (X11 or Wayland)
+    if sys.platform == "linux":
+        has_display = os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")
+        if not has_display:
+            return True
+
+    return False
 
 
 # State management utilities
@@ -58,6 +92,87 @@ def save_yaml(path: Path, data: dict):
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         yaml.dump(data, f, default_flow_style=False)
+
+
+def apply_theme_to_apps(theme_data: dict) -> None:
+    """Apply theme data to all registered apps.
+
+    Respects headless mode - skips GUI apps on headless systems.
+
+    Args:
+        theme_data: Complete theme data dictionary with 'theme' key
+    """
+    apps = get_all_apps(CONFIG_HOME)
+    headless = is_headless()
+
+    for app in apps:
+        # Skip GUI apps on headless systems
+        if headless and app.requires_gui:
+            continue
+        app.apply_theme(theme_data)
+
+
+def push_to_devbox() -> bool:
+    """Push theme.yaml to devbox and trigger apply.
+
+    Returns:
+        True if push succeeded, False otherwise
+    """
+    user_data = load_yaml(USER_DATA)
+    sync_config = user_data.get("theme_sync", {})
+
+    if not sync_config.get("enabled", False):
+        console.print("[dim]Theme sync disabled[/dim]")
+        return False
+
+    devbox_host = sync_config.get("devbox_host")
+    if not devbox_host:
+        console.print("[yellow]⚠ No devbox_host configured in theme_sync[/yellow]")
+        return False
+
+    # Remote path - same relative location in chezmoi source
+    remote_theme_path = "~/.local/share/chezmoi/.chezmoidata/theme.yaml"
+    remote_apply_cmd = "~/.config/theme-system/scripts/theme-manager.py apply"
+
+    try:
+        # Push theme.yaml via rsync
+        console.print(f"[blue]📤 Pushing theme to {devbox_host}...[/blue]")
+        subprocess.run(
+            ["rsync", "-az", str(THEME_DATA), f"{devbox_host}:{remote_theme_path}"],
+            timeout=15,
+            capture_output=True,
+            check=True,
+        )
+
+        # Trigger apply on remote
+        console.print(f"[blue]🔄 Triggering apply on {devbox_host}...[/blue]")
+        subprocess.run(
+            [
+                "ssh",
+                "-o",
+                "ConnectTimeout=5",
+                "-o",
+                "BatchMode=yes",
+                devbox_host,
+                remote_apply_cmd,
+            ],
+            timeout=60,
+            capture_output=True,
+            check=True,
+        )
+
+        console.print(f"[green]✓ Theme synced to {devbox_host}[/green]")
+        return True
+
+    except subprocess.TimeoutExpired:
+        console.print(f"[yellow]⚠ Timeout connecting to {devbox_host}[/yellow]")
+        return False
+    except subprocess.CalledProcessError as e:
+        console.print(f"[yellow]⚠ Failed to sync to {devbox_host}: {e}[/yellow]")
+        return False
+    except FileNotFoundError:
+        console.print("[yellow]⚠ rsync or ssh not found[/yellow]")
+        return False
 
 
 # Theme data builders
@@ -221,11 +336,14 @@ def set(theme_type: str, opacity: int | None, variant: str | None, contrast: flo
         console.print("[green]✓ Theme state saved[/green]")
 
         # Apply to all registered apps
-        apps = get_all_apps(CONFIG_HOME)
-        for app in apps:
-            app.apply_theme(theme_data)
+        apply_theme_to_apps(theme_data)
 
-        console.print(f"[green]✅ Theme applied[/green]")
+        console.print("[green]✅ Theme applied[/green]")
+
+        # Auto-push to devbox if enabled
+        user_data = load_yaml(USER_DATA)
+        if user_data.get("theme_sync", {}).get("auto_push", False):
+            push_to_devbox()
 
     finally:
         LOCK_FILE.unlink(missing_ok=True)
@@ -353,6 +471,65 @@ def status():
     system_mode = detect_system_appearance()
     console.print(f"  System: {system_mode} mode")
     console.print()
+
+
+@cli.command()
+def apply():
+    """Apply theme from existing state file (no color regeneration).
+
+    Use this on devbox after theme.yaml has been synced from a source machine.
+    Reads the current theme.yaml and applies to all apps, respecting headless mode.
+
+    This command does NOT:
+    - Regenerate colors from wallpaper
+    - Require matugen or wallpaper access
+    - Modify the theme.yaml file
+
+    Examples:
+        theme apply  # Apply whatever theme is in theme.yaml
+    """
+    theme_data = load_yaml(THEME_DATA)
+
+    if not theme_data.get("theme"):
+        raise click.ClickException(
+            "No theme data found in theme.yaml. "
+            "Run 'theme set' on a source machine and push, or run 'theme set' locally."
+        )
+
+    theme_name = theme_data["theme"].get("name", "unknown")
+    theme_variant = theme_data["theme"].get("variant", "unknown")
+
+    console.print(f"[blue]🎨 Applying theme: {theme_name} ({theme_variant})[/blue]")
+
+    apply_theme_to_apps(theme_data)
+
+    console.print("[green]✅ Theme applied from state[/green]")
+
+
+@cli.command()
+def push():
+    """Push current theme to devbox.
+
+    Sends theme.yaml to the configured devbox and triggers 'theme apply' there.
+    Does NOT re-apply theme locally - just syncs to remote.
+
+    Configure devbox_host in .chezmoidata/user.yaml:
+        theme_sync:
+          enabled: true
+          devbox_host: dev-hub
+
+    Examples:
+        theme push  # Push current theme to devbox
+    """
+    if not THEME_DATA.exists():
+        raise click.ClickException(
+            "No theme.yaml found. Run 'theme set' first to create a theme."
+        )
+
+    success = push_to_devbox()
+
+    if not success:
+        raise click.ClickException("Push failed. Check configuration and connectivity.")
 
 
 if __name__ == "__main__":

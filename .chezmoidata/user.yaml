@@ -21,3 +21,9 @@ tailscale_enabled: true
 tailscale_hosts:
   dev_hub: "dev-hub"
   arch_desktop: "arch-desktop"  # Placeholder for future
+
+# Theme sync configuration (push to headless devbox)
+theme_sync:
+  enabled: true
+  devbox_host: dev-hub  # Tailscale hostname (references tailscale_hosts.dev_hub)
+  auto_push: false      # If true, push after every theme change
