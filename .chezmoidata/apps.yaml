@@ -7,7 +7,7 @@
 # 3. Automatically invoked by theme-manager.py when running theme commands
 #
 # Schema version: 1.1
-# Last updated: 2025-11-28
+# Last updated: 2025-11-29
 
 # ==========================================================================
 # Implementation Status Summary
@@ -33,6 +33,7 @@
 #   ✅ gitui         - apps/gitui.py         - External file method RON (130 lines) [NEW 2025-11-28]
 #   ✅ Zed           - apps/zed.py           - Hybrid method (builtin + external) [NEW 2025-11-28]
 #   ✅ glow          - apps/glow.py          - External file method JSON (glamour) [NEW 2025-11-28]
+#   ✅ Ghostty       - apps/ghostty.py       - Hybrid method (builtin + external) [NEW 2025-11-29]
 #
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
@@ -40,8 +41,8 @@
 # Managed but NOT themed:
 #   ⭕ gh (GitHub CLI) - No theming needed, just config preferences
 #
-# Architecture Completion: 19/19 apps (100%) ✅
-# Total themed apps: 19 modular + 0 legacy = 19 apps
+# Architecture Completion: 20/20 apps (100%) ✅
+# Total themed apps: 20 modular + 0 legacy = 20 apps
 # ==========================================================================
 
 apps:
@@ -2358,6 +2359,148 @@ apps:
       - "Built-in themes: auto, dark, light, dracula, tokyo-night, pink, ascii, notty"
       - "Cross-platform: macOS, Linux, Windows, Termux"
       - "TUI app - transparency controlled by terminal emulator"
+
+  # ==========================================================================
+  # Ghostty - GPU-Accelerated Terminal Emulator (NEW 2025-11-29)
+  # ==========================================================================
+  ghostty:
+    # Basic Info
+    display_name: Ghostty
+    config_file: ~/.config/ghostty/config
+    config_format: key_value
+    app_type: terminal_emulator
+    platform: cross_platform
+    homepage: https://ghostty.org/
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: builtin
+          enabled: true
+          notes: "Uses builtin theme = Catppuccin <Variant> - all 4 flavors included natively"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates colors-ghostty.conf with MD3 colors, imported via config-file"
+    
+    # External File Configuration
+    external_files:
+      colors:
+        path: ~/.config/ghostty/colors-ghostty.conf
+        format: key_value
+        template: null
+        load_mechanism: "config-file = colors-ghostty.conf"
+        notes: "Plain text key=value format with palette entries"
+    
+    # Opacity Support
+    opacity:
+      supported: true
+      method: config_key
+      config_key: background-opacity
+      value_format: "0.0-1.0 (float)"
+      blur_support: true
+      blur_key: background-blur
+      notes: "Full transparency + blur support on macOS and Linux KDE"
+    
+    # Reload Behavior
+    reload:
+      automatic: false
+      method: keybind
+      keybind_macos: "Cmd+Shift+,"
+      keybind_linux: "Ctrl+Shift+,"
+      custom_keybind: "keybind = ctrl+alt+r=reload_config"
+      notes: "No file watching - manual reload required via keybind"
+    
+    # Platform Availability
+    platforms:
+      macos: true
+      arch_linux: true
+      nixos: true
+      windows: false
+      termux: false
+      headless: false
+    
+    # Implementation Details
+    generator:
+      class: GhosttyTheme
+      module: apps.ghostty
+      method: hybrid
+      location: dot_config/theme-system/scripts/apps/ghostty.py
+      apply_method: apply_theme
+      functions:
+        - _generate_dynamic_colors
+        - _update_config_for_dynamic
+        - _update_config_for_static
+        - _apply_opacity
+      notes: "Modular architecture: hybrid method similar to television.py and zed.py"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        method: "Builtin theme directive"
+        theme_format: "theme = Catppuccin <Variant>"
+        notes: "All Catppuccin flavors included natively in Ghostty"
+      
+      dynamic:
+        foreground: "on_surface"
+        background: "background"
+        cursor_color: "primary"
+        cursor_text: "on_primary"
+        selection_background: "primary_container"
+        selection_foreground: "on_primary_container"
+        palette_0: "outline"
+        palette_1: "error"
+        palette_2: "tertiary"
+        palette_3: "secondary"
+        palette_4: "primary"
+        palette_5: "primary"
+        palette_6: "tertiary"
+        palette_7: "on_surface"
+        notes: "Material Design 3 semantic color mapping for dynamic themes"
+    
+    # Catppuccin Integration
+    catppuccin:
+      official_port: true
+      builtin: true
+      repository: "https://github.com/catppuccin/ghostty"
+      available_flavors:
+        - mocha
+        - macchiato
+        - frappe
+        - latte
+      notes: "All flavors builtin to Ghostty since v1.0"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences:
+        - "Windows: Not supported"
+        - "XDG location ~/.config/ghostty/ preferred over macOS ~/Library/..."
+      notes: "Same config works on macOS and Linux"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: true
+      bootstrap_working: true
+      runtime_working: true
+      date_implemented: "2025-11-29"
+      date_tested: "2025-11-29"
+      research_doc: "thoughts/shared/research/2025-11-29_04-20-00_app-config-analysis-ghostty.md"
+    
+    # Known Issues / Notes
+    notes:
+      - "Ghostty is GPU-accelerated terminal by Mitchell Hashimoto (HashiCorp)"
+      - "All Catppuccin flavors builtin - no external theme files needed for static"
+      - "No auto-reload - requires manual keybind to apply config changes"
+      - "Excellent opacity and blur support on macOS"
+      - "Theme names changed to Title Case in v1.2.0 (Catppuccin Mocha vs catppuccin-mocha)"
+      - "Supports light/dark mode switching: theme = dark:X,light:Y"
+      - "No Windows support"
+      - "config-file directive processes at end of current file (later values override)"
 
 # ==========================================================================
 # Schema Field Definitions (for reference)
