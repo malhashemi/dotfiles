@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# chezmoi:template:left-delimiter="{{" right-delimiter="}}"
+{{ if ne .chezmoi.os "darwin" -}}
+# Skip on non-macOS systems
+exit 0
+{{ end -}}
+
+# Hash of user.js to trigger re-run on changes:
+# {{ include "dot_config/zen-browser/user.js" | sha256sum }}
+
+set -e
+
+ZEN_ROOT="${HOME}/Library/Application Support/zen"
+PROFILES_INI="${ZEN_ROOT}/profiles.ini"
+SOURCE_DIR="${HOME}/.config/zen-browser"
+
+# Check if Zen Browser has been run at least once
+if [[ ! -f "$PROFILES_INI" ]]; then
+    echo "Zen Browser: Profile not found (run Zen Browser once first)"
+    exit 0
+fi
+
+# Parse profiles.ini to find active profile
+PROFILE_PATH=$(grep -A1 '^\[Install' "$PROFILES_INI" 2>/dev/null | grep '^Default=' | cut -d= -f2)
+
+if [[ -z "$PROFILE_PATH" ]]; then
+    # Fallback: find first .Default profile
+    PROFILE_PATH=$(grep '^Path=' "$PROFILES_INI" | grep '\.Default' | head -n1 | cut -d= -f2)
+fi
+
+if [[ -z "$PROFILE_PATH" ]]; then
+    echo "Zen Browser: Could not determine profile path"
+    exit 0
+fi
+
+FULL_PROFILE="${ZEN_ROOT}/${PROFILE_PATH}"
+
+if [[ ! -d "$FULL_PROFILE" ]]; then
+    echo "Zen Browser: Profile directory not found"
+    exit 0
+fi
+
+# Copy user.js if source exists
+if [[ -f "$SOURCE_DIR/user.js" ]]; then
+    cp "$SOURCE_DIR/user.js" "$FULL_PROFILE/user.js"
+    echo "Zen Browser: user.js applied to profile"
+fi
