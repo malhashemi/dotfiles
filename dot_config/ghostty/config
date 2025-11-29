@@ -1,0 +1,29 @@
+# Ghostty Configuration
+# https://ghostty.org/docs/config
+
+# Theme - managed by theme system
+# Static: theme = Catppuccin <Variant>
+# Dynamic: config-file = colors-ghostty.conf
+theme = Catppuccin Mocha
+
+# Font
+font-family = JetBrains Mono
+font-size = 14
+
+# Window
+window-padding-x = 8
+window-padding-y = 8
+
+# Cursor
+cursor-style = bar
+cursor-style-blink = true
+
+# Shell integration
+shell-integration = zsh
+
+# Keybinds
+keybind = ctrl+alt+r=reload_config
+
+# Transparency (managed by theme system)
+# background-opacity = 0.92
+# background-blur = 20

@@ -12,6 +12,7 @@
 # GUI-only apps - exclude on headless systems
 {{- if .is_headless }}
 .config/zed/
+.config/ghostty/
 {{- end }}
 
 # Always ignore
@@ -42,3 +43,4 @@ thoughts/
 .config/atuin/themes/dynamic.toml
 .config/ncspot/config.toml
 .config/zed/themes/dynamic.json
+.config/ghostty/colors-ghostty.conf
