@@ -40,10 +40,10 @@
 	tool = nvimdiff
 	conflictstyle = diff3
 
-{{ if eq .chezmoi.os "darwin" }}
+{{- if eq .chezmoi.os "darwin" }}
 [credential]
 	helper = osxkeychain
-{{ end }}
+{{- end }}
 
 [delta]
 	navigate = true

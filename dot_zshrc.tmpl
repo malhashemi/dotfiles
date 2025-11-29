@@ -14,13 +14,20 @@ compinit
 # ============================================================================
 
 {{- if eq .chezmoi.os "darwin" }}
-# macOS: Source Zinit from Homebrew (symlinked path, version-agnostic)
-source /opt/homebrew/opt/zinit/zinit.zsh
-
-# Load ZSH plugins from Homebrew
-source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
-source /opt/homebrew/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
-source /opt/homebrew/share/zsh-autopair/autopair.zsh
+# macOS: Source Zinit from Homebrew (supports both Apple Silicon and Intel)
+if [[ -f /opt/homebrew/opt/zinit/zinit.zsh ]]; then
+    # Apple Silicon
+    source /opt/homebrew/opt/zinit/zinit.zsh
+    source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+    source /opt/homebrew/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
+    source /opt/homebrew/share/zsh-autopair/autopair.zsh
+elif [[ -f /usr/local/opt/zinit/zinit.zsh ]]; then
+    # Intel Mac
+    source /usr/local/opt/zinit/zinit.zsh
+    source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+    source /usr/local/share/zsh-fast-syntax-highlighting/fast-syntax-highlighting.plugin.zsh
+    source /usr/local/share/zsh-autopair/autopair.zsh
+fi
 {{- else }}
 # Linux: Self-managed Zinit installation
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
@@ -76,8 +83,10 @@ export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow'
 # ============================================================================
 
 # Editor
-alias v="neovide"
 alias e="nvim"
+{{- if not .is_headless }}
+alias v="neovide"
+{{- end }}
 
 # Modern CLI replacements
 alias cat="bat"
@@ -134,8 +143,10 @@ alias tvg="tv git-repos"  # Find git repositories
 alias tvh="tv zsh-history"  # Search zsh history
 
 # Remote Machines
+{{- if .tailscale_enabled }}
 
-alias devbox="mosh malhashemi@dev-hub -- zellij attach --create dev"
+alias devbox="mosh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }} -- zellij attach --create dev"
+{{- end }}
 
 # ============================================================================
 # Functions
@@ -160,11 +171,13 @@ f() {
 {{- end }}
 }
 
-# Fuzzy find file and open in Neovide
+{{- if not .is_headless }}
+# Fuzzy find file and open in Neovide (GUI only)
 fv() {
     local file=$(find . -type f -not -path '*/.*' | fzf --preview 'bat --color=always {}')
     [ -n "$file" ] && neovide "$file"
 }
+{{- end }}
 
 {{- if eq .chezmoi.os "darwin" }}
 # Fuzzy find and focus aerospace window (macOS only)
@@ -177,7 +190,7 @@ ff() {
 function y() {
     local tmp="$(mktemp -t "yazi-cwd.XXXXXX")"
     yazi "$@" --cwd-file="$tmp"
-    if cwd="$(cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
+    if cwd="$(command cat -- "$tmp")" && [ -n "$cwd" ] && [ "$cwd" != "$PWD" ]; then
         cd -- "$cwd"
     fi
     rm -f -- "$tmp"
@@ -190,7 +203,7 @@ function afile() {
         echo "Usage: afile <filename>"
         return 1
     fi
-    cat "$1" | fribidi | less -R
+    command cat "$1" | fribidi | less -R
 }
 
 # Tail Arabic logs with proper RTL display  
@@ -227,8 +240,8 @@ if command -v kubectl &> /dev/null; then
     source <(kubectl completion zsh)
 fi
 
-if command -v aws &> /dev/null; then
-    complete -C '/usr/local/bin/aws_completer' aws
+if command -v aws &> /dev/null && command -v aws_completer &> /dev/null; then
+    complete -C "$(command -v aws_completer)" aws
 fi
 
 {{- if not .is_headless }}
@@ -237,15 +250,20 @@ fastfetch --config examples/13
 {{- end }}
 
 {{- if eq .chezmoi.os "darwin" }}
-export PATH="/Users/malhashemi/.bun/bin:/Users/malhashemi/.atuin/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Users/malhashemi/.local/bin:/Users/malhashemi/.cargo/bin:/Applications/Ghostty.app/Contents/MacOS:/Users/malhashemi/go/bin:/Users/malhashemi/Library/Python/3.9/bin"
-{{- else }}
-# Linux PATH - keep simple, let other tools manage
-export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$HOME/go/bin:$PATH"
-{{- end }}
+# macOS PATH additions (Homebrew, .local/bin, .cargo/bin already set by zprofile/zshenv)
+export PATH="$HOME/.bun/bin:$HOME/.atuin/bin:$HOME/go/bin:/Applications/Ghostty.app/Contents/MacOS:$PATH"
+
+# Python user packages (version-agnostic)
+for pydir in "$HOME/Library/Python"/*/bin(N); do
+    [[ -d "$pydir" ]] && export PATH="$pydir:$PATH"
+done
 
 # Zed
-
 alias zed="/Applications/Zed.app/Contents/MacOS/cli"
+{{- else }}
+# Linux PATH additions (minimal - .local/bin already in zshenv handles pip packages)
+export PATH="$HOME/.bun/bin:$HOME/.atuin/bin:$HOME/go/bin:$PATH"
+{{- end }}
 alias ascii="~/scripts/figlet.sh"
 alias theme="~/.config/theme-system/scripts/theme-manager.py"
 alias wallpaper="~/.config/theme-system/scripts/wallpaper-manager.py"

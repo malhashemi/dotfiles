@@ -1,190 +1,290 @@
 #!/usr/bin/env bash
 # chezmoi:template:left-delimiter="{{" right-delimiter="}}"
 {{ if ne .chezmoi.os "darwin" -}}
-# Skip on non-macOS systems
 exit 0
 {{ end -}}
 
-set -e
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  macOS Package Installation                                                   ║
+# ║  Managed by chezmoi                                                          ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
 
-echo "=========================================="
-echo "  macOS Package Installation"
-echo "=========================================="
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+DIM='\033[2m'
+NC='\033[0m' # No Color
 
-# Check for Homebrew
-if ! command -v brew &> /dev/null; then
-    echo "Installing Homebrew..."
+# Counters
+INSTALLED=0
+SKIPPED=0
+FAILED=0
+FAILED_LIST=()
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Helper Functions
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header() {
+    echo ""
+    echo -e "${BOLD}${MAGENTA}▓▒░ ${1}${NC}"
+    echo -e "${DIM}─────────────────────────────────────────────────────${NC}"
+}
+
+print_success() {
+    echo -e "  ${GREEN}✓${NC} ${1}"
+    ((INSTALLED++))
+}
+
+print_skip() {
+    echo -e "  ${DIM}○ ${1} (already installed)${NC}"
+    ((SKIPPED++))
+}
+
+print_fail() {
+    echo -e "  ${RED}✗${NC} ${1}"
+    ((FAILED++))
+    FAILED_LIST+=("$1")
+}
+
+print_info() {
+    echo -e "  ${BLUE}→${NC} ${1}"
+}
+
+# Install brew package
+brew_pkg() {
+    local pkg="$1"
+    if brew list "$pkg" &>/dev/null; then
+        print_skip "$pkg"
+    elif brew install "$pkg" &>/dev/null; then
+        print_success "$pkg"
+    else
+        print_fail "$pkg"
+    fi
+}
+
+# Install cask
+brew_cask() {
+    local cask="$1"
+    if brew list --cask "$cask" &>/dev/null; then
+        print_skip "$cask"
+    elif brew install --cask "$cask" &>/dev/null; then
+        print_success "$cask"
+    else
+        print_fail "$cask"
+    fi
+}
+
+# Add tap
+brew_tap() {
+    local tap="$1"
+    if brew tap | grep -q "^${tap}$"; then
+        return 0
+    elif brew tap "$tap" &>/dev/null; then
+        return 0
+    else
+        print_fail "tap: $tap"
+        return 1
+    fi
+}
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  Start Installation                                                          ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
+
+clear
+echo ""
+echo -e "${BOLD}${CYAN}"
+echo "  ┌─────────────────────────────────────────────────────┐"
+echo "  │           macOS Package Installation                │"
+echo "  │                  ◆ chezmoi ◆                        │"
+echo "  └─────────────────────────────────────────────────────┘"
+echo -e "${NC}"
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Homebrew
+# ─────────────────────────────────────────────────────────────────────────────────
+
+if ! command -v brew &>/dev/null; then
+    print_header "Installing Homebrew"
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    
-    # Add Homebrew to PATH for this session
+fi
+
+# Add to PATH (Apple Silicon or Intel)
+if [[ -f /opt/homebrew/bin/brew ]]; then
     eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [[ -f /usr/local/bin/brew ]]; then
+    eval "$(/usr/local/bin/brew shellenv)"
 fi
 
-echo ""
-echo "Adding taps..."
-echo "-------------------------------------------"
-brew tap charmbracelet/tap
-brew tap felixkratz/formulae
-brew tap gromgit/brewtils
-brew tap lhvy/tap
-brew tap nikitabobko/tap
-brew tap oven-sh/bun
-brew tap sst/tap
-brew tap valkyrie00/bbrew
-
-echo ""
-echo "Installing core CLI tools..."
-echo "-------------------------------------------"
-brew install \
-    chezmoi \
-    git gh lazygit gitui git-delta \
-    neovim \
-    bat eza fd ripgrep fzf \
-    zoxide yazi television \
-    just jq tree xh
-
-echo ""
-echo "Installing shell enhancements..."
-echo "-------------------------------------------"
-brew install \
-    starship \
-    atuin \
-    zinit \
-    zsh-autosuggestions \
-    zsh-fast-syntax-highlighting \
-    zsh-autocomplete \
-    zsh-autopair
-
-echo ""
-echo "Installing TUI apps..."
-echo "-------------------------------------------"
-brew install \
-    btop bottom \
-    ncspot spotifyd \
-    cava \
-    posting \
-    glow
-
-echo ""
-echo "Installing languages & runtimes..."
-echo "-------------------------------------------"
-brew install \
-    rust go lua \
-    node oven-sh/bun/bun deno pnpm \
-    uv pipx
-
-echo ""
-echo "Installing language servers..."
-echo "-------------------------------------------"
-brew install \
-    lua-language-server \
-    typescript-language-server \
-    yaml-language-server \
-    vscode-langservers-extracted \
-    cmake-language-server \
-    dockerfile-language-server \
-    tailwindcss-language-server \
-    sql-language-server \
-    kotlin-language-server \
-    jdtls \
-    texlab marksman zls taplo
-
-echo ""
-echo "Installing macOS-specific tools..."
-echo "-------------------------------------------"
-brew install \
-    felixkratz/formulae/borders \
-    felixkratz/formulae/sketchybar \
-    wallpaper
-
-# matugen is not in Homebrew - install via cargo
-if ! command -v matugen &> /dev/null; then
-    echo "Installing matugen via cargo..."
-    cargo install --locked matugen
+if ! command -v brew &>/dev/null; then
+    echo -e "${RED}ERROR: Homebrew not found${NC}"
+    exit 1
 fi
 
-echo ""
-echo "Installing utilities..."
-echo "-------------------------------------------"
-brew install \
-    mosh \
-    ffmpeg imagemagick \
-    p7zip sevenzip unzip \
-    rclone \
-    speedtest-cli gping \
-    fastfetch \
-    figlet toilet cmatrix lhvy/tap/pipes-rs tty-clock
+# ─────────────────────────────────────────────────────────────────────────────────
+# Taps
+# ─────────────────────────────────────────────────────────────────────────────────
 
-echo ""
-echo "Installing other dev tools..."
-echo "-------------------------------------------"
-brew install \
-    sst/tap/opencode \
-    charmbracelet/tap/crush \
-    gromgit/brewtils/taproom \
-    valkyrie00/bbrew/bbrew \
-    biome repomix dart-sdk llvm cmake-language-server \
-    gemini-cli
-
-echo ""
-echo "Installing GUI apps (casks)..."
-echo "-------------------------------------------"
-# Install casks individually to handle errors gracefully
-# (some casks have buggy definitions that fail even when installed)
-for cask in wezterm neovide-app aerospace flameshot docker-desktop visual-studio-code; do
-    brew install --cask "$cask" 2>/dev/null || echo "  ⚠️  $cask: skipped (already installed or error)"
+print_header "Adding Taps"
+for tap in charmbracelet/tap felixkratz/formulae nikitabobko/tap \
+           oven-sh/bun sst/tap; do
+    brew_tap "$tap" && echo -e "  ${GREEN}✓${NC} ${tap}"
 done
 
-echo ""
-echo "Installing fonts..."
-echo "-------------------------------------------"
+# ─────────────────────────────────────────────────────────────────────────────────
+# Packages
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "Core CLI Tools"
+for pkg in chezmoi git gh lazygit gitui git-delta neovim \
+           bat eza fd ripgrep fzf zoxide yazi television \
+           just jq tree xh; do
+    brew_pkg "$pkg"
+done
+
+print_header "Shell Enhancements"
+for pkg in starship atuin zinit zsh-autosuggestions \
+           zsh-fast-syntax-highlighting zsh-autocomplete zsh-autopair; do
+    brew_pkg "$pkg"
+done
+
+print_header "TUI Applications"
+for pkg in btop bottom ncspot spotifyd cava posting glow; do
+    brew_pkg "$pkg"
+done
+
+print_header "Languages & Runtimes"
+for pkg in rust go lua node oven-sh/bun/bun deno pnpm uv pipx; do
+    brew_pkg "$pkg"
+done
+
+print_header "Language Servers"
+for pkg in lua-language-server typescript-language-server yaml-language-server \
+           vscode-langservers-extracted cmake-language-server dockerfile-language-server \
+           tailwindcss-language-server sql-language-server kotlin-language-server \
+           jdtls texlab marksman zls taplo; do
+    brew_pkg "$pkg"
+done
+
+print_header "macOS Desktop"
+for pkg in felixkratz/formulae/borders felixkratz/formulae/sketchybar wallpaper; do
+    brew_pkg "$pkg"
+done
+
+print_header "Utilities"
+for pkg in mosh ffmpeg imagemagick p7zip sevenzip unzip rclone \
+           speedtest-cli gping fastfetch figlet toilet cmatrix tty-clock fribidi; do
+    brew_pkg "$pkg"
+done
+
+print_header "Dev Tools"
+for pkg in sst/tap/opencode biome repomix dart-sdk llvm gemini-cli; do
+    brew_pkg "$pkg"
+done
+
+# ─────────────────────────────────────────────────────────────────────────────────
+# Casks (GUI Apps)
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "GUI Applications"
+for cask in wezterm ghostty neovide-app aerospace flameshot \
+            docker-desktop visual-studio-code zen; do
+    brew_cask "$cask"
+done
+
+print_header "Fonts"
 for font in font-jetbrains-mono font-jetbrains-mono-nerd-font font-hack-nerd-font \
             font-monocraft font-fontawesome font-symbols-only-nerd-font \
             font-barlow font-inter; do
-    brew install --cask "$font" 2>/dev/null || echo "  ⚠️  $font: skipped (already installed or error)"
+    brew_cask "$font"
 done
 
-echo ""
-echo "Installing Go tools..."
-echo "-------------------------------------------"
-go install github.com/nametake/golangci-lint-langserver@latest
-go install golang.org/x/tools/gopls@latest
-go install honnef.co/go/tools/cmd/staticcheck@latest
+# ─────────────────────────────────────────────────────────────────────────────────
+# Non-Homebrew Packages
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "Cargo Packages"
+if command -v cargo &>/dev/null; then
+    for pkg in matugen just-lsp; do
+        if command -v "$pkg" &>/dev/null; then
+            print_skip "$pkg"
+        elif cargo install --locked "$pkg" &>/dev/null; then
+            print_success "$pkg"
+        else
+            print_fail "cargo:$pkg"
+        fi
+    done
+else
+    print_info "cargo not available, skipping"
+fi
+
+print_header "Go Packages"
+if command -v go &>/dev/null; then
+    for pkg in github.com/nametake/golangci-lint-langserver \
+               golang.org/x/tools/gopls \
+               honnef.co/go/tools/cmd/staticcheck; do
+        name=$(basename "$pkg")
+        if go install "${pkg}@latest" &>/dev/null; then
+            print_success "$name"
+        else
+            print_fail "go:$name"
+        fi
+    done
+else
+    print_info "go not available, skipping"
+fi
+
+print_header "NPM Packages"
+if command -v npm &>/dev/null; then
+    for pkg in @anthropic-ai/claude-code prettier eslint \
+               @astrojs/language-server svelte-language-server playwright; do
+        if npm install -g "$pkg" &>/dev/null; then
+            print_success "$pkg"
+        else
+            print_fail "npm:$pkg"
+        fi
+    done
+else
+    print_info "npm not available, skipping"
+fi
+
+# ╔══════════════════════════════════════════════════════════════════════════════╗
+# ║  Summary                                                                      ║
+# ╚══════════════════════════════════════════════════════════════════════════════╝
 
 echo ""
-echo "Installing Cargo tools..."
-echo "-------------------------------------------"
-# just-lsp - Language server for Just task runner files
-# Note: taplo is installed via Homebrew above
-cargo install --locked just-lsp
-
+echo -e "${BOLD}${CYAN}"
+echo "  ┌─────────────────────────────────────────────────────┐"
+echo "  │                    Summary                          │"
+echo "  └─────────────────────────────────────────────────────┘"
+echo -e "${NC}"
+echo -e "     ${GREEN}✓ Installed${NC}    ${INSTALLED}"
+echo -e "     ${DIM}○ Skipped${NC}      ${SKIPPED}"
+echo -e "     ${RED}✗ Failed${NC}       ${FAILED}"
 echo ""
-echo "Installing npm global tools..."
-echo "-------------------------------------------"
-# AI coding assistant
-npm install -g @anthropic-ai/claude-code
 
-# Code formatters and linters (complement biome for legacy projects)
-npm install -g prettier
-npm install -g eslint
+if [[ ${#FAILED_LIST[@]} -gt 0 ]]; then
+    echo -e "  ${YELLOW}Failed packages:${NC}"
+    for pkg in "${FAILED_LIST[@]}"; do
+        echo -e "     ${DIM}•${NC} $pkg"
+    done
+    echo ""
+fi
 
-# Language servers (not available in Homebrew)
-npm install -g @astrojs/language-server
-npm install -g svelte-language-server
+echo -e "${DIM}  ─────────────────────────────────────────────────────${NC}"
+echo ""
+echo -e "  ${BOLD}Next steps:${NC}"
+echo -e "     ${CYAN}1.${NC} Restart your terminal"
+echo -e "     ${CYAN}2.${NC} Run: ${BOLD}gh auth login${NC}"
+echo -e "     ${CYAN}3.${NC} Run: ${BOLD}atuin login${NC} ${DIM}(optional)${NC}"
+echo ""
+echo -e "  ${DIM}AeroSpace will auto-start at login${NC}"
+echo ""
 
-# Testing
-npm install -g playwright
-
-echo ""
-echo "=========================================="
-echo "  Installation Complete!"
-echo "=========================================="
-echo ""
-echo "Next steps:"
-echo "  1. Restart your terminal"
-echo "  2. Run: chezmoi apply"
-echo "  3. Run: gh auth login"
-echo "  4. Run: atuin login (if using sync)"
-echo ""
-echo "Note: AeroSpace will auto-start at login and launch borders/sketchybar."
-echo ""
+[[ $FAILED -gt 0 ]] && exit 1 || exit 0

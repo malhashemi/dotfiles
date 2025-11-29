@@ -2,8 +2,8 @@
 # SketchyBar Configuration - Theme System Integration
 # Colors managed by theme system (static Catppuccin + dynamic Material Design 3)
 
-# Set full PATH from zsh environment for all scripts
-export PATH="/Users/malhashemi/.local/bin:/Users/malhashemi/.bun/bin:/Users/malhashemi/.atuin/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/malhashemi/.local/share/zinit/polaris/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/System/Cryptexes/App/usr/bin:/usr/bin:/bin:/usr/sbin:/sbin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/local/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/bin:/var/run/com.apple.security.cryptexd/codex.system/bootstrap/usr/appleinternal/bin:/Users/malhashemi/.local/bin:/Users/malhashemi/.cargo/bin:/Applications/Ghostty.app/Contents/MacOS:/Users/malhashemi/go/bin:/Users/malhashemi/Library/Python/3.9/bin"
+# Set PATH for sketchybar scripts (runs as daemon, needs explicit PATH)
+export PATH="{{ .chezmoi.homeDir }}/.local/bin:{{ .chezmoi.homeDir }}/.cargo/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 PLUGIN_DIR="$CONFIG_DIR/plugins"
 
