@@ -281,7 +281,7 @@ records = true
 
 [theme]
 {{- $themeName := "mocha" }}
-{{- if .theme }}{{ $themeName = .theme.name }}{{ end }}
+{{- if hasKey . "theme" }}{{ $themeName = .theme.name }}{{ end }}
 {{- if eq $themeName "dynamic" }}
 name = "dynamic"
 {{- else }}
