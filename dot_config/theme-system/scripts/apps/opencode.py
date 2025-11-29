@@ -9,8 +9,10 @@ from utils import is_dynamic_theme
 class OpencodeTheme(BaseApp):
     """OpenCode theme integration
 
-    Method: config reference update
-    Reload: manual (requires restart or /theme command in TUI)
+    Method: Updates config file. OpenCode watches config and auto-reloads.
+
+    Note: We do NOT send signals because production opencode doesn't have
+    signal handlers, and unhandled signals terminate the process.
 
     Simple integration:
     - Dynamic theme → set to "system" (inherits terminal colors from WezTerm)
@@ -53,7 +55,6 @@ class OpencodeTheme(BaseApp):
 
             if old_theme != theme_name:
                 self.log_success(f'Updated OpenCode: theme = "{theme_name}"')
-                self.log_warning("Restart opencode or use /theme command to apply")
             else:
                 self.log_success(f'OpenCode theme unchanged: "{theme_name}"')
 

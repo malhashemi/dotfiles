@@ -9,4 +9,7 @@ pkill -USR2 WezTerm 2>/dev/null || true
 pkill -USR2 wezterm 2>/dev/null || true
 {{- end }}
 
+# Note: opencode reload is handled by theme-system/scripts/apps/opencode.py
+# with proper timing (waits for WezTerm to reload first)
+
 echo "✅ Done"
