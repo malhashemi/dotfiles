@@ -67,22 +67,19 @@ atuin login        # Shell history sync
 
 ### Managing Secrets
 
+All custom fields in the Bitwarden item are **automatically exported** as environment variables.
+
 | Task | Steps |
 |------|-------|
-| **Update existing secret** | Edit in Bitwarden → `bw sync` → `chezmoi apply` |
-| **Add new secret** | 1. Add field in Bitwarden<br>2. Add line to `dot_secrets.tmpl`<br>3. `chezmoi apply` |
+| **Add/update secret** | Edit in Bitwarden → `bw sync` → `chezmoi apply` |
 | **After `bw logout`** | `bw login` → recreate `~/.bitwarden_session` |
 
-**Adding a new secret example:**
-
 ```bash
+# Example: Adding OPENAI_API_KEY
 # 1. In Bitwarden: Add custom field "OPENAI_API_KEY" to dotfiles-secrets item
-
-# 2. In dot_secrets.tmpl: Add the export line
-export OPENAI_API_KEY="{{ $secrets.OPENAI_API_KEY.value }}"
-
-# 3. Apply
+# 2. Apply:
 bw sync && chezmoi apply
+# Done! No template changes needed.
 ```
 
 ---
