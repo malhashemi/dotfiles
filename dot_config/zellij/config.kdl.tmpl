@@ -2,20 +2,25 @@
 // ~/.config/zellij/config.kdl
 
 // Theme - Dynamic from theme system
+// Uses unique theme name per color change to force Zellij hot-reload
 {{- $themeName := "mocha" }}
-{{- if hasKey . "theme" }}{{ $themeName = .theme.name }}{{ end }}
+{{- $dynamicId := "" }}
+{{- if hasKey . "theme" }}
+{{- $themeName = .theme.name }}
+{{- if .theme.last_updated }}{{ $dynamicId = .theme.last_updated | sha256sum | trunc 8 }}{{ end }}
+{{- end }}
 {{- if eq $themeName "dynamic" }}
-theme "dynamic"
+theme "dynamic-{{ $dynamicId }}"
 {{- else }}
 theme "catppuccin-{{ $themeName }}"
 {{- end }}
 
 {{- /* Dynamic theme defined INLINE for hot-reload support */}}
-{{- /* Zellij only hot-reloads themes defined in config.kdl, not separate theme files */}}
+{{- /* Unique theme name per update forces Zellij to reload colors */}}
 {{- if and (hasKey . "theme") (eq $themeName "dynamic") }}
 {{- $mat := .theme.material }}
 themes {
-    dynamic {
+    dynamic-{{ $dynamicId }} {
         bg "{{ $mat.background | default "#1e1e2e" }}"
         fg "{{ $mat.on_surface | default "#cdd6f4" }}"
         red "{{ $mat.error | default "#f38ba8" }}"
@@ -92,6 +97,14 @@ keybinds clear-defaults=true {
         bind "Ctrl s" { SwitchToMode "Scroll"; }
         bind "Ctrl o" { SwitchToMode "Session"; }
         bind "Ctrl b" { SwitchToMode "Tmux"; }  // tmux-like prefix
+        
+        // Help - show keybindings configuration
+        bind "Ctrl ?" { 
+            LaunchOrFocusPlugin "zellij:configuration" {
+                floating true
+                move_to_focused_tab true
+            };
+        }
         
         // Tab navigation
         bind "Alt 1" { GoToTab 1; }

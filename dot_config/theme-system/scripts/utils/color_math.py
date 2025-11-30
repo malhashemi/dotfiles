@@ -5,14 +5,14 @@ from typing import Tuple
 
 def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
     """Convert hex color to RGB tuple
-    
+
     Args:
         hex_color: Hex color string (with or without #)
-        
+
     Returns:
         Tuple of (r, g, b) values 0-255
     """
-    hex_clean = hex_color.lstrip('#')
+    hex_clean = hex_color.lstrip("#")
     r = int(hex_clean[0:2], 16)
     g = int(hex_clean[2:4], 16)
     b = int(hex_clean[4:6], 16)
@@ -21,10 +21,10 @@ def hex_to_rgb(hex_color: str) -> Tuple[int, int, int]:
 
 def rgb_to_hex(rgb: Tuple[int, int, int]) -> str:
     """Convert RGB tuple to hex color
-    
+
     Args:
         rgb: Tuple of (r, g, b) values 0-255
-        
+
     Returns:
         Hex color string with #
     """
@@ -33,10 +33,10 @@ def rgb_to_hex(rgb: Tuple[int, int, int]) -> str:
 
 def rgb_to_hsl(rgb: Tuple[int, int, int]) -> Tuple[float, float, float]:
     """Convert RGB to HSL
-    
+
     Args:
         rgb: Tuple of (r, g, b) values 0-255
-        
+
     Returns:
         Tuple of (h, s, l) where h is 0-360, s and l are 0-100
     """
@@ -50,63 +50,63 @@ def rgb_to_hsl(rgb: Tuple[int, int, int]) -> Tuple[float, float, float]:
     else:
         d = max_c - min_c
         s = d / (2.0 - max_c - min_c) if l > 0.5 else d / (max_c + min_c)
-        
+
         if max_c == r:
             h = (g - b) / d + (6.0 if g < b else 0.0)
         elif max_c == g:
             h = (b - r) / d + 2.0
         else:
             h = (r - g) / d + 4.0
-        
+
         h *= 60.0
-    
+
     return (h, s * 100.0, l * 100.0)
 
 
 def hsl_to_rgb(hsl: Tuple[float, float, float]) -> Tuple[int, int, int]:
     """Convert HSL to RGB
-    
+
     Args:
         hsl: Tuple of (h, s, l) where h is 0-360, s and l are 0-100
-        
+
     Returns:
         Tuple of (r, g, b) values 0-255
     """
     h, s, l = hsl
     s /= 100.0
     l /= 100.0
-    
+
     def hue_to_rgb(p, q, t):
         if t < 0:
             t += 1
         if t > 1:
             t -= 1
-        if t < 1/6:
+        if t < 1 / 6:
             return p + (q - p) * 6 * t
-        if t < 1/2:
+        if t < 1 / 2:
             return q
-        if t < 2/3:
-            return p + (q - p) * (2/3 - t) * 6
+        if t < 2 / 3:
+            return p + (q - p) * (2 / 3 - t) * 6
         return p
-    
+
     if s == 0:
         r = g = b = l  # achromatic
     else:
         q = l * (1 + s) if l < 0.5 else l + s - l * s
         p = 2 * l - q
-        r = hue_to_rgb(p, q, (h / 360.0) + 1/3)
+        r = hue_to_rgb(p, q, (h / 360.0) + 1 / 3)
         g = hue_to_rgb(p, q, h / 360.0)
-        b = hue_to_rgb(p, q, (h / 360.0) - 1/3)
-    
+        b = hue_to_rgb(p, q, (h / 360.0) - 1 / 3)
+
     return (int(r * 255), int(g * 255), int(b * 255))
 
 
 def hex_to_hsl(hex_color: str) -> Tuple[float, float, float]:
     """Convert hex color to HSL
-    
+
     Args:
         hex_color: Hex color string (with or without #)
-        
+
     Returns:
         Tuple of (h, s, l) where h is 0-360, s and l are 0-100
     """
@@ -115,10 +115,10 @@ def hex_to_hsl(hex_color: str) -> Tuple[float, float, float]:
 
 def hsl_to_hex(hsl: Tuple[float, float, float]) -> str:
     """Convert HSL to hex color
-    
+
     Args:
         hsl: Tuple of (h, s, l) where h is 0-360, s and l are 0-100
-        
+
     Returns:
         Hex color string with #
     """
@@ -127,11 +127,11 @@ def hsl_to_hex(hsl: Tuple[float, float, float]) -> str:
 
 def rotate_hue(hex_color: str, degrees: float) -> str:
     """Rotate hue by specified degrees
-    
+
     Args:
         hex_color: Hex color string
         degrees: Degrees to rotate (positive or negative)
-        
+
     Returns:
         New hex color with rotated hue
     """
@@ -142,11 +142,11 @@ def rotate_hue(hex_color: str, degrees: float) -> str:
 
 def adjust_lightness(hex_color: str, target_lightness: float) -> str:
     """Adjust color to target lightness percentage
-    
+
     Args:
         hex_color: Hex color string
         target_lightness: Target lightness 0-100
-        
+
     Returns:
         New hex color with adjusted lightness
     """
@@ -156,11 +156,11 @@ def adjust_lightness(hex_color: str, target_lightness: float) -> str:
 
 def adjust_saturation(hex_color: str, target_saturation: float) -> str:
     """Adjust color to target saturation percentage
-    
+
     Args:
         hex_color: Hex color string
         target_saturation: Target saturation 0-100
-        
+
     Returns:
         New hex color with adjusted saturation
     """
@@ -170,69 +170,66 @@ def adjust_saturation(hex_color: str, target_saturation: float) -> str:
 
 def relative_luminance(rgb: Tuple[int, int, int]) -> float:
     """Calculate relative luminance per WCAG 2.1
-    
+
     Args:
         rgb: Tuple of (r, g, b) values 0-255
-        
+
     Returns:
         Relative luminance 0.0-1.0
     """
     r, g, b = [x / 255.0 for x in rgb]
-    
+
     def adjust(c):
         return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
-    
+
     r = adjust(r)
     g = adjust(g)
     b = adjust(b)
-    
+
     return 0.2126 * r + 0.7152 * g + 0.0722 * b
 
 
 def contrast_ratio(fg_hex: str, bg_hex: str) -> float:
     """Calculate WCAG contrast ratio between two colors
-    
+
     Args:
         fg_hex: Foreground hex color
         bg_hex: Background hex color
-        
+
     Returns:
         Contrast ratio (1.0-21.0)
     """
     l1 = relative_luminance(hex_to_rgb(fg_hex))
     l2 = relative_luminance(hex_to_rgb(bg_hex))
-    
+
     lighter = max(l1, l2)
     darker = min(l1, l2)
-    
+
     return (lighter + 0.05) / (darker + 0.05)
 
 
 def ensure_contrast(
-    fg_hex: str,
-    bg_hex: str,
-    target_ratio: float = 4.5,
-    max_iterations: int = 20
+    fg_hex: str, bg_hex: str, target_ratio: float = 4.5, max_iterations: int = 20
 ) -> str:
     """Adjust foreground color to meet target contrast ratio
-    
+
     Args:
         fg_hex: Foreground hex color to adjust
         bg_hex: Background hex color (fixed)
         target_ratio: Target WCAG contrast ratio
         max_iterations: Maximum adjustment iterations
-        
+
     Returns:
         Adjusted foreground color that meets target ratio
     """
     ratio = contrast_ratio(fg_hex, bg_hex)
-    
+
     if ratio >= target_ratio:
         return fg_hex
-    
+
     h, s, l = hex_to_hsl(fg_hex)
     bg_lum = relative_luminance(hex_to_rgb(bg_hex))
-    
+
     # Determine if we need lighter or darker foreground
     step = 2.0  # Lightness adjustment per iteration
     if bg_lum > 0.5:
@@ -241,35 +238,94 @@ def ensure_contrast(
     else:
         # Dark background, need lighter foreground
         direction = 1
-    
+
     for _ in range(max_iterations):
         l = max(0, min(100, l + (step * direction)))
         fg_new = hsl_to_hex((h, s, l))
         ratio = contrast_ratio(fg_new, bg_hex)
-        
+
         if ratio >= target_ratio:
             return fg_new
-    
+
     # If can't meet target, return best attempt
     return hsl_to_hex((h, s, l))
 
 
 def blend_colors(fg_hex: str, bg_hex: str, alpha: float) -> str:
     """Blend foreground color with background at given alpha
-    
+
     Args:
         fg_hex: Foreground hex color
         bg_hex: Background hex color
         alpha: Alpha value 0.0-1.0 (1.0 = full fg, 0.0 = full bg)
-        
+
     Returns:
         Blended hex color
     """
     fg_rgb = hex_to_rgb(fg_hex)
     bg_rgb = hex_to_rgb(bg_hex)
-    
+
     r = int(fg_rgb[0] * alpha + bg_rgb[0] * (1 - alpha))
     g = int(fg_rgb[1] * alpha + bg_rgb[1] * (1 - alpha))
     b = int(fg_rgb[2] * alpha + bg_rgb[2] * (1 - alpha))
-    
+
     return rgb_to_hex((r, g, b))
+
+
+def generate_terminal_colors(primary: str, is_light: bool = False) -> dict:
+    """Generate synthetic ANSI terminal colors from a primary color.
+
+    Material Design 3 only provides primary/secondary/tertiary which are
+    harmonious but don't cover the full ANSI color spectrum. This function
+    generates proper red/green/yellow/blue/cyan/magenta/orange colors by
+    rotating hues while preserving the primary color's saturation and
+    adjusting lightness for the theme variant.
+
+    Args:
+        primary: Primary hex color to derive terminal colors from
+        is_light: True for light theme (darker colors), False for dark theme
+
+    Returns:
+        Dictionary with terminal color keys:
+        - red, green, yellow, blue, magenta, cyan, orange, white, black
+
+    Standard terminal hue positions:
+        - Red:     0°
+        - Orange:  30°
+        - Yellow:  60°
+        - Green:   120°
+        - Cyan:    180°
+        - Blue:    210°
+        - Magenta: 300°
+    """
+    h, s, l = hex_to_hsl(primary)
+
+    # Adjust saturation - keep it vibrant but not overwhelming
+    # Terminal colors need to be readable
+    target_saturation = min(s, 70.0)  # Cap saturation for readability
+    target_saturation = max(target_saturation, 40.0)  # Ensure some color
+
+    # Adjust lightness based on theme variant
+    if is_light:
+        # Light theme: colors should be darker for contrast on light bg
+        target_lightness = 45.0
+    else:
+        # Dark theme: colors should be lighter for contrast on dark bg
+        target_lightness = 70.0
+
+    def make_color(hue: float) -> str:
+        """Generate a color at the given hue with consistent sat/light"""
+        return hsl_to_hex((hue % 360, target_saturation, target_lightness))
+
+    return {
+        "red": make_color(0),
+        "orange": make_color(30),
+        "yellow": make_color(60),
+        "green": make_color(120),
+        "cyan": make_color(180),
+        "blue": make_color(210),
+        "magenta": make_color(300),
+        # Black and white are fixed for maximum contrast
+        "black": "#000000" if not is_light else "#1a1a1a",
+        "white": "#ffffff" if is_light else "#e0e0e0",
+    }
