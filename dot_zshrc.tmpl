@@ -71,12 +71,6 @@ export EDITOR="nvim"
 export GOPATH="$HOME/go"
 export XDG_CONFIG_HOME="$HOME/.config"
 
-# ============================================================================
-# Bitwarden CLI (for chezmoi secrets)
-# ============================================================================
-# Session persisted locally - run once: bw unlock --raw > ~/.bitwarden_session
-[[ -f ~/.bitwarden_session ]] && export BW_SESSION=$(cat ~/.bitwarden_session)
-
 # FZF Configuration (kept for compatibility with tools that still use it)
 export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow'
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
@@ -273,5 +267,6 @@ export PATH="$HOME/.bun/bin:$HOME/.atuin/bin:$HOME/go/bin:$PATH"
 alias ascii="~/scripts/figlet.sh"
 alias theme="~/.config/theme-system/scripts/theme-manager.py"
 alias wallpaper="~/.config/theme-system/scripts/wallpaper-manager.py"
+alias secrets="~/scripts/secrets.sh && source ~/.secrets"
 
 setopt INTERACTIVE_COMMENTS
