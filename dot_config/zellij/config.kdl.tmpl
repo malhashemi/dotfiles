@@ -20,9 +20,18 @@ mouse_mode true
 scroll_buffer_size 10000
 
 // Copy behavior
+{{- if .is_headless }}
+// Headless: no copy_command = use OSC 52 passthrough to terminal
+copy_on_select true
+{{- else if eq .chezmoi.os "darwin" }}
+copy_command "pbcopy"
+copy_clipboard "system"
+copy_on_select true
+{{- else }}
 copy_command "wl-copy"  // For Wayland; use "xclip -selection clipboard" for X11
 copy_clipboard "system"
 copy_on_select true
+{{- end }}
 
 // Session serialization
 session_serialization true
