@@ -1,6 +1,8 @@
 """Zellij theme generator"""
 
+import os
 import re
+import tempfile
 from pathlib import Path
 from .base import BaseApp
 from utils import get_material_colors, get_catppuccin_colors, is_dynamic_theme
@@ -85,9 +87,31 @@ class ZellijTheme(BaseApp):
             # Append theme block at end
             new_content = content.rstrip() + "\n\n" + theme_block
 
-        # Write back (triggers Zellij hot-reload)
-        self.config_file.write_text(new_content)
+        # Atomic write (temp file + rename) - this is what triggers file watchers
+        # Chezmoi uses the same approach, which is why chezmoi apply works
+        self._atomic_write(self.config_file, new_content)
         self.log_success("Zellij theme injected (hot-reload triggered)")
+
+    def _atomic_write(self, path: Path, content: str) -> None:
+        """Write file atomically using temp file + rename.
+
+        File watchers (like Zellij's) detect rename operations more reliably
+        than in-place writes. This mimics how chezmoi writes files.
+        """
+        # Write to temp file in same directory (ensures same filesystem for rename)
+        fd, tmp_path = tempfile.mkstemp(
+            dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+        )
+        try:
+            os.write(fd, content.encode())
+            os.close(fd)
+            # Atomic rename
+            os.rename(tmp_path, path)
+        except Exception:
+            # Clean up temp file on failure
+            os.close(fd)
+            os.unlink(tmp_path)
+            raise
 
     def _format_theme_block(self, colors: dict) -> str:
         """Format theme as inline KDL block with markers for replacement"""
