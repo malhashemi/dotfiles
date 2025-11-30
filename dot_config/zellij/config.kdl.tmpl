@@ -28,7 +28,7 @@ themes {
     dynamic-{{ $dynamicId }} {
         bg "{{ $mat.background | default "#1e1e2e" }}"
         {{- if $isLight }}
-        fg "{{ $mat.on_background | default "#cdd6f4" }}"
+        fg "{{ $mat.outline | default "#cdd6f4" }}"
         {{- else }}
         fg "{{ $mat.primary | default "#cdd6f4" }}"
         {{- end }}
