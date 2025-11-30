@@ -1,56 +1,47 @@
 """Zellij theme generator"""
 
-import os
-import re
-import tempfile
+import subprocess
 from pathlib import Path
 from .base import BaseApp
-from utils import get_material_colors, get_catppuccin_colors, is_dynamic_theme
+from utils import get_material_colors, is_dynamic_theme
 
 
 class ZellijTheme(BaseApp):
     """Zellij terminal multiplexer theme generator
 
-    Generates theme inline in config.kdl for hot-reload support.
+    Generates themes/dynamic.kdl and triggers chezmoi apply for hot-reload.
 
-    Zellij only hot-reloads themes defined INLINE in config.kdl.
-    Themes in separate files (themes/*.kdl) require restart.
+    Zellij watches config.kdl for changes. Triggering chezmoi apply on
+    config.kdl reliably triggers the hot-reload mechanism.
 
     Architecture:
-    - Dynamic themes: Inject theme block directly into config.kdl
+    - Dynamic themes: Write themes/dynamic.kdl + chezmoi apply for reload
     - Static themes: Use built-in Catppuccin (no generation needed)
-    - Hot reload: Triggered by config.kdl file change
     """
 
     def __init__(self, config_home: Path):
         super().__init__("Zellij", config_home)
         self.config_file = config_home / "zellij/config.kdl"
+        self.themes_dir = config_home / "zellij/themes"
+        self.dynamic_theme_file = self.themes_dir / "dynamic.kdl"
 
     def apply_theme(self, theme_data: dict) -> None:
         """Apply theme to Zellij
 
-        For dynamic themes: Inject theme block into config.kdl
+        For dynamic themes: Write theme file and trigger reload via chezmoi
         For static themes: Just log (built-in themes work automatically)
-
-        Zellij hot-reloads when config.kdl changes.
         """
         if is_dynamic_theme(theme_data):
-            self.inject_dynamic_theme(theme_data)
+            self.generate_dynamic_theme(theme_data)
+            self.trigger_reload()
         else:
             # Static themes use Zellij's built-in Catppuccin
             theme_name = theme_data.get("theme", {}).get("name", "mocha")
             self.log_success(f"Using built-in theme: catppuccin-{theme_name}")
 
-    def inject_dynamic_theme(self, theme_data: dict) -> None:
-        """Inject dynamic theme block directly into config.kdl
-
-        This enables hot-reload - Zellij watches config.kdl for changes.
-        """
-        self.log_progress("Injecting Zellij dynamic theme", emoji="🖥️")
-
-        if not self.config_file.exists():
-            self.log_warning(f"Zellij config not found: {self.config_file}")
-            return
+    def generate_dynamic_theme(self, theme_data: dict) -> None:
+        """Generate dynamic.kdl theme file with Material colors"""
+        self.log_progress("Generating Zellij dynamic theme", emoji="🖥️")
 
         mat = get_material_colors(theme_data)
 
@@ -69,65 +60,8 @@ class ZellijTheme(BaseApp):
             "orange": mat.get("secondary", "#fab387"),
         }
 
-        theme_block = self._format_theme_block(colors)
-
-        # Read current config
-        content = self.config_file.read_text()
-
-        # Check if themes block already exists
-        # Pattern matches: themes { ... } with nested braces
-        themes_pattern = (
-            r"// --- DYNAMIC THEME START ---.*?// --- DYNAMIC THEME END ---\n?"
-        )
-
-        if re.search(themes_pattern, content, re.DOTALL):
-            # Replace existing dynamic theme block
-            new_content = re.sub(themes_pattern, theme_block, content, flags=re.DOTALL)
-        else:
-            # Append theme block at end
-            new_content = content.rstrip() + "\n\n" + theme_block
-
-        # Atomic write (temp file + rename) - this is what triggers file watchers
-        # Chezmoi uses the same approach, which is why chezmoi apply works
-        self._atomic_write(self.config_file, new_content)
-        self.log_success("Zellij theme injected (hot-reload triggered)")
-
-    def _atomic_write(self, path: Path, content: str) -> None:
-        """Write file atomically using temp file + rename.
-
-        File watchers (like Zellij's) detect rename operations more reliably
-        than in-place writes. This mimics how chezmoi writes files.
-        """
-        # Get original file permissions
-        original_mode = path.stat().st_mode if path.exists() else 0o644
-
-        # Write to temp file in same directory (ensures same filesystem for rename)
-        fd, tmp_path = tempfile.mkstemp(
-            dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
-        )
-        try:
-            os.write(fd, content.encode())
-            os.close(fd)
-            # Preserve original permissions
-            os.chmod(tmp_path, original_mode)
-            # Atomic rename
-            os.rename(tmp_path, path)
-        except Exception:
-            # Clean up temp file on failure
-            try:
-                os.close(fd)
-            except OSError:
-                pass
-            try:
-                os.unlink(tmp_path)
-            except OSError:
-                pass
-            raise
-
-    def _format_theme_block(self, colors: dict) -> str:
-        """Format theme as inline KDL block with markers for replacement"""
-        return f"""// --- DYNAMIC THEME START ---
-// Auto-generated by theme system - DO NOT EDIT between markers
+        kdl_content = f"""// Dynamic theme for Zellij - Generated from wallpaper colors
+// Auto-generated by theme system
 themes {{
     dynamic {{
         bg "{colors["bg"]}"
@@ -143,5 +77,29 @@ themes {{
         white "{colors["white"]}"
     }}
 }}
-// --- DYNAMIC THEME END ---
 """
+
+        self.write_file(self.dynamic_theme_file, kdl_content)
+
+    def trigger_reload(self) -> None:
+        """Trigger Zellij hot-reload by re-applying config.kdl via chezmoi.
+
+        Zellij reliably hot-reloads when chezmoi applies the config file.
+        This is a workaround since direct file writes don't trigger reload.
+        """
+        if not self.command_exists("chezmoi"):
+            self.log_warning("chezmoi not found, Zellij won't hot-reload")
+            return
+
+        try:
+            subprocess.run(
+                ["chezmoi", "apply", "--force", str(self.config_file)],
+                capture_output=True,
+                timeout=10,
+                check=True,
+            )
+            self.log_success("Zellij hot-reload triggered via chezmoi")
+        except subprocess.CalledProcessError as e:
+            self.log_warning(f"chezmoi apply failed: {e}")
+        except subprocess.TimeoutExpired:
+            self.log_warning("chezmoi apply timed out")
