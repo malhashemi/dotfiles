@@ -60,6 +60,7 @@ def get_chezmoi_source() -> Path:
 
 
 CHEZMOI_SOURCE = get_chezmoi_source()
+CHEZMOI_CONFIG = CONFIG_HOME / "chezmoi/chezmoi.toml"
 THEME_DATA = CHEZMOI_SOURCE / ".chezmoidata/theme.yaml"
 WALLPAPER_DATA = CHEZMOI_SOURCE / ".chezmoidata/wallpaper-state.yaml"
 THEMES_DIR = CHEZMOI_SOURCE / "dot_config/theme-system/themes"
@@ -108,6 +109,23 @@ def load_yaml(path: Path) -> dict:
         return yaml.safe_load(f) or {}
 
 
+def load_chezmoi_config() -> dict:
+    """Load chezmoi config (TOML) and return as nested dict"""
+    if not CHEZMOI_CONFIG.exists():
+        return {}
+    try:
+        import tomllib
+
+        with open(CHEZMOI_CONFIG, "rb") as f:
+            return tomllib.load(f)
+    except ImportError:
+        # Python < 3.11 fallback
+        import tomlkit
+
+        with open(CHEZMOI_CONFIG) as f:
+            return tomlkit.load(f)
+
+
 def save_yaml(path: Path, data: dict):
     """Save YAML file"""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -133,6 +151,15 @@ def apply_theme_to_apps(theme_data: dict) -> None:
         app.apply_theme(theme_data)
 
 
+def get_devbox_host() -> str | None:
+    """Get devbox hostname from chezmoi config.
+
+    Reads from tailscale_hosts.dev_hub in ~/.config/chezmoi/chezmoi.toml
+    """
+    config = load_chezmoi_config()
+    return config.get("data", {}).get("tailscale_hosts", {}).get("dev_hub")
+
+
 def push_to_devbox() -> bool:
     """Push theme.yaml to devbox and trigger apply.
 
@@ -146,9 +173,10 @@ def push_to_devbox() -> bool:
         console.print("[dim]Theme sync disabled[/dim]")
         return False
 
-    devbox_host = sync_config.get("devbox_host")
+    devbox_host = get_devbox_host()
     if not devbox_host:
-        console.print("[yellow]⚠ No devbox_host configured in theme_sync[/yellow]")
+        console.print("[yellow]⚠ No tailscale_hosts.dev_hub in chezmoi config[/yellow]")
+        console.print("[dim]Run 'chezmoi init' to configure[/dim]")
         return False
 
     # Remote path - same relative location in chezmoi source
@@ -534,10 +562,9 @@ def push():
     Sends theme.yaml to the configured devbox and triggers 'theme apply' there.
     Does NOT re-apply theme locally - just syncs to remote.
 
-    Configure devbox_host in .chezmoidata/user.yaml:
-        theme_sync:
-          enabled: true
-          devbox_host: dev-hub
+    Requirements:
+    - theme_sync.enabled = true in .chezmoidata/user.yaml
+    - tailscale_hosts.dev_hub configured via 'chezmoi init'
 
     Examples:
         theme push  # Push current theme to devbox
