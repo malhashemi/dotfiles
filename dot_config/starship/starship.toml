@@ -30,9 +30,10 @@ symbol = '☸ '
 disabled = true
 detect_files = ['Dockerfile']
 format = '[$symbol$context( \($namespace\))]($style) '
-contexts = [
-  { context_pattern = "arn:aws:eks:us-west-2:577926974532:cluster/zd-pvc-omer", style = "green", context_alias = "omerxx", symbol = " " },
-]
+# Example context alias - customize for your clusters:
+# contexts = [
+#   { context_pattern = "arn:aws:eks:REGION:ACCOUNT_ID:cluster/CLUSTER_NAME", style = "green", context_alias = "my-cluster", symbol = " " },
+# ]
 
 [docker_context]
 disabled = true

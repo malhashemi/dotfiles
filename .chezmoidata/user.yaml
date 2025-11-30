@@ -1,6 +1,6 @@
-user:
-  name: "M. Adel Alhashemi"
-  email: "malhashemi.apps@gmail.com"
+# user.name and user.email are prompted during `chezmoi init`
+# Values are cached in ~/.config/chezmoi/chezmoi.toml (not in repo)
+# See .chezmoi.toml.tmpl for configuration
 
 preferences:
   default_theme: "mocha"
@@ -18,12 +18,11 @@ preferences:
 # Tailscale mesh VPN configuration
 tailscale_enabled: true
 
-tailscale_hosts:
-  dev_hub: "dev-hub"
-  arch_desktop: "arch-desktop"  # Placeholder for future
+# tailscale_hosts are prompted during `chezmoi init`
+# Values are cached in ~/.config/chezmoi/chezmoi.toml (not in repo)
 
 # Theme sync configuration (push to headless devbox)
 theme_sync:
   enabled: true
-  devbox_host: dev-hub  # Tailscale hostname (references tailscale_hosts.dev_hub)
+  # devbox_host uses tailscale_hosts.dev_hub from .chezmoi.toml.tmpl
   auto_push: false      # If true, push after every theme change
