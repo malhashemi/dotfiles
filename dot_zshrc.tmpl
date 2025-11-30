@@ -231,8 +231,8 @@ eval "$(starship init zsh)"
 export STARSHIP_CONFIG=~/.config/starship/starship.toml
 
 # Atuin shell history
-. "$HOME/.atuin/bin/env"
-eval "$(atuin init zsh)"
+[ -f "$HOME/.atuin/bin/env" ] && . "$HOME/.atuin/bin/env"
+command -v atuin &>/dev/null && eval "$(atuin init zsh)"
 
 # Zoxide smart cd
 eval "$(zoxide init zsh)"
