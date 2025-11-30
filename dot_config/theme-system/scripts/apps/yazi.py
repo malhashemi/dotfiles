@@ -291,22 +291,25 @@ prepend_exts = []
             if "flavor" not in config:
                 config["flavor"] = tomlkit.table()
 
-            # Determine which key to update based on variant
-            variant = theme_data.get("theme", {}).get("variant", "dark")
-
-            if variant == "light":
-                config["flavor"]["light"] = flavor_name
-                # Also update dark if switching between static themes
-                if not is_dynamic_theme(theme_data):
-                    # For static themes, set both to the appropriate variant
-                    pass
-            else:
+            # For dynamic themes: set BOTH dark and light to ensure consistency
+            # (headless systems can't detect system dark/light mode, so yazi defaults to dark)
+            # For static themes: only update the matching variant key
+            if is_dynamic_theme(theme_data):
                 config["flavor"]["dark"] = flavor_name
+                config["flavor"]["light"] = flavor_name
+                log_msg = f'Updated Yazi: flavor.dark = flavor.light = "{flavor_name}"'
+            else:
+                variant = theme_data.get("theme", {}).get("variant", "dark")
+                if variant == "light":
+                    config["flavor"]["light"] = flavor_name
+                else:
+                    config["flavor"]["dark"] = flavor_name
+                log_msg = f'Updated Yazi: flavor.{variant} = "{flavor_name}"'
 
             with open(self.theme_file, "w") as f:
                 tomlkit.dump(config, f)
 
-            self.log_success(f'Updated Yazi: flavor.{variant} = "{flavor_name}"')
+            self.log_success(log_msg)
 
         except Exception as e:
             self.log_error(f"Failed to update Yazi theme.toml: {e}")
