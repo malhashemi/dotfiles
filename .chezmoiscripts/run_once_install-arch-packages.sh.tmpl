@@ -159,7 +159,7 @@ for pkg in rust go lua nodejs npm python python-pip python-pipx; do
 done
 
 print_header "Utilities (pacman)"
-for pkg in mosh ffmpeg imagemagick p7zip rclone gping fastfetch figlet fribidi openssh xclip; do
+for pkg in mosh ffmpeg imagemagick p7zip rclone rsync gping fastfetch figlet fribidi openssh xclip; do
     pacman_pkg "$pkg"
 done
 
