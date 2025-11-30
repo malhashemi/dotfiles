@@ -1,8 +1,14 @@
 // Zellij Configuration
 // ~/.config/zellij/config.kdl
 
-// Theme - Catppuccin Mocha
+// Theme - Dynamic from theme system
+{{- $themeName := "mocha" }}
+{{- if hasKey . "theme" }}{{ $themeName = .theme.name }}{{ end }}
+{{- if eq $themeName "dynamic" }}
 theme "catppuccin-mocha"
+{{- else }}
+theme "catppuccin-{{ $themeName }}"
+{{- end }}
 
 // Default shell
 default_shell "zsh"
