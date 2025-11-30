@@ -402,6 +402,20 @@ sketchybar --add item theme.wallpaper popup.theme_control \
   script="$PLUGIN_DIR/theme/random_wallpaper.sh" \
   --subscribe theme.wallpaper mouse.clicked mouse.entered mouse.exited
 
+# ===== Push to Devbox Button =====
+
+sketchybar --add item theme.push popup.theme_control \
+  --set theme.push \
+  icon="󰒋" \
+  icon.font="$FONT:Regular:14.0" \
+  icon.color="$ACCENT_COLOR" \
+  label="Push to Devbox" \
+  label.font="$FONT:Medium:12.0" \
+  label.color="$LABEL_COLOR" \
+  background.drawing=off \
+  script="$PLUGIN_DIR/theme/push_theme.sh" \
+  --subscribe theme.push mouse.clicked mouse.entered mouse.exited
+
 # Separator between date and theme (added before date so it appears between them)
 sketchybar --add item separator_date_theme right \
   --set separator_date_theme \
