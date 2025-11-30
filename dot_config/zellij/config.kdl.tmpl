@@ -87,12 +87,12 @@ keybinds clear-defaults=true {
         
         // Quick actions
         bind "Ctrl n" { NewPane; }
-        bind "Ctrl t" { NewTab; }
         bind "Ctrl w" { CloseFocus; }
         bind "Ctrl q" { Quit; }
         
         // Mode switching
         bind "Ctrl p" { SwitchToMode "Pane"; }
+        bind "Ctrl t" { SwitchToMode "Tab"; }
         bind "Ctrl r" { SwitchToMode "Resize"; }
         bind "Ctrl s" { SwitchToMode "Scroll"; }
         bind "Ctrl o" { SwitchToMode "Session"; }
@@ -183,6 +183,26 @@ keybinds clear-defaults=true {
             };
             SwitchToMode "Normal"
         }
+    }
+    
+    // Tab mode
+    tab {
+        bind "Esc" { SwitchToMode "Normal"; }
+        bind "n" { NewTab; SwitchToMode "Normal"; }
+        bind "r" { SwitchToMode "RenameTab"; }
+        bind "x" { CloseTab; SwitchToMode "Normal"; }
+        bind "h" { GoToPreviousTab; }
+        bind "l" { GoToNextTab; }
+        bind "1" { GoToTab 1; SwitchToMode "Normal"; }
+        bind "2" { GoToTab 2; SwitchToMode "Normal"; }
+        bind "3" { GoToTab 3; SwitchToMode "Normal"; }
+        bind "4" { GoToTab 4; SwitchToMode "Normal"; }
+        bind "5" { GoToTab 5; SwitchToMode "Normal"; }
+        bind "Tab" { ToggleTab; }
+        bind "s" { ToggleActiveSyncTab; SwitchToMode "Normal"; }
+        bind "b" { BreakPane; SwitchToMode "Normal"; }
+        bind "]" { BreakPaneRight; SwitchToMode "Normal"; }
+        bind "[" { BreakPaneLeft; SwitchToMode "Normal"; }
     }
     
     // Tmux-like mode (Ctrl+b prefix)
