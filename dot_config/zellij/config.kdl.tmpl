@@ -5,7 +5,7 @@
 {{- $themeName := "mocha" }}
 {{- if hasKey . "theme" }}{{ $themeName = .theme.name }}{{ end }}
 {{- if eq $themeName "dynamic" }}
-theme "catppuccin-mocha"
+theme "dynamic"
 {{- else }}
 theme "catppuccin-{{ $themeName }}"
 {{- end }}

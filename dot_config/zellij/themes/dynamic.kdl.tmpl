@@ -1,0 +1,42 @@
+// Dynamic theme for Zellij - Generated from wallpaper colors
+{{- $bg := "#1e1e2e" }}
+{{- $fg := "#cdd6f4" }}
+{{- $red := "#f38ba8" }}
+{{- $green := "#a6e3a1" }}
+{{- $yellow := "#f9e2af" }}
+{{- $blue := "#89b4fa" }}
+{{- $magenta := "#cba6f7" }}
+{{- $cyan := "#94e2d5" }}
+{{- $orange := "#fab387" }}
+{{- $black := "#11111b" }}
+{{- $white := "#cdd6f4" }}
+{{- if hasKey . "theme" }}
+{{- if .theme.material }}
+{{- $bg = .theme.material.background }}
+{{- $fg = .theme.material.on_surface }}
+{{- $red = .theme.material.error }}
+{{- $green = .theme.material.tertiary }}
+{{- $yellow = .theme.material.secondary }}
+{{- $blue = .theme.material.primary }}
+{{- $magenta = .theme.material.primary }}
+{{- $cyan = .theme.material.tertiary }}
+{{- $orange = .theme.material.secondary }}
+{{- $black = .theme.material.scrim }}
+{{- $white = .theme.material.on_surface }}
+{{- end }}
+{{- end }}
+themes {
+    dynamic {
+        bg "{{ $bg }}"
+        fg "{{ $fg }}"
+        red "{{ $red }}"
+        green "{{ $green }}"
+        yellow "{{ $yellow }}"
+        blue "{{ $blue }}"
+        magenta "{{ $magenta }}"
+        cyan "{{ $cyan }}"
+        orange "{{ $orange }}"
+        black "{{ $black }}"
+        white "{{ $white }}"
+    }
+}
