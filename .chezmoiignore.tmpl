@@ -37,7 +37,7 @@
 # Dev-box and other headless systems don't need GUI/audio apps.
 # Note: theme-system IS included (uses push/apply sync for dynamic themes)
 
-{{- if .is_headless }}
+{{- if and (hasKey . "is_headless") .is_headless }}
 # GUI terminal emulators (accessed via SSH, not locally)
 .config/wezterm/
 .config/ghostty/

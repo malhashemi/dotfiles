@@ -21,7 +21,8 @@
 [data.tailscale_hosts]
     dev_hub = "{{ $devHub }}"
     arch_desktop = "{{ $archDesktop }}"
-    
+
+[data]
     {{- if eq $os "darwin" }}
     is_mac = true
     is_linux = false
