@@ -14,9 +14,9 @@ class OpencodeTheme(BaseApp):
     Note: We do NOT send signals because production opencode doesn't have
     signal handlers, and unhandled signals terminate the process.
 
-    Simple integration:
-    - Dynamic theme → set to "system" (inherits terminal colors from WezTerm)
-    - Static theme → set to corresponding catppuccin-{variant}-mauve theme
+    Theme selection:
+    - Dynamic theme → use "dynamic" (chezmoi-templated theme with transparent bg)
+    - Static theme → use corresponding catppuccin-{variant}-mauve theme
     """
 
     def __init__(self, config_home: Path):
@@ -32,8 +32,9 @@ class OpencodeTheme(BaseApp):
         self.log_progress("Updating OpenCode theme")
 
         if is_dynamic_theme(theme_data):
-            # Dynamic theme: use "system" to inherit terminal colors
-            theme_name = "system"
+            # Dynamic theme: use chezmoi-templated theme with transparent background
+            # This works on headless environments where "system" theme fails
+            theme_name = "dynamic"
         else:
             # Static theme: use corresponding Catppuccin theme file
             variant = theme_data.get("theme", {}).get("name", "mocha")
