@@ -98,8 +98,8 @@ keybinds clear-defaults=true {
         bind "Ctrl o" { SwitchToMode "Session"; }
         bind "Ctrl b" { SwitchToMode "Tmux"; }  // tmux-like prefix
         
-        // Help - show keybindings configuration
-        bind "Ctrl ?" { 
+        // Help - show keybindings configuration (F1 or Alt+/)
+        bind "F1" "Alt /" { 
             LaunchOrFocusPlugin "zellij:configuration" {
                 floating true
                 move_to_focused_tab true
