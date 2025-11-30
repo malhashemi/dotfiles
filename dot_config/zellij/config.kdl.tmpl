@@ -19,19 +19,10 @@ theme "catppuccin-{{ $themeName }}"
 {{- /* Unique theme name per update forces Zellij to reload colors */}}
 {{- if and (hasKey . "theme") (eq $themeName "dynamic") }}
 {{- $mat := .theme.material }}
-{{- /* Detect light/dark mode by checking background brightness */}}
-{{- /* Light mode: first hex char >= 7 (e.g., #7xxxxx, #8xxxxx, #fxxxxx) */}}
-{{- $bgHex := $mat.background | default "#1e1e2e" | trimPrefix "#" }}
-{{- $firstChar := $bgHex | substr 0 1 | lower }}
-{{- $isLight := or (eq $firstChar "7") (eq $firstChar "8") (eq $firstChar "9") (eq $firstChar "a") (eq $firstChar "b") (eq $firstChar "c") (eq $firstChar "d") (eq $firstChar "e") (eq $firstChar "f") }}
 themes {
     dynamic-{{ $dynamicId }} {
         bg "{{ $mat.background | default "#1e1e2e" }}"
-        {{- if $isLight }}
-        fg "{{ $mat.outline | default "#cdd6f4" }}"
-        {{- else }}
         fg "{{ $mat.primary | default "#cdd6f4" }}"
-        {{- end }}
         red "{{ $mat.error | default "#f38ba8" }}"
         green "{{ $mat.primary | default "#a6e3a1" }}"
         yellow "{{ $mat.primary | default "#f9e2af" }}"
