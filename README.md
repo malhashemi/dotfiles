@@ -33,28 +33,22 @@ brew install chezmoi  # macOS
 chezmoi init git@github.com:malhashemi/dotfiles.git
 ```
 
-### Secrets Setup (Required Before Apply)
-
-Secrets are stored in Bitwarden and pulled by chezmoi. **Do this before `chezmoi apply`:**
-
-```bash
-# 1. Login to Bitwarden
-bw login
-
-# 2. Create persistent session (one-time)
-bw unlock --raw > ~/.bitwarden_session
-chmod 600 ~/.bitwarden_session
-```
-
-> **First time?** Create a Bitwarden item named `dotfiles-secrets` with custom fields for your API keys.
-> See `~/.local/share/chezmoi/dot_secrets.example` for required fields.
-
 ### Apply Configuration
 
 ```bash
 chezmoi diff    # Review changes
-chezmoi apply   # Apply everything (secrets included)
+chezmoi apply   # Apply dotfiles
 ```
+
+### Secrets Setup
+
+Secrets are stored in Bitwarden and synced on-demand with the `secrets` command:
+
+```bash
+secrets         # Sync secrets from Bitwarden (handles login/unlock automatically)
+```
+
+> **First time?** Create a Bitwarden item named `dotfiles-secrets` with custom fields for your API keys (e.g., `OPENAI_API_KEY`, `GITHUB_TOKEN`). Run `secrets --help` for more info.
 
 ### Post-Install (Optional)
 
@@ -67,20 +61,18 @@ atuin login        # Shell history sync
 
 ### Managing Secrets
 
-All custom fields in the Bitwarden item are **automatically exported** as environment variables.
+All custom fields in the Bitwarden `dotfiles-secrets` item are **automatically exported** as environment variables.
+
+```bash
+secrets         # Sync secrets (shows diff of changes)
+secrets -v      # Sync with masked value preview
+secrets --help  # Show setup instructions
+```
 
 | Task | Steps |
 |------|-------|
-| **Add/update secret** | Edit in Bitwarden → `bw sync` → `chezmoi apply` |
-| **After `bw logout`** | `bw login` → recreate `~/.bitwarden_session` |
-
-```bash
-# Example: Adding OPENAI_API_KEY
-# 1. In Bitwarden: Add custom field "OPENAI_API_KEY" to dotfiles-secrets item
-# 2. Apply:
-bw sync && chezmoi apply
-# Done! No template changes needed.
-```
+| **Add/update secret** | Edit in Bitwarden → `secrets` |
+| **View current secrets** | `secrets -v` |
 
 ---
 
