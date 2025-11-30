@@ -9,55 +9,47 @@ from utils import is_dynamic_theme
 class ZellijTheme(BaseApp):
     """Zellij terminal multiplexer theme generator
 
-    Delegates to chezmoi templates for theme generation.
-    Chezmoi templates read from theme.yaml and generate:
-    - config.kdl with theme reference
-    - themes/dynamic.kdl with Material colors (for dynamic theme)
+    Uses chezmoi templates with INLINE theme definition for hot-reload.
 
-    Hot-reload is triggered by chezmoi apply on config.kdl.
+    Key insight from Zellij docs:
+    - Theme files in themes/ directory are NOT watched (loaded at startup only)
+    - Themes defined INLINE in config.kdl ARE hot-reloaded when config changes
+
+    The config.kdl.tmpl template includes the dynamic theme colors inline,
+    so when theme.yaml changes, chezmoi regenerates config.kdl with new colors,
+    and Zellij's file watcher detects the change and hot-reloads.
     """
 
     def __init__(self, config_home: Path):
         super().__init__("Zellij", config_home)
-        self.zellij_dir = config_home / "zellij"
+        self.config_file = config_home / "zellij/config.kdl"
 
     def apply_theme(self, theme_data: dict) -> None:
-        """Apply theme to Zellij via chezmoi templates"""
+        """Apply theme to Zellij via chezmoi template regeneration"""
         self.log_progress("Applying Zellij theme", emoji="🖥️")
 
         if not self.command_exists("chezmoi"):
             self.log_warning("chezmoi not found, skipping Zellij")
             return
 
-        # Apply both config and theme files via chezmoi
-        # The templates read from theme.yaml which was just updated
+        # Regenerate config.kdl from template
+        # The template reads theme.yaml and embeds colors inline
+        # This triggers Zellij's file watcher for hot-reload
         try:
-            # Apply dynamic.kdl first (if dynamic theme)
-            if is_dynamic_theme(theme_data):
-                subprocess.run(
-                    [
-                        "chezmoi",
-                        "apply",
-                        "--force",
-                        str(self.zellij_dir / "themes/dynamic.kdl"),
-                    ],
-                    capture_output=True,
-                    timeout=10,
-                    check=True,
-                )
-
-            # Apply config.kdl to trigger hot-reload
-            subprocess.run(
-                ["chezmoi", "apply", "--force", str(self.zellij_dir / "config.kdl")],
+            result = subprocess.run(
+                ["chezmoi", "apply", "--force", str(self.config_file)],
                 capture_output=True,
                 timeout=10,
-                check=True,
             )
-            self.log_success("Zellij theme applied (hot-reload triggered)")
 
-        except subprocess.CalledProcessError as e:
-            self.log_warning(
-                f"chezmoi apply failed: {e.stderr.decode() if e.stderr else e}"
-            )
+            if result.returncode == 0:
+                theme_name = theme_data.get("theme", {}).get("name", "unknown")
+                self.log_success(f"Zellij config regenerated ({theme_name} theme)")
+            else:
+                stderr = result.stderr.decode() if result.stderr else "unknown error"
+                self.log_warning(f"chezmoi apply failed: {stderr}")
+
         except subprocess.TimeoutExpired:
             self.log_warning("chezmoi apply timed out")
+        except Exception as e:
+            self.log_warning(f"Zellij theme apply failed: {e}")

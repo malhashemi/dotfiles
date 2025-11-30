@@ -10,6 +10,27 @@ theme "dynamic"
 theme "catppuccin-{{ $themeName }}"
 {{- end }}
 
+{{- /* Dynamic theme defined INLINE for hot-reload support */}}
+{{- /* Zellij only hot-reloads themes defined in config.kdl, not separate theme files */}}
+{{- if and (hasKey . "theme") (eq $themeName "dynamic") }}
+{{- $mat := .theme.material }}
+themes {
+    dynamic {
+        bg "{{ $mat.background | default "#1e1e2e" }}"
+        fg "{{ $mat.on_surface | default "#cdd6f4" }}"
+        red "{{ $mat.error | default "#f38ba8" }}"
+        green "{{ $mat.tertiary | default "#a6e3a1" }}"
+        yellow "{{ $mat.secondary | default "#f9e2af" }}"
+        blue "{{ $mat.primary | default "#89b4fa" }}"
+        magenta "{{ $mat.primary | default "#cba6f7" }}"
+        cyan "{{ $mat.tertiary | default "#94e2d5" }}"
+        orange "{{ $mat.secondary | default "#fab387" }}"
+        black "{{ $mat.scrim | default "#11111b" }}"
+        white "{{ $mat.on_surface | default "#cdd6f4" }}"
+    }
+}
+{{- end }}
+
 // Default shell
 default_shell "zsh"
 
