@@ -98,6 +98,9 @@ class ZellijTheme(BaseApp):
         File watchers (like Zellij's) detect rename operations more reliably
         than in-place writes. This mimics how chezmoi writes files.
         """
+        # Get original file permissions
+        original_mode = path.stat().st_mode if path.exists() else 0o644
+
         # Write to temp file in same directory (ensures same filesystem for rename)
         fd, tmp_path = tempfile.mkstemp(
             dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
@@ -105,12 +108,20 @@ class ZellijTheme(BaseApp):
         try:
             os.write(fd, content.encode())
             os.close(fd)
+            # Preserve original permissions
+            os.chmod(tmp_path, original_mode)
             # Atomic rename
             os.rename(tmp_path, path)
         except Exception:
             # Clean up temp file on failure
-            os.close(fd)
-            os.unlink(tmp_path)
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
             raise
 
     def _format_theme_block(self, colors: dict) -> str:
