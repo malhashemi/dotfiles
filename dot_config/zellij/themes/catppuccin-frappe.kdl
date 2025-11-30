@@ -1,0 +1,16 @@
+// Catppuccin Frappe theme for Zellij
+themes {
+    catppuccin-frappe {
+        bg "#303446"        // base
+        fg "#c6d0f5"        // text
+        red "#e78284"
+        green "#a6d189"
+        yellow "#e5c890"
+        blue "#8caaee"
+        magenta "#ca9ee6"   // mauve
+        cyan "#81c8be"      // teal
+        orange "#ef9f76"    // peach
+        black "#232634"     // crust
+        white "#c6d0f5"     // text
+    }
+}

@@ -250,10 +250,8 @@ if command -v aws &> /dev/null && command -v aws_completer &> /dev/null; then
     complete -C "$(command -v aws_completer)" aws
 fi
 
-{{- if not .is_headless }}
 # Display system info on terminal startup
-fastfetch --config examples/13
-{{- end }}
+command -v fastfetch &>/dev/null && fastfetch --config examples/13
 
 {{- if eq .chezmoi.os "darwin" }}
 # macOS PATH additions (Homebrew, .local/bin, .cargo/bin already set by zprofile/zshenv)

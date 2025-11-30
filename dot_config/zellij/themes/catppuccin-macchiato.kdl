@@ -1,0 +1,16 @@
+// Catppuccin Macchiato theme for Zellij
+themes {
+    catppuccin-macchiato {
+        bg "#24273a"        // base
+        fg "#cad3f5"        // text
+        red "#ed8796"
+        green "#a6da95"
+        yellow "#eed49f"
+        blue "#8aadf4"
+        magenta "#c6a0f6"   // mauve
+        cyan "#8bd5ca"      // teal
+        orange "#f5a97f"    // peach
+        black "#181926"     // crust
+        white "#cad3f5"     // text
+    }
+}
