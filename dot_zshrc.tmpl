@@ -153,7 +153,7 @@ alias tvh="tv zsh-history"  # Search zsh history
 
 alias devbox="mosh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }} -- zellij attach --create dev"
 alias devhub="mosh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }}"
-alias zeldel="ssh {{ .tailscale_hosts.dev_hub }} 'zellij delete-session dev 2>/dev/null || echo No session to delete'"
+alias zeldel="zellij delete-session dev"
 {{- end }}
 
 # ============================================================================
