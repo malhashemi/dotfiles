@@ -45,7 +45,7 @@ readonly ICON_SPARKLE="✨"
 print_header() {
   echo "" >&2
   echo -e "${MAGENTA}${BOLD}  ╔═══════════════════════════════════════════════════════╗${RESET}" >&2
-  echo -e "${MAGENTA}${BOLD}  ║${RESET}  ${ICON_KEY} ${WHITE}${BOLD}Secrets Sync${RESET}                                  ${MAGENTA}${BOLD}║${RESET}" >&2
+  echo -e "${MAGENTA}${BOLD}  ║${RESET}  ${ICON_KEY} ${WHITE}${BOLD}Secrets Sync${RESET}                                      ${MAGENTA}${BOLD}║${RESET}" >&2
   echo -e "${MAGENTA}${BOLD}  ╚═══════════════════════════════════════════════════════╝${RESET}" >&2
   echo "" >&2
 }
