@@ -1,0 +1,55 @@
+# PR Review Skill - Task Runner
+# Run tasks with: just <recipe> [args...]
+
+# Default recipe - show help
+default:
+    @just --list
+
+# Directory containing scripts
+scripts_dir := justfile_directory() / "scripts"
+
+# Get PR info (auto-detect or specify PR number)
+pr-info pr_number="":
+    uv run {{scripts_dir}}/get_pr_info.py {{pr_number}}
+
+# Fetch all review comments for a PR
+fetch-comments owner repo pr_number:
+    uv run {{scripts_dir}}/fetch_pr_comments.py {{owner}} {{repo}} {{pr_number}}
+
+# Fetch review threads with resolution status
+fetch-threads owner repo pr_number:
+    uv run {{scripts_dir}}/fetch_review_threads.py {{owner}} {{repo}} {{pr_number}}
+
+# Reply to a specific comment
+reply owner repo pr_number comment_id body:
+    uv run {{scripts_dir}}/reply_to_comment.py {{owner}} {{repo}} {{pr_number}} {{comment_id}} {{body}}
+
+# Resolve a review thread
+resolve thread_id:
+    uv run {{scripts_dir}}/resolve_thread.py {{thread_id}}
+
+# Request re-review with summary comment
+request-review owner repo pr_number body:
+    uv run {{scripts_dir}}/request_review.py {{owner}} {{repo}} {{pr_number}} {{body}}
+
+# Merge a PR (method: merge, squash, or rebase)
+merge pr_number method="squash":
+    uv run {{scripts_dir}}/merge_pr.py {{pr_number}} {{method}}
+
+# Fetch all unresolved threads (convenience wrapper)
+unresolved owner repo pr_number:
+    #!/usr/bin/env bash
+    uv run {{scripts_dir}}/fetch_review_threads.py {{owner}} {{repo}} {{pr_number}} | \
+        jq '[.[] | select(.is_resolved == false)]'
+
+# Full PR review data (info + threads + comments)
+full-review owner repo pr_number:
+    #!/usr/bin/env bash
+    echo "=== PR Info ==="
+    uv run {{scripts_dir}}/get_pr_info.py {{pr_number}}
+    echo ""
+    echo "=== Review Threads ==="
+    uv run {{scripts_dir}}/fetch_review_threads.py {{owner}} {{repo}} {{pr_number}}
+    echo ""
+    echo "=== Comments ==="
+    uv run {{scripts_dir}}/fetch_pr_comments.py {{owner}} {{repo}} {{pr_number}}

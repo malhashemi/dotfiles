@@ -1,35 +1,40 @@
-#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """
-Skill Packager - Creates a distributable zip file of a skill folder
+Skill Packager - Creates a distributable zip file of a skill folder.
 
-Usage:
-    python utils/package_skill.py <path/to/skill-folder> [output-directory]
+Usage: uv run package_skill.py <path/to/skill-folder> [output-directory]
+Output: Zip file of the skill
 
 Example:
-    python utils/package_skill.py skills/public/my-skill
-    python utils/package_skill.py skills/public/my-skill ./dist
+    uv run package_skill.py ~/.config/opencode/skills/my-skill
+    uv run package_skill.py ./my-skill ./dist
 """
 
 import sys
 import zipfile
 from pathlib import Path
+
+# Import validate function - must be run from scripts directory or with proper path
+sys.path.insert(0, str(Path(__file__).parent))
 from quick_validate import validate_skill
 
 
-def package_skill(skill_path, output_dir=None):
+def package_skill(skill_path_str: str, output_dir: str | None = None) -> Path | None:
     """
     Package a skill folder into a zip file.
 
     Args:
-        skill_path: Path to the skill folder
-        output_dir: Optional output directory for the zip file (defaults to current directory)
+        skill_path_str: Path to the skill folder
+        output_dir: Optional output directory for the zip file
 
     Returns:
         Path to the created zip file, or None if error
     """
-    skill_path = Path(skill_path).resolve()
+    skill_path = Path(skill_path_str).resolve()
 
-    # Validate skill folder exists
     if not skill_path.exists():
         print(f"❌ Error: Skill folder not found: {skill_path}")
         return None
@@ -38,7 +43,6 @@ def package_skill(skill_path, output_dir=None):
         print(f"❌ Error: Path is not a directory: {skill_path}")
         return None
 
-    # Validate SKILL.md exists
     skill_md = skill_path / "SKILL.md"
     if not skill_md.exists():
         print(f"❌ Error: SKILL.md not found in {skill_path}")
@@ -66,10 +70,11 @@ def package_skill(skill_path, output_dir=None):
     # Create the zip file
     try:
         with zipfile.ZipFile(zip_filename, "w", zipfile.ZIP_DEFLATED) as zipf:
-            # Walk through the skill directory
             for file_path in skill_path.rglob("*"):
+                # Skip __pycache__ directories
+                if "__pycache__" in file_path.parts:
+                    continue
                 if file_path.is_file():
-                    # Calculate the relative path within the zip
                     arcname = file_path.relative_to(skill_path.parent)
                     zipf.write(file_path, arcname)
                     print(f"  Added: {arcname}")
@@ -85,11 +90,11 @@ def package_skill(skill_path, output_dir=None):
 def main():
     if len(sys.argv) < 2:
         print(
-            "Usage: python utils/package_skill.py <path/to/skill-folder> [output-directory]"
+            "Usage: uv run package_skill.py <path/to/skill-folder> [output-directory]"
         )
         print("\nExample:")
-        print("  python utils/package_skill.py skills/public/my-skill")
-        print("  python utils/package_skill.py skills/public/my-skill ./dist")
+        print("  uv run package_skill.py ~/.config/opencode/skills/my-skill")
+        print("  uv run package_skill.py ./my-skill ./dist")
         sys.exit(1)
 
     skill_path = sys.argv[1]
@@ -101,11 +106,7 @@ def main():
     print()
 
     result = package_skill(skill_path, output_dir)
-
-    if result:
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    sys.exit(0 if result else 1)
 
 
 if __name__ == "__main__":

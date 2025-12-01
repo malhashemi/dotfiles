@@ -1,16 +1,29 @@
-#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """
-Quick validation script for skills - minimal version
+Quick validation script for skills.
+
+Usage: uv run quick_validate.py <skill_directory>
+Output: Validation result message
 """
 
-import sys
-import os
 import re
+import sys
 from pathlib import Path
 
 
-def validate_skill(skill_path):
-    """Basic validation of a skill"""
+def validate_skill(skill_path: str | Path) -> tuple[bool, str]:
+    """
+    Basic validation of a skill.
+
+    Args:
+        skill_path: Path to the skill directory
+
+    Returns:
+        Tuple of (is_valid, message)
+    """
     skill_path = Path(skill_path)
 
     # Check SKILL.md exists
@@ -63,11 +76,15 @@ def validate_skill(skill_path):
     return True, "Skill is valid!"
 
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) != 2:
-        print("Usage: python quick_validate.py <skill_directory>")
+        print("Usage: uv run quick_validate.py <skill_directory>")
         sys.exit(1)
 
     valid, message = validate_skill(sys.argv[1])
     print(message)
     sys.exit(0 if valid else 1)
+
+
+if __name__ == "__main__":
+    main()

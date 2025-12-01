@@ -1,23 +1,46 @@
-#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """
-Skill Initializer - Creates a new skill from template
+Skill Initializer - Creates a new skill from template with PEP 723 Python scripts and justfile.
 
 Usage:
-    init_skill.py <skill-name> --path <path>
+    uv run init_skill.py <skill-name> --path <path>
 
 Examples:
-    init_skill.py my-new-skill --path skills/public
-    init_skill.py my-api-helper --path skills/private
-    init_skill.py custom-skill --path /custom/location
+    uv run init_skill.py my-new-skill --path ~/.config/opencode/skills
+    uv run init_skill.py my-api-helper --path ./skills
 """
 
 import sys
 from pathlib import Path
 
 
+JUSTFILE_TEMPLATE = """# {skill_title} - Task Runner
+# Run tasks with: just -f {{base_dir}}/justfile <recipe> [args...]
+
+# Default recipe - show help
+default:
+    @just --list
+
+# Directory containing scripts
+scripts_dir := justfile_directory() / "scripts"
+
+# Example recipe - replace with actual recipes
+example name="world":
+    uv run {{{{scripts_dir}}}}/example.py {{{{name}}}}
+
+# [TODO: Add more recipes as needed]
+# recipe-name arg1 arg2="default":
+#     uv run {{{{scripts_dir}}}}/script_name.py {{{{arg1}}}} {{{{arg2}}}}
+"""
+
 SKILL_TEMPLATE = """---
 name: {skill_name}
-description: [TODO: Complete and informative explanation of what the skill does and when to use it. Include WHEN to use this skill - specific scenarios, file types, or tasks that trigger it.]
+description: |
+  [TODO: Complete and informative explanation of what the skill does and when to use it.
+  This skill should be used when... Include specific scenarios, file types, or tasks that trigger it.]
 ---
 
 # {skill_title}
@@ -26,98 +49,90 @@ description: [TODO: Complete and informative explanation of what the skill does 
 
 [TODO: 1-2 sentences explaining what this skill enables]
 
-## Structuring This Skill
+## When to Use
 
-[TODO: Choose the structure that best fits this skill's purpose. Common patterns:
+- [TODO: Specific trigger scenario 1]
+- [TODO: Specific trigger scenario 2]
+- [TODO: Specific trigger scenario 3]
 
-**1. Workflow-Based** (best for sequential processes)
-- Works well when there are clear step-by-step procedures
-- Example: DOCX skill with "Workflow Decision Tree" → "Reading" → "Creating" → "Editing"
-- Structure: ## Overview → ## Workflow Decision Tree → ## Step 1 → ## Step 2...
+## Scripts
 
-**2. Task-Based** (best for tool collections)
-- Works well when the skill offers different operations/capabilities
-- Example: PDF skill with "Quick Start" → "Merge PDFs" → "Split PDFs" → "Extract Text"
-- Structure: ## Overview → ## Quick Start → ## Task Category 1 → ## Task Category 2...
+All scripts are PEP 723 compliant Python files. The base directory for this skill is provided
+when loaded. Execute via justfile or directly with uv:
 
-**3. Reference/Guidelines** (best for standards or specifications)
-- Works well for brand guidelines, coding standards, or requirements
-- Example: Brand styling with "Brand Guidelines" → "Colors" → "Typography" → "Features"
-- Structure: ## Overview → ## Guidelines → ## Specifications → ## Usage...
+### Via Justfile (Recommended)
 
-**4. Capabilities-Based** (best for integrated systems)
-- Works well when the skill provides multiple interrelated features
-- Example: Product Management with "Core Capabilities" → numbered capability list
-- Structure: ## Overview → ## Core Capabilities → ### 1. Feature → ### 2. Feature...
+```bash
+just -f {{base_dir}}/justfile <recipe> [args...]
+```
 
-Patterns can be mixed and matched as needed. Most skills combine patterns (e.g., start with task-based, add workflow for complex operations).
+| Recipe | Arguments | Description |
+|--------|-----------|-------------|
+| `example` | `[name]` | Example recipe - replace with actual recipes |
 
-Delete this entire "Structuring This Skill" section when done - it's just guidance.]
+### Direct Execution
 
-## [TODO: Replace with the first main section based on chosen structure]
+```bash
+uv run {{base_dir}}/scripts/<script>.py [args...]
+```
 
-[TODO: Add content here. See examples in existing skills:
-- Code samples for technical skills
-- Decision trees for complex workflows
-- Concrete examples with realistic user requests
-- References to scripts/templates/references as needed]
+| Script | Arguments | Description |
+|--------|-----------|-------------|
+| `example.py` | `[name]` | Example script - replace with actual scripts |
 
-## Resources
+### Example
 
-This skill includes example resource directories that demonstrate how to organize different types of bundled resources:
+```bash
+# Via justfile
+just -f {{base_dir}}/justfile example world
 
-### scripts/
-Executable code (Python/Bash/etc.) that can be run directly to perform specific operations.
+# Direct execution
+uv run {{base_dir}}/scripts/example.py world
+```
 
-**Examples from other skills:**
-- PDF skill: `fill_fillable_fields.py`, `extract_form_field_info.py` - utilities for PDF manipulation
-- DOCX skill: `document.py`, `utilities.py` - Python modules for document processing
+## [TODO: Main Section]
 
-**Appropriate for:** Python scripts, shell scripts, or any executable code that performs automation, data processing, or specific operations.
+[TODO: Add workflow, tasks, or capabilities based on skill structure pattern:
 
-**Note:** Scripts may be executed without loading into context, but can still be read by Claude for patching or environment adjustments.
+**Workflow-Based** (sequential processes):
+- Step 1 → Step 2 → Step 3
 
-### references/
-Documentation and reference material intended to be loaded into context to inform Claude's process and thinking.
+**Task-Based** (tool collections):
+- Task Category 1
+- Task Category 2
 
-**Examples from other skills:**
-- Product management: `communication.md`, `context_building.md` - detailed workflow guides
-- BigQuery: API reference documentation and query examples
-- Finance: Schema documentation, company policies
+**Capabilities-Based** (integrated features):
+- ### 1. Feature One
+- ### 2. Feature Two
+]
 
-**Appropriate for:** In-depth documentation, API references, database schemas, comprehensive guides, or any detailed information that Claude should reference while working.
+## Error Handling
 
-### assets/
-Files not intended to be loaded into context, but rather used within the output Claude produces.
-
-**Examples from other skills:**
-- Brand styling: PowerPoint template files (.pptx), logo files
-- Frontend builder: HTML/React boilerplate project directories
-- Typography: Font files (.ttf, .woff2)
-
-**Appropriate for:** Templates, boilerplate code, document templates, images, icons, fonts, or any files meant to be copied or used in the final output.
-
----
-
-**Any unneeded directories can be deleted.** Not every skill requires all three types of resources.
+- [TODO: Common error 1] → [Solution]
+- [TODO: Common error 2] → [Solution]
 """
 
-EXAMPLE_SCRIPT = '''#!/usr/bin/env python3
+EXAMPLE_SCRIPT = '''# /// script
+# requires-python = ">=3.11"
+# dependencies = []
+# ///
 """
-Example helper script for {skill_name}
+Example script for {skill_name}.
 
-This is a placeholder script that can be executed directly.
-Replace with actual implementation or delete if not needed.
+Usage: uv run example.py [name]
+Output: Greeting message
 
-Example real scripts from other skills:
-- pdf/scripts/fill_fillable_fields.py - Fills PDF form fields
-- pdf/scripts/convert_pdf_to_images.py - Converts PDF pages to images
+Replace this with actual implementation or delete if not needed.
 """
+
+import sys
+
 
 def main():
-    print("This is an example script for {skill_name}")
+    name = sys.argv[1] if len(sys.argv) > 1 else "world"
+    print(f"Hello, {{name}}! This is an example script for {skill_name}.")
     # TODO: Add actual script logic here
-    # This could be data processing, file conversion, API calls, etc.
+
 
 if __name__ == "__main__":
     main()
@@ -127,11 +142,6 @@ EXAMPLE_REFERENCE = """# Reference Documentation for {skill_title}
 
 This is a placeholder for detailed reference documentation.
 Replace with actual reference content or delete if not needed.
-
-Example real reference docs from other skills:
-- product-management/references/communication.md - Comprehensive guide for status updates
-- product-management/references/context_building.md - Deep-dive on gathering context
-- bigquery/references/ - API references and query examples
 
 ## When Reference Docs Are Useful
 
@@ -167,50 +177,40 @@ Replace with actual asset files (templates, images, fonts, etc.) or delete if no
 Asset files are NOT intended to be loaded into context, but rather used within
 the output Claude produces.
 
-Example asset files from other skills:
-- Brand guidelines: logo.png, slides_template.pptx
-- Frontend builder: hello-world/ directory with HTML/React boilerplate
-- Typography: custom-font.ttf, font-family.woff2
-- Data: sample_data.csv, test_dataset.json
-
 ## Common Asset Types
 
 - Templates: .pptx, .docx, boilerplate directories
 - Images: .png, .jpg, .svg, .gif
 - Fonts: .ttf, .otf, .woff, .woff2
 - Boilerplate code: Project directories, starter files
-- Icons: .ico, .svg
 - Data files: .csv, .json, .xml, .yaml
 
 Note: This is a text placeholder. Actual assets can be any file type.
 """
 
 
-def title_case_skill_name(skill_name):
+def title_case_skill_name(skill_name: str) -> str:
     """Convert hyphenated skill name to Title Case for display."""
     return " ".join(word.capitalize() for word in skill_name.split("-"))
 
 
-def init_skill(skill_name, path):
+def init_skill(skill_name: str, path: str) -> Path | None:
     """
-    Initialize a new skill directory with template SKILL.md.
+    Initialize a new skill directory with PEP 723 Python scripts and justfile.
 
     Args:
-        skill_name: Name of the skill
+        skill_name: Name of the skill (hyphen-case)
         path: Path where the skill directory should be created
 
     Returns:
         Path to created skill directory, or None if error
     """
-    # Determine skill directory path
     skill_dir = Path(path).resolve() / skill_name
 
-    # Check if directory already exists
     if skill_dir.exists():
         print(f"❌ Error: Skill directory already exists: {skill_dir}")
         return None
 
-    # Create skill directory
     try:
         skill_dir.mkdir(parents=True, exist_ok=False)
         print(f"✅ Created skill directory: {skill_dir}")
@@ -218,71 +218,83 @@ def init_skill(skill_name, path):
         print(f"❌ Error creating directory: {e}")
         return None
 
-    # Create SKILL.md from template
     skill_title = title_case_skill_name(skill_name)
+
+    # Create SKILL.md
     skill_content = SKILL_TEMPLATE.format(
         skill_name=skill_name, skill_title=skill_title
     )
-
-    skill_md_path = skill_dir / "SKILL.md"
     try:
-        skill_md_path.write_text(skill_content)
+        (skill_dir / "SKILL.md").write_text(skill_content)
         print("✅ Created SKILL.md")
     except Exception as e:
         print(f"❌ Error creating SKILL.md: {e}")
         return None
 
-    # Create resource directories with example files
+    # Create justfile
+    justfile_content = JUSTFILE_TEMPLATE.format(skill_title=skill_title)
     try:
-        # Create scripts/ directory with example script
+        (skill_dir / "justfile").write_text(justfile_content)
+        print("✅ Created justfile")
+    except Exception as e:
+        print(f"❌ Error creating justfile: {e}")
+        return None
+
+    # Create scripts/ with example PEP 723 script
+    try:
         scripts_dir = skill_dir / "scripts"
         scripts_dir.mkdir(exist_ok=True)
         example_script = scripts_dir / "example.py"
         example_script.write_text(EXAMPLE_SCRIPT.format(skill_name=skill_name))
-        example_script.chmod(0o755)
-        print("✅ Created scripts/example.py")
-
-        # Create references/ directory with example reference doc
-        references_dir = skill_dir / "references"
-        references_dir.mkdir(exist_ok=True)
-        example_reference = references_dir / "api_reference.md"
-        example_reference.write_text(EXAMPLE_REFERENCE.format(skill_title=skill_title))
-        print("✅ Created references/api_reference.md")
-
-        # Create assets/ directory with example asset placeholder
-        assets_dir = skill_dir / "assets"
-        assets_dir.mkdir(exist_ok=True)
-        example_asset = assets_dir / "example_asset.txt"
-        example_asset.write_text(EXAMPLE_ASSET)
-        print("✅ Created assets/example_asset.txt")
+        print("✅ Created scripts/example.py (PEP 723)")
     except Exception as e:
-        print(f"❌ Error creating resource directories: {e}")
+        print(f"❌ Error creating scripts/: {e}")
         return None
 
-    # Print next steps
+    # Create references/ with example doc
+    try:
+        references_dir = skill_dir / "references"
+        references_dir.mkdir(exist_ok=True)
+        (references_dir / "api_reference.md").write_text(
+            EXAMPLE_REFERENCE.format(skill_title=skill_title)
+        )
+        print("✅ Created references/api_reference.md")
+    except Exception as e:
+        print(f"❌ Error creating references/: {e}")
+        return None
+
+    # Create assets/ with example placeholder
+    try:
+        assets_dir = skill_dir / "assets"
+        assets_dir.mkdir(exist_ok=True)
+        (assets_dir / "example_asset.txt").write_text(EXAMPLE_ASSET)
+        print("✅ Created assets/example_asset.txt")
+    except Exception as e:
+        print(f"❌ Error creating assets/: {e}")
+        return None
+
     print(f"\n✅ Skill '{skill_name}' initialized successfully at {skill_dir}")
     print("\nNext steps:")
     print("1. Edit SKILL.md to complete the TODO items and update the description")
+    print("2. Add PEP 723 scripts to scripts/ and add recipes to justfile")
+    print("3. Customize or delete example files in scripts/, references/, and assets/")
     print(
-        "2. Customize or delete the example files in scripts/, references/, and assets/"
+        f"4. Validate: uv run ~/.config/opencode/skills/skill-creator/scripts/quick_validate.py {skill_dir}"
     )
-    print("3. Run the validator when ready to check the skill structure")
 
     return skill_dir
 
 
 def main():
     if len(sys.argv) < 4 or sys.argv[2] != "--path":
-        print("Usage: init_skill.py <skill-name> --path <path>")
+        print("Usage: uv run init_skill.py <skill-name> --path <path>")
         print("\nSkill name requirements:")
         print("  - Hyphen-case identifier (e.g., 'data-analyzer')")
         print("  - Lowercase letters, digits, and hyphens only")
         print("  - Max 40 characters")
-        print("  - Must match directory name exactly")
         print("\nExamples:")
-        print("  init_skill.py my-new-skill --path skills/public")
-        print("  init_skill.py my-api-helper --path skills/private")
-        print("  init_skill.py custom-skill --path /custom/location")
+        print("  uv run init_skill.py my-new-skill --path ~/.config/opencode/skills")
+        print("  uv run init_skill.py my-api-helper --path ./skills")
         sys.exit(1)
 
     skill_name = sys.argv[1]
@@ -293,11 +305,7 @@ def main():
     print()
 
     result = init_skill(skill_name, path)
-
-    if result:
-        sys.exit(0)
-    else:
-        sys.exit(1)
+    sys.exit(0 if result else 1)
 
 
 if __name__ == "__main__":
