@@ -13,6 +13,7 @@ tools:
   todowrite: true
   todoread: true
   webfetch: false
+  skills_skill_creator: true
 ---
 
 ## Role Definition
