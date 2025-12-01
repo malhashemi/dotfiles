@@ -1,0 +1,13 @@
+{{- /* Clipboard CLI Theme - Plain text file containing CLIPBOARD_THEME value */ -}}
+{{- /* This file is read by shell config to set the environment variable */ -}}
+{{- /* Cross-platform: works with zsh, bash, PowerShell, fish, nushell */ -}}
+{{- if eq .theme.name "latte" -}}
+help=136;57;239,info=30;102;245,error=210;15;57,success=64;160;43,progress=234;118;203
+{{- else if eq .theme.name "frappe" -}}
+help=202;158;230,info=140;170;238,error=231;130;132,success=166;209;137,progress=244;184;228
+{{- else if eq .theme.name "macchiato" -}}
+help=198;160;246,info=138;173;244,error=237;135;150,success=166;218;149,progress=245;189;230
+{{- else -}}
+{{- /* Default: mocha (also used for dynamic until runtime update) */ -}}
+help=203;166;247,info=137;180;250,error=243;139;168,success=166;227;161,progress=245;194;231
+{{- end -}}

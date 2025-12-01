@@ -195,7 +195,7 @@ for pkg in felixkratz/formulae/borders felixkratz/formulae/sketchybar wallpaper;
 done
 
 print_header "Utilities"
-for pkg in mosh ffmpeg imagemagick p7zip sevenzip unzip rclone \
+for pkg in mosh ffmpeg imagemagick p7zip sevenzip unzip rclone clipboard \
            speedtest-cli gping fastfetch figlet toilet cmatrix tty-clock fribidi; do
     brew_pkg "$pkg"
 done
@@ -211,7 +211,7 @@ done
 
 print_header "GUI Applications"
 for cask in wezterm ghostty neovide-app aerospace flameshot \
-            docker-desktop visual-studio-code zen; do
+            docker-desktop visual-studio-code zen macfuse; do
     brew_cask "$cask"
 done
 

@@ -1,6 +1,6 @@
 # Dotfiles
 
-Cross-platform dotfiles managed by [chezmoi](https://chezmoi.io/) with a unified theming system for 21 applications.
+Cross-platform dotfiles managed by [chezmoi](https://chezmoi.io/) with a unified theming system for 22 applications.
 
 ![macOS](https://img.shields.io/badge/macOS-Primary-blue)
 ![Linux](https://img.shields.io/badge/Linux-Supported-green)
@@ -8,7 +8,7 @@ Cross-platform dotfiles managed by [chezmoi](https://chezmoi.io/) with a unified
 
 ## Features
 
-- **Unified Theming** - 21 apps synchronized to one color scheme
+- **Unified Theming** - 22 apps synchronized to one color scheme
 - **Dual Theme Modes** - Static [Catppuccin](https://catppuccin.com/) or dynamic wallpaper-based colors
 - **Cross-Platform** - Same repo works on macOS, headless Linux, and more
 - **Fresh Install Ready** - One command installs packages, configs, and system settings
@@ -78,7 +78,7 @@ secrets --help  # Show setup instructions
 
 ## Theme System
 
-The crown jewel of this repo. Change your wallpaper and watch 21 apps update their colors automatically.
+The crown jewel of this repo. Change your wallpaper and watch 22 apps update their colors automatically.
 
 ### Commands
 
@@ -98,7 +98,7 @@ wallpaper set ~/path/to/img.jpg # Set specific wallpaper
 ### How It Works
 
 ```
-Wallpaper ──► matugen ──► Material Design 3 colors ──► 21 apps
+Wallpaper ──► matugen ──► Material Design 3 colors ──► 22 apps
                               │
                               ├── WezTerm (colors-wezterm.lua)
                               ├── NeoVim (colors/dynamic.lua)
@@ -175,6 +175,11 @@ GUI-only apps (WezTerm, Borders, SketchyBar) are automatically skipped on headle
 | [CAVA](https://github.com/karlstav/cava) | Audio visualizer | ✓ |
 | [glow](https://github.com/charmbracelet/glow) | Markdown renderer | ✓ |
 
+### CLI Tools
+| App | Description | Themed |
+|-----|-------------|:------:|
+| [Clipboard](https://github.com/Slackadays/Clipboard) | Modern clipboard manager | ✓ |
+
 ### Development Tools
 | App | Description | Themed |
 |-----|-------------|:------:|
@@ -239,7 +244,7 @@ is_headless = true/false  // No GUI (VPS, SSH-only)
 ├── dot_config/
 │   ├── theme-system/         # Unified theming engine
 │   │   ├── scripts/
-│   │   │   ├── apps/         # 21 app theme modules
+│   │   │   ├── apps/         # 22 app theme modules
 │   │   │   ├── utils/        # Color math, hue generation
 │   │   │   ├── theme-manager.py
 │   │   │   └── wallpaper-manager.py

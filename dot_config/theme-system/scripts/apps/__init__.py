@@ -30,6 +30,7 @@ from .glow import GlowTheme
 from .ghostty import GhosttyTheme
 from .obsidian import ObsidianTheme
 from .zellij import ZellijTheme
+from .clipboard import ClipboardTheme
 
 
 def get_all_apps(config_home: Path) -> list:
@@ -69,6 +70,7 @@ def get_all_apps(config_home: Path) -> list:
         GhosttyTheme(config_home),
         ObsidianTheme(config_home),
         ZellijTheme(config_home),
+        ClipboardTheme(config_home),
     ]
 
 
@@ -95,5 +97,6 @@ __all__ = [
     "GhosttyTheme",
     "ObsidianTheme",
     "ZellijTheme",
+    "ClipboardTheme",
     "get_all_apps",
 ]

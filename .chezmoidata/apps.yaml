@@ -7,7 +7,7 @@
 # 3. Automatically invoked by theme-manager.py when running theme commands
 #
 # Schema version: 1.1
-# Last updated: 2025-11-29
+# Last updated: 2025-12-02
 
 # ==========================================================================
 # Implementation Status Summary
@@ -35,6 +35,7 @@
 #   ✅ glow          - apps/glow.py          - External file method JSON (glamour)
 #   ✅ Ghostty       - apps/ghostty.py       - Hybrid method (builtin + external) [GUI]
 #   ✅ Obsidian      - apps/obsidian.py      - Per-vault theme method [GUI] [NEW 2025-11-29]
+#   ✅ Clipboard     - apps/clipboard.py     - External file method (plain text) [NEW 2025-12-02]
 #
 # Not Themed (service/orchestrator apps):
 #   ⭕ AeroSpace     - Window manager, no theming needed
@@ -44,8 +45,8 @@
 #
 # [GUI] = requires_gui=True, skipped on headless systems
 #
-# Architecture Completion: 21/21 apps (100%) ✅
-# Total themed apps: 21 modular + 0 legacy = 21 apps
+# Architecture Completion: 22/22 apps (100%) ✅
+# Total themed apps: 22 modular + 0 legacy = 22 apps
 #
 # Cross-machine sync: theme push/apply commands sync to headless (2025-11-29)
 # ==========================================================================
@@ -2635,6 +2636,124 @@ apps:
       - "Cross-platform: macOS, Linux, Windows, iOS, Android"
       - "GUI app - skipped on headless systems (requires_gui = true)"
       - "CSS custom properties allow extensive customization"
+
+  # ==========================================================================
+  # Clipboard CLI - Clipboard Manager (CURRENT IMPLEMENTATION)
+  # ==========================================================================
+  clipboard:
+    # Basic Info
+    display_name: Clipboard CLI
+    config_file: null  # No config file - uses environment variables
+    config_format: env_var
+    app_type: cli
+    platform: cross_platform
+    homepage: https://github.com/Slackadays/Clipboard
+    
+    # Static Theme Support (Catppuccin: mocha, latte, frappe, macchiato)
+    static_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates plain text theme file with RGB values"
+    
+    # Dynamic Theme Support (Material You from wallpaper)
+    dynamic_theme:
+      priority:
+        - method: external_file
+          enabled: true
+          notes: "Generates plain text theme file with MD3 RGB values"
+    
+    # External File Configuration
+    external_files:
+      theme:
+        path: ~/.config/clipboard/theme
+        format: plain_text
+        template: dot_config/clipboard/theme.tmpl
+        load_mechanism: "cb() wrapper function reads file, exports CLIPBOARD_THEME"
+        notes: "Plain text file containing theme value - cross-platform compatible"
+    
+    # Theme Format
+    theme_format:
+      variable: CLIPBOARD_THEME
+      format: "category=r;g;b,category=r;g;b,..."
+      categories:
+        - help: "Help text color"
+        - info: "Informational messages"
+        - error: "Error messages"
+        - success: "Success messages"
+        - progress: "Progress indicator"
+    
+    # Opacity Support
+    opacity:
+      supported: false
+      notes: "CLI tool - no opacity/transparency support"
+    
+    # Reload Behavior
+    reload:
+      automatic: true
+      method: on_demand
+      manual_command: null
+      reload_time: "instant"
+      notes: "cb() wrapper reads theme file fresh on each invocation"
+    
+    # Implementation Details
+    generator:
+      class: ClipboardTheme
+      module: apps.clipboard
+      method: external_file
+      location: dot_config/theme-system/scripts/apps/clipboard.py
+      apply_method: apply_theme
+      functions:
+        - _generate_colors
+        - _generate_dynamic_theme
+        - _generate_static_theme
+        - _hex_to_rgb
+      notes: "Modular architecture: registered in apps/__init__.py"
+    
+    # Color Mappings
+    color_mappings:
+      static:
+        help: "{{ .theme.colors.mauve }}"
+        info: "{{ .theme.colors.blue }}"
+        error: "{{ .theme.colors.red }}"
+        success: "{{ .theme.colors.green }}"
+        progress: "{{ .theme.colors.pink }}"
+        notes: "Mauve for help matches user's accent preference"
+      
+      dynamic:
+        help: "{{ .theme.material.primary }}"
+        info: "{{ .theme.material.secondary }}"
+        error: "{{ .theme.material.error }}"
+        success: "{{ .theme.material.tertiary }}"
+        progress: "{{ .theme.material.primary_container }}"
+        notes: "Material Design 3 semantic color mapping"
+    
+    # Cross-Platform Notes
+    cross_platform:
+      config_portable: true
+      platform_differences: none
+      installation:
+        macos: "brew install clipboard"
+        arch: "yay -S clipboard-bin"
+        windows: "scoop install clipboard"
+      notes: "Same env var works on all platforms"
+    
+    # Implementation Status
+    status:
+      implemented: true
+      tested: false
+      bootstrap_working: true
+      runtime_working: true
+      date_implemented: "2025-12-02"
+    
+    # Known Issues / Notes
+    notes:
+      - "Clipboard CLI uses NO config files - entirely env var based"
+      - "CLIPBOARD_THEME supports both builtin themes and custom RGB"
+      - "5 color categories: help, info, error, success, progress"
+      - "No official Catppuccin port - custom RGB mapping required"
+      - "cb() wrapper function reads theme fresh on each invocation"
+      - "Cross-platform: works identically on macOS, Linux, Windows"
 
 # ==========================================================================
 # Schema Field Definitions (for reference)

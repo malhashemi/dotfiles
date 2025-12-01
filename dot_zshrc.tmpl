@@ -71,6 +71,12 @@ export EDITOR="nvim"
 export GOPATH="$HOME/go"
 export XDG_CONFIG_HOME="$HOME/.config"
 
+# Clipboard CLI wrapper - reads theme fresh each time for runtime theme switching
+cb() {
+    [[ -f "$XDG_CONFIG_HOME/clipboard/theme" ]] && export CLIPBOARD_THEME="$(cat "$XDG_CONFIG_HOME/clipboard/theme")"
+    command cb "$@"
+}
+
 # FZF Configuration (kept for compatibility with tools that still use it)
 export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow'
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
