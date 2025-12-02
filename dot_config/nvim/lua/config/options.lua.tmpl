@@ -22,7 +22,7 @@ local osc52 = require("vim.ui.clipboard.osc52")
 local function copy(reg)
   return function(lines)
     -- Store in cb for local history and shell access
-    vim.fn.system("cb copy", lines)
+    vim.fn.system("cb copy", table.concat(lines, "\n"))
     -- Send to Mac clipboard via OSC 52
     osc52.copy(reg)(lines)
   end
@@ -62,4 +62,7 @@ vim.g.clipboard = {
     ["*"] = paste,
   },
 }
+
+-- Sync unnamed register with system clipboard (so regular y/p works)
+vim.opt.clipboard = "unnamedplus"
 {{- end }}
