@@ -36,6 +36,17 @@ Host dev-hub
 Host arch-desktop
 	HostName {{ .tailscale_hosts.arch_desktop }}
 	User {{ .chezmoi.username }}
+
+# Mac Workstation (for remote clipboard access from devbox)
+Host mac
+	HostName {{ .tailscale_hosts.mac_workstation }}
+	User {{ .chezmoi.username }}
+	# SSH multiplexing for fast repeated connections (clipboard operations)
+	ControlMaster auto
+	ControlPath ~/.ssh/sockets/%r@%h-%p
+	ControlPersist 600
+	ConnectTimeout 2
+	BatchMode yes
 {{- end }}
 
 # ============================================================================

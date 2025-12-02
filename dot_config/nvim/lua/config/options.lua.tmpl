@@ -1,0 +1,65 @@
+-- Options are automatically loaded before lazy.nvim startup
+-- Default options that are always set: https://github.com/LazyVim/LazyVim/blob/main/lua/lazyvim/config/options.lua
+-- Add any additional options here
+
+vim.opt.relativenumber = false
+
+{{- if .is_headless }}
+-- =============================================================================
+-- Headless/Remote Clipboard Configuration
+-- =============================================================================
+-- Copy: cb (local history) + OSC 52 (Mac clipboard via mosh 1.4.0+/Zellij)
+-- Paste: SSH to Mac workstation running pbpaste (uses SSH multiplexing)
+--
+-- This enables seamless clipboard sync between devbox and Mac:
+--   - Yank in NeoVim -> stored in cb history + instantly on Mac clipboard
+--   - Copy on Mac -> paste in NeoVim via SSH pbpaste
+--   - Access yanks from shell with: cb paste
+-- =============================================================================
+
+local osc52 = require("vim.ui.clipboard.osc52")
+
+local function copy(reg)
+  return function(lines)
+    -- Store in cb for local history and shell access
+    vim.fn.system("cb copy", lines)
+    -- Send to Mac clipboard via OSC 52
+    osc52.copy(reg)(lines)
+  end
+end
+
+local function paste()
+  -- SSH to Mac for paste, using multiplexed connection for speed
+  local handle = io.popen("ssh mac pbpaste 2>/dev/null")
+  if handle then
+    local result = handle:read("*a")
+    handle:close()
+    if result and result ~= "" then
+      return vim.split(result, "\n")
+    end
+  end
+  -- Fallback to cb paste if SSH fails
+  handle = io.popen("cb paste 2>/dev/null")
+  if handle then
+    local result = handle:read("*a")
+    handle:close()
+    if result and result ~= "" then
+      return vim.split(result, "\n")
+    end
+  end
+  -- Last resort: unnamed register
+  return vim.split(vim.fn.getreg('"'), "\n")
+end
+
+vim.g.clipboard = {
+  name = "cb + OSC 52 + SSH pbpaste",
+  copy = {
+    ["+"] = copy("+"),
+    ["*"] = copy("*"),
+  },
+  paste = {
+    ["+"] = paste,
+    ["*"] = paste,
+  },
+}
+{{- end }}

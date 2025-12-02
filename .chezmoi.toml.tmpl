@@ -8,6 +8,7 @@
 {{- /* Tailscale hostnames - prompted once, cached locally */ -}}
 {{- $devHub := promptStringOnce . "tailscale_hosts.dev_hub" "Tailscale devbox hostname" -}}
 {{- $archDesktop := promptStringOnce . "tailscale_hosts.arch_desktop" "Tailscale desktop hostname" -}}
+{{- $macWorkstation := promptStringOnce . "tailscale_hosts.mac_workstation" "Tailscale Mac workstation hostname" -}}
 
 [data]
     name = "{{ .chezmoi.username }}"
@@ -54,6 +55,7 @@
 [data.tailscale_hosts]
     dev_hub = "{{ $devHub }}"
     arch_desktop = "{{ $archDesktop }}"
+    mac_workstation = "{{ $macWorkstation }}"
 
 [diff]
     pager = "delta"
