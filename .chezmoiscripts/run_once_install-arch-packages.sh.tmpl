@@ -159,7 +159,7 @@ for pkg in rust go lua nodejs npm python python-pip python-pipx; do
 done
 
 print_header "Utilities (pacman)"
-for pkg in mosh ffmpeg imagemagick p7zip rclone rsync gping fastfetch figlet fribidi openssh xclip; do
+for pkg in mosh ffmpeg imagemagick p7zip rclone rsync gping fastfetch figlet fribidi openssh xclip tailscale; do
     pacman_pkg "$pkg"
 done
 
@@ -283,6 +283,15 @@ if [[ "$SHELL" != *"zsh"* ]]; then
     chsh -s /usr/bin/zsh && print_success "Default shell → zsh" || print_fail "chsh"
 else
     print_skip "zsh (already default)"
+fi
+
+# Enable tailscale service
+if command -v tailscale &>/dev/null; then
+    if ! systemctl is-enabled tailscaled &>/dev/null; then
+        sudo systemctl enable --now tailscaled &>/dev/null && print_success "tailscaled service enabled"
+    else
+        print_skip "tailscaled service"
+    fi
 fi
 
 # Enable docker service

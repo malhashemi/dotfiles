@@ -81,6 +81,18 @@ defaults write NSGlobalDomain NSDocumentSaveNewDocumentsToCloud -bool false
 echo "  ✓ Dialogs configured"
 
 ###############################################################################
+# REMOTE LOGIN (SSH)
+###############################################################################
+echo "Configuring Remote Login (SSH)..."
+# Enable SSH for remote clipboard access from devbox
+if sudo systemsetup -getremotelogin | grep -q "Off"; then
+    sudo systemsetup -setremotelogin on
+    echo "  ✓ Remote Login (SSH) enabled"
+else
+    echo "  ○ Remote Login (SSH) already enabled"
+fi
+
+###############################################################################
 # CAPS LOCK ↔ ESCAPE SWAP
 ###############################################################################
 echo "Configuring Caps Lock ↔ Escape swap..."

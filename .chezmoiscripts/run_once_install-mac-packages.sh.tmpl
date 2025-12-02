@@ -200,6 +200,18 @@ for pkg in mosh ffmpeg imagemagick p7zip sevenzip unzip rclone clipboard \
     brew_pkg "$pkg"
 done
 
+print_header "Networking"
+for pkg in tailscale; do
+    brew_pkg "$pkg"
+done
+
+# Start tailscale service
+if brew list tailscale &>/dev/null; then
+    if ! brew services list | grep tailscale | grep -q started; then
+        brew services start tailscale &>/dev/null && echo -e "  ${GREEN}✓${NC} tailscale service started"
+    fi
+fi
+
 print_header "Dev Tools"
 for pkg in sst/tap/opencode biome repomix dart-sdk llvm gemini-cli; do
     brew_pkg "$pkg"
