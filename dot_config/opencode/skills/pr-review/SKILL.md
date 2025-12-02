@@ -194,6 +194,7 @@ just -f {base_dir}/justfile merge PR_NUMBER squash
 - **PR not found**: Provide explicit PR number if auto-detect fails
 - **GraphQL errors**: Verify thread ID format (should start with `PRRT_`)
 - **Script errors**: Check `uv` is installed and available in PATH
+- **"not a git repository" error**: Justfile recipes that need git context (pr-info, merge, full-review) automatically run from the caller's directory. If running scripts directly, ensure you're in a git repository
 - **Body quoting issues**: For complex bodies with special characters, use direct `gh api` calls:
   ```bash
   # Reply to comment with complex body
