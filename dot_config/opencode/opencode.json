@@ -86,7 +86,7 @@
   "plugin": ["opencode-skills", "opencode-sessions", "opencode-gemini-auth"],
   "tools": {
     "skills*": false,
-    "skill_pr_review": true,
+    "skills_pr_review": true,
     "brave-search*": false,
     "exa*": false
   }

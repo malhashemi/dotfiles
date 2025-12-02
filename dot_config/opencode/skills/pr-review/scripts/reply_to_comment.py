@@ -29,8 +29,11 @@ def reply_to_comment(
     owner: str, repo: str, pr_number: str, comment_id: str, body: str
 ) -> dict:
     """Reply to a specific review comment."""
-    endpoint = f"repos/{owner}/{repo}/pulls/{pr_number}/comments/{comment_id}/replies"
-    output = run_gh(["api", endpoint, "-f", f"body={body}"])
+    # POST to /pulls/{pr}/comments with in_reply_to parameter
+    endpoint = f"repos/{owner}/{repo}/pulls/{pr_number}/comments"
+    output = run_gh(
+        ["api", endpoint, "-f", f"body={body}", "-F", f"in_reply_to={comment_id}"]
+    )
     return json.loads(output)
 
 

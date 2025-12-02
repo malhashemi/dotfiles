@@ -194,3 +194,13 @@ just -f {base_dir}/justfile merge PR_NUMBER squash
 - **PR not found**: Provide explicit PR number if auto-detect fails
 - **GraphQL errors**: Verify thread ID format (should start with `PRRT_`)
 - **Script errors**: Check `uv` is installed and available in PATH
+- **Body quoting issues**: For complex bodies with special characters, use direct `gh api` calls:
+  ```bash
+  # Reply to comment with complex body
+  gh api repos/OWNER/REPO/pulls/PR/comments \
+    -f body=$'✅ **Addressed**\n\nDetails here' \
+    -F in_reply_to=COMMENT_ID
+  
+  # Post PR comment
+  gh pr comment PR --body "Simple message"
+  ```

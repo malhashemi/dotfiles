@@ -20,17 +20,19 @@ fetch-comments owner repo pr_number:
 fetch-threads owner repo pr_number:
     uv run {{scripts_dir}}/fetch_review_threads.py {{owner}} {{repo}} {{pr_number}}
 
-# Reply to a specific comment
+# Reply to a specific comment (body can contain markdown/special chars)
 reply owner repo pr_number comment_id body:
-    uv run {{scripts_dir}}/reply_to_comment.py {{owner}} {{repo}} {{pr_number}} {{comment_id}} {{body}}
+    #!/usr/bin/env bash
+    uv run "{{scripts_dir}}/reply_to_comment.py" "{{owner}}" "{{repo}}" "{{pr_number}}" "{{comment_id}}" "{{body}}"
 
 # Resolve a review thread
 resolve thread_id:
     uv run {{scripts_dir}}/resolve_thread.py {{thread_id}}
 
-# Request re-review with summary comment
+# Request re-review with summary comment (body can contain markdown/special chars)
 request-review owner repo pr_number body:
-    uv run {{scripts_dir}}/request_review.py {{owner}} {{repo}} {{pr_number}} {{body}}
+    #!/usr/bin/env bash
+    uv run "{{scripts_dir}}/request_review.py" "{{owner}}" "{{repo}}" "{{pr_number}}" "{{body}}"
 
 # Merge a PR (method: merge, squash, or rebase)
 merge pr_number method="squash":
