@@ -1,5 +1,5 @@
 # Skill Creator - Task Runner
-# Run tasks with: just <recipe> [args...]
+# Run tasks with: just -f {base_dir}/justfile <recipe> [args...]
 
 # Default recipe - show help
 default:
@@ -15,15 +15,6 @@ init skill_name path:
 # Validate a skill
 validate skill_path:
     uv run {{scripts_dir}}/quick_validate.py {{skill_path}}
-
-# Package a skill into a zip file
-package skill_path output_dir="":
-    #!/usr/bin/env bash
-    if [ -n "{{output_dir}}" ]; then
-        uv run {{scripts_dir}}/package_skill.py {{skill_path}} {{output_dir}}
-    else
-        uv run {{scripts_dir}}/package_skill.py {{skill_path}}
-    fi
 
 # Initialize a new skill in the global opencode skills directory
 init-global skill_name:

@@ -28,7 +28,7 @@ along with structured workflows for analyzing, categorizing, and responding to r
 ## Scripts
 
 All scripts are PEP 723 compliant Python files. The base directory for this skill is provided
-when loaded. Execute via justfile or directly with uv:
+when loaded. All scripts output JSON for easy parsing. Execute via justfile or directly with uv:
 
 ### Via Justfile (Recommended)
 
@@ -42,6 +42,7 @@ just -f {base_dir}/justfile <recipe> [args...]
 | `fetch-comments` | `owner repo pr_number` | Fetch inline review comments |
 | `fetch-threads` | `owner repo pr_number` | Fetch threads with resolution status |
 | `unresolved` | `owner repo pr_number` | Fetch only unresolved threads |
+| `full-review` | `owner repo pr_number` | Get all PR data (info + threads + comments) |
 | `reply` | `owner repo pr_number comment_id body` | Reply to a comment |
 | `resolve` | `thread_id` | Resolve a thread by GraphQL ID |
 | `request-review` | `owner repo pr_number body` | Post summary and request re-review |
@@ -135,7 +136,8 @@ Found {N} unresolved review comments.
 1. Parse each comment for priority badges
 2. Formulate recommendation for each (address/decline/defer)
 3. Present analysis table to user
-4. **Wait for user approval**
+
+**⚠️ CHECKPOINT - Wait for user approval before proceeding to implementation**
 
 ### Phase 3: Plan
 
