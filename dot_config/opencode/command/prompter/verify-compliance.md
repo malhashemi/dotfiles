@@ -15,13 +15,13 @@ Perform a comprehensive template compliance verification of the agent or prompt 
    - Determine artifact type (primary/subagent/command) from frontmatter or context
 
 2. **Create Base Compliance Checklist**
-   Start with universal checks that apply to all templates add them to your todo list using todowrite:
+   Start with universal checks and add them to your todo list using todowrite:
    ```
    ## Universal Compliance Checks
    - [ ] Frontmatter exists and is properly formatted
-   - [ ] Mode field matches file location (primary/subagent/command)
+   - [ ] Mode field matches file location (for agents only - commands don't have mode)
    - [ ] Description field is comprehensive and searchable
-   - [ ] Tools section lists appropriate permissions
+   - [ ] For agents: Tools section lists appropriate permissions
    - [ ] Variables defined are actually utilized in the prompt
    - [ ] No residual content from old versions
    - [ ] Emphasis keywords (CRITICAL, IMPORTANT, ALWAYS, NEVER) used strategically
@@ -30,7 +30,11 @@ Perform a comprehensive template compliance verification of the agent or prompt 
    ```
 
 3. **Add Template-Specific Checks**
-   Based on the identified template type, ultrathink about:
+   Load the appropriate template skill to get exact structure:
+   - For agents: `skills_prompter_agent_creator`
+   - For commands: `skills_prompter_command_creator`
+   
+   Then analyze deeply:
    - What structural patterns are mandatory?
    - What formatting rules apply?
    - Instructions followed in each section?
@@ -75,8 +79,8 @@ Perform a comprehensive template compliance verification of the agent or prompt 
    ⚠️ **CHECKPOINT** - Present compliance report and wait for user review before offering remediation
 
 6. **Offer Remediation**
-   If issues found: "Would you like me to fix these compliance issues now? I can address them in priority order using git-style diff format (see Communication Patterns in system prompt)."
+   If issues found: "Would you like me to fix these compliance issues now? I can address them in priority order using git-style diff format."
 
 ## Note
 
-This command adapts to any template type by dynamically building its checklist. The base checks ensure fundamental compliance, while template-specific checks are discovered through ULTRATHINK analysis of what the actual template requires, not predetermined rules.
+This command adapts to any template type by dynamically building its checklist. The base checks ensure fundamental compliance, while template-specific checks are discovered through deep analysis of the actual template loaded via skills, not predetermined rules.

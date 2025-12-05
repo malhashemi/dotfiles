@@ -1,0 +1,30 @@
+# Command Creator Justfile
+# Scaffolding recipes for creating command files
+
+# Get the directory where this justfile lives
+base_dir := justfile_directory()
+
+# Scaffold a command (minimal template)
+scaffold name path agent:
+    uv run {{base_dir}}/scripts/scaffold_command.py {{name}} --path {{path}} --agent {{agent}}
+
+# Scaffold a command with argument handling
+scaffold-with-args name path agent:
+    uv run {{base_dir}}/scripts/scaffold_command.py {{name}} --path {{path}} --agent {{agent}} --template with-args
+
+# Scaffold a command with workflow phases
+scaffold-with-workflow name path agent:
+    uv run {{base_dir}}/scripts/scaffold_command.py {{name}} --path {{path}} --agent {{agent}} --template with-workflow
+
+# Show help
+help:
+    @echo "Command Creator Recipes:"
+    @echo ""
+    @echo "  scaffold <name> <path> <agent>              - Create minimal command"
+    @echo "  scaffold-with-args <name> <path> <agent>    - Create command with argument handling"
+    @echo "  scaffold-with-workflow <name> <path> <agent> - Create command with workflow phases"
+    @echo ""
+    @echo "Examples:"
+    @echo "  just scaffold run-tests .opencode/command build"
+    @echo "  just scaffold-with-args process-file .opencode/command build"
+    @echo "  just scaffold-with-workflow deploy .opencode/command build"

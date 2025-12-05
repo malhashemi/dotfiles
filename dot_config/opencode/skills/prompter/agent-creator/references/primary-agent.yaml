@@ -1,0 +1,326 @@
+primary_agent_template:
+  template:
+    id: "primary-agent-template-v1"
+    name: "Primary Agent Template"
+    output:
+      format: markdown
+      filename: "{{AGENTS_DIR}}{{agent_name}}.md"
+
+  frontmatter:
+    required:
+      mode: "primary"
+      description: "{{one_line_clear_purpose}}"
+      tools:
+        - "{{tool_name}}: {{true|false}}"
+    optional:
+      color: "{{yellow|blue|green|purple|red}}"
+      temperature: "{{0.0-1.0}}"
+      model: "{{specific_model_override}}"
+    instructions: |
+      This is a comprehensive template for defining a primary agent. Follow the structure
+      exactly to create a clear, authoritative prompt that guides the agent's behavior.
+      Each section has specific instructions and templates to ensure consistency and quality.
+      ULTRATHINK about every wording choice to ensure clarity and precision.
+      The frontmatter defines essential metadata and tool access. This template is the blueprint
+      for creating effective, reliable agents.
+
+  sections:
+    - id: variables
+      title: "Variables"
+      type: structured
+      instruction: |
+        - Extract ALL configuration values from the plan that will be referenced multiple times.
+        - Use UPPERCASE_SNAKE_CASE for variable names.
+        - Static vars are fixed values referenced with {{VARIABLE_NAME}} notation in instructions.
+        - Agent refs are other agents this one might spawn (use their exact identifier)
+        - Dynamic vars use {{PLACEHOLDER}} format for runtime values.
+        - Always reference variables with {{VARIABLE_NAME}} in all instruction text for LLM clarity.
+        - This section prevents repetition and ensures consistency.
+      sections:
+        - id: static-vars
+          title: "Static Variables"
+          type: key-value
+          instruction: |
+            - Fixed configuration values like paths, defaults, thresholds.
+            - Use descriptive names that indicate purpose (e.g., MAX_RETRIES not just RETRIES).
+            - Values should be strings, numbers, or simple lists.
+            - CRITICAL: These must never change during execution.
+          template: "{{CONFIG_NAME}}: {{value}}"
+        - id: agent-refs
+          title: "Agent References"
+          type: key-value
+          instruction: |
+            - List ONLY agents this one will actually spawn with Task tool.
+            - Use exact agent identifiers as they appear in the system.
+            - Format: ROLE_AGENT: "actual-agent-name".
+            - If no agents will be spawned, omit this entire section.
+          template: "{{AGENT_NAME}}: {{agent-identifier}}"
+
+    - id: role-definition
+      title: "Role Definition"
+      type: template-text
+      template: |
+        You are {{role_description}}. {{core_purpose}}. {{authority_level}}. {{primary_value}}.
+      instruction: |
+        - Write ONE dense paragraph (3-4 sentences) that immediately tells the agent WHO it is and WHAT it does.
+        - First sentence: identity ("You are...").
+        - Second sentence: primary purpose/mission.
+        - Third sentence: authority level or scope.
+        - Fourth (optional): unique value proposition.
+        - Use active voice, present tense. Include the agent's name naturally.
+        - This paragraph sets the entire tone make it authoritative and clear.
+        - AVOID generic phrases like "AI assistant".
+
+    - id: core-identity
+      title: "Core Identity & Philosophy"
+      type: structured
+      instruction: |
+        - This section creates BEHAVIORAL BOUNDARIES through identity.
+        - "Who You Are" should have 4-6 bullets establishing capabilities and approach.
+        - "Who You Are NOT" needs 3-4 EXPLICIT exclusions that prevent scope creep
+        - These are as important as capabilities.
+        - Philosophy should be 2-3 principles that drive ALL decisions.
+        - This section is second only to Role Definition in shaping behavior.
+      sections:
+        - id: who-you-are
+          title: "Who You Are"
+          type: bullet-list
+          instruction: |
+            - Each bullet must follow pattern: **{{Noun/Role}}**: {{specific expertise/approach}}.
+            - Start with primary identity, then capabilities, then approach, and then specializations.
+            - Make each bullet ADD something new, not repeat. Use strong, specific verbs.
+            - Example: "**Pattern Recognizer**: Excel at identifying recurring architectures across codebases"
+          template: |
+            - **{{Role_Type}}**: {{specific_description}}
+            - **{{Capability}}**: {{what_you_excel_at}}
+        - id: who-you-are-not
+          title: "Who You Are NOT"
+          type: bullet-list
+          instruction: |
+            - CRITICAL section for preventing unwanted behavior. Format: **NOT a {{Role}}**: {{specific boundary}}.
+            - Target common overreach patterns. Be explicit about what the agent should refuse to do.
+            - Example: "**NOT a Designer**: Don't create architecture, only implement existing plans"
+            - These become hard behavioral boundaries - choose carefully.
+          template: |
+            - **NOT a {{Role}}**: {{what_you_dont_do}}
+        - id: philosophy
+          title: "Philosophy"
+          type: template-text
+          instruction: |
+            - 2-3 fundamental principles that guide EVERY decision. Format: **{{Principle Name}}**: {{explanation}}.
+            - These should be memorable, actionable, and distinctive. They resolve conflicts when goals compete.
+            - Example: "**Clarity Over Cleverness**: Simple, readable solutions beat complex optimizations"
+            - Make these principles something the agent can invoke when uncertain.
+          template: |
+            **{{Core_Principle}}**: {{explanation}}
+
+    - id: cognitive-approach
+      title: "When to ULTRATHINK"
+      type: structured
+      instruction: |
+        Define WHEN the agent should apply ULTRATHINK-level analysis.
+        Triggers should cover 4-6 specific scenarios where shallow processing fails.
+        First item should use **ALWAYS** for non-negotiable ULTRATHINK.
+        Analysis Mindset provides the mental model for all analytical work.
+      sections:
+        - id: ultrathink-triggers
+          title: "ULTRATHINK Triggers"
+          type: bullet-list
+          instruction: |
+            - First item MUST use **ALWAYS** for non-negotiable ULTRATHINK.
+            - Format: trigger + consequence.
+            - Example: "**ALWAYS** ULTRATHINK before architecture decisions - wrong choices cascade through entire system"
+            - Other items: "When detecting **{{pattern}}**" or "Before {{action}}".
+            - Each trigger should prevent a specific failure mode through ULTRATHINK.
+            - Order by importance/frequency of need.
+          template: |
+            - **ALWAYS** before {{scenario}} - {{why_it_matters}}
+            - When detecting **{{pattern}}** between {{elements}}
+            - Before {{critical_action}}
+        - id: analysis-mindset
+          title: "Analysis Mindset"
+          type: numbered-list
+          instruction: |
+            - Create a REPEATABLE mental process the agent follows. Each step should build on previous.
+            - Format: "{{Action verb}} {{what}} {{how/why}}". Keep to 5 steps max for memorability.
+            - Example:
+              1. Decompose request into atomic requirements
+              2. Map requirements to capabilities and constraints
+              3. Identify trade-offs and decision points
+              4. Evaluate systematic implications
+              5. Validate against success criteria
+          template: "{{step}}: {{description}}"
+
+    - id: orchestration-patterns
+      title: "Orchestration Patterns"
+      type: conditional
+      condition: "primary_agents_only"
+      instruction: |
+        - ONLY for agents that spawn subagents via Task tool.
+        Define 2-4 reusable patterns for common orchestration scenarios.
+        Each pattern should show WHEN to use it, HOW to structure the delegation, and WHAT to expect back.
+        Include actual Task() call examples with specific example prompts.
+        Patterns might include: Parallel research, Sequential validation, Scatter-gather analysis.
+        This section teaches the agent how to be a good orchestrator - make patterns concrete and reusable.
+      template: |
+        ### {{Pattern_Name}}
+        {{description_and_usage_with_examples}}
+
+    - id: knowledge-base
+      title: "Knowledge Base"
+      type: flexible
+      instruction: |
+        - Document SPECIALIZED knowledge the agent needs that isn't common sense.
+        - Each knowledge area should be something the agent references during execution.
+        - Use ### headings for major areas.
+        - Be SPECIFIC - include actual templates, values, thresholds, patterns, and any other details.
+        - This is the agent's "reference manual". If the agent needs to know specific formats, syntaxes, or patterns, they go here.
+        - IMPORTANT: Consider whether large knowledge areas should be externalized to SKILLS instead.
+          Ask: "Is this needed for every conversation, or only for specific task types?"
+          If only for specific tasks, it may belong in a skill for this agent.
+      template: |
+        ### {{knowledge_area}}
+        {{detailed_information}}
+
+    - id: workflow
+      title: "Workflow"
+      type: structured
+      instruction: |
+        - THE HEART OF THE AGENT - defines HOW work gets done.
+        - Break into 3-5 major phases (not more).
+        - Each phase should have clear entry/exit conditions integrated with execution steps.
+        - Mark phases as Synchronous (sequential), Asynchronous (parallel), or Interactive (user touchpoints).
+        - CRITICAL: Add CHECKPOINT between phases where agent must wait/verify before proceeding.
+        - Use CRITICAL for must-do steps, IMPORTANT for should-do, NOTE for helpful context.
+        - This section determines execution flow - make it impossible to do steps out of order.
+      sections:
+        - id: phase
+          title: "Phase {{N}}: {{DESCRIPTIVE_NAME}} [{{type}}]"
+          type: complex
+          properties:
+            type: "{{Synchronous|Asynchronous|Interactive}}"
+          instruction: |
+            - Each phase integrates execution with verification and recovery.
+            - Entry Gates and Known Pitfalls sections are OPTIONAL - only include if needed.
+            - Success Criteria are REQUIRED to define completion.
+          sections:
+            - id: entry-gates
+              title: "🔍 Entry Gates"
+              type: checklist
+              optional: true
+              instruction: |
+                - Pre-conditions that must be true before starting this phase.
+                - Only include if this phase has specific prerequisites.
+                - Must be programmatically verifiable (file exists, command succeeds, etc).
+              template: "[ ] {{pre_condition}}"
+
+            - id: execution-steps
+              title: "Execution Steps"
+              type: structured
+              instruction: |
+                - The actual work of this phase, broken into sub-phases.
+                - Sub-phase format: **N.N {{Name}}** followed by numbered or bulleted steps.
+                - Include CRITICAL/IMPORTANT markers for emphasis.
+                - Add inline verification points: Verify: {{what_to_check}}
+                - Steps should be concrete actions, not abstract concepts.
+              template: |
+                **{{sub_phase_number}}.{{sub_phase_letter}} {{Sub_phase_Name}}**
+                {{steps_with_CRITICAL_IMPORTANT_markers}}
+                Verify: {{inline_check}}
+
+            - id: success-criteria
+              title: "✅ Success Criteria"
+              type: checklist
+              instruction: |
+                - Measurable criteria that confirm this phase completed successfully.
+                - Must be programmatically verifiable (tests pass, file exists, command returns 0).
+                - These are the "definition of done" for this phase.
+                - Be specific about success conditions (e.g., "returns 0" not "succeeds").
+              template: "[ ] {{measurable_criterion}}"
+
+            - id: known-pitfalls
+              title: "🔄 Known Pitfalls"
+              type: bullet-list
+              optional: true
+              instruction: |
+                - Recovery patterns discovered through experience.
+                - Only add after actually encountering issues, not hypothetical ones.
+                - Format: "If {{specific_condition}} then {{recovery_action}}"
+                - Focus on positive recovery actions, not prohibitions.
+              template: "If {{observed_issue}} then {{recovery_action}}"
+
+            - id: checkpoint
+              title: "⚠️ CHECKPOINT"
+              type: text
+              optional: true
+              instruction: |
+                - Specific wait condition before proceeding to next phase.
+                - Must be clear and verifiable.
+                - Only include if phase requires user approval or external event.
+              template: "**CHECKPOINT - {{wait_condition}}**"
+
+
+    - id: learned-constraints
+      title: "Learned Constraints"
+      type: structured
+      optional: true
+      instruction: |
+        - OPTIONAL section for global patterns discovered through experience.
+        - Only add entries after actually encountering issues, not hypotheticals.
+        - Format as positive guidance: "When X occurs then Do Y" not "Don't do Z".
+        - For phase-specific issues, use "Known Pitfalls" in that phase instead.
+      sections:
+        - id: global-patterns
+          title: "🌍 Global Patterns"
+          type: bullet-list
+          optional: true
+          instruction: |
+            - Patterns that apply across all phases.
+            - Format: "When {{condition}} then {{correct_action}}"
+            - Example: "When rate limited then Implement exponential backoff starting at 2s"
+          template: "When {{observed_pattern}} then {{recovery_approach}}"
+        - id: environment-rules
+          title: "🔧 Environment-Specific Rules"
+          type: bullet-list
+          optional: true
+          instruction: |
+            - Rules for specific environments or project types.
+            - Format: "In {{context}}, ensure {{requirement}}"
+            - Example: "In production, ensure all database changes wrapped in transactions"
+          template: "In {{context}}, ensure {{requirement}}"
+
+    - id: examples
+      title: "Example Interactions"
+      type: examples
+      instruction: |
+        - Provide 1-2 brief, realistic interaction flows.
+        - Keep responses concise - show the natural conversation rhythm.
+        - Use [...] or [action markers] to indicate tool use or continued processing.
+        - Focus on demonstrating the agent's unique approach, not generic responses.
+        - Aim for clarity over completeness - these are interaction sketches, not transcripts.
+      template: |
+        ### Example: {{Brief_Scenario_Name}}
+
+        ```
+        User: {{user_request}}
+        Assistant: {{natural_response}}
+
+        [{{action_or_tool_use}}]
+
+        {{continuation_if_needed}}
+
+        ```
+
+    - id: remember
+      title: "Remember"
+      type: text
+      instruction: |
+        - A single, cohesive closing statement that reinforces the agent's core purpose.
+        - Should inspire quality work while reminding the agent of their impact.
+        - Combines the agent's value proposition with their approach philosophy.
+        - Keep it to 1-2 sentences that capture the essence of the role.
+        - Examples:
+          - For a validation agent: "Good validation catches issues before they reach production. Be constructive but thorough in identifying gaps or improvements."
+          - For a researcher: "You are the user's expert guide to information. Be thorough but efficient, always cite sources, and provide actionable insights."
+          - For an implementation agent: "Quality code today saves debugging tomorrow. Write with clarity, test with rigor, and always consider the next developer."
+      template: "Remember: {{closing_statement_reinforcing_purpose_and_approach}}"

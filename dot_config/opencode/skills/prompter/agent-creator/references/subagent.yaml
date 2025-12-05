@@ -1,0 +1,229 @@
+subagent_template:
+  template:
+    id: "subagent-template-v1"
+    name: "Streamlined Specialist Subagent Template"
+    output:
+      format: markdown
+      filename: "{{AGENTS_DIR}}{{subagent_name}}.md"
+
+  frontmatter:
+    required:
+      mode: "subagent"
+      description: "{{searchable_marketing_description}}"
+      tools:
+        read: true
+        grep: true
+        glob: true
+    optional:
+      group: "{{specialist_group}}"
+      temperature: "{{0.0-1.0}}"
+    instruction: |
+      - The description is CRITICAL - it's how primary agents find and choose this specialist.
+      - Write a 2-3 sentence "sales pitch" that's specific, enthusiastic, and memorable.
+      - Include WHAT it does, WHEN to use it, and WHY it's better than alternatives.
+      - Use keywords that primary agents search for - be specific about capabilities and boundaries.
+      Examples:
+        - "Do you find yourself desiring information you don't feel well-trained on? Use web-search-researcher to find any and all answers! It will research deeply to figure out your questions!"
+        - "Architecture validator that stress-tests proposed designs before implementation. I analyze specifications for bottlenecks, anti-patterns, and failure points."
+        - "Basically a 'Super Grep/Glob/LS tool' for finding files by purpose - Use it if you find yourself wanting to use these tools more than once."
+
+  sections:
+    - id: variables
+      title: "Variables"
+      type: structured
+      optional: true
+      instruction: |
+        ONLY include if the subagent needs specific configuration values.
+        Keep absolutely minimal - usually just format templates or thresholds.
+        Most subagents should not need this section at all.
+      sections:
+        - id: static-vars
+          title: "Static Variables"
+          type: key-value
+          template: "{{VAR_NAME}}: {{value}}"
+
+    - id: opening-statement
+      title: "Opening Statement"
+      type: text
+      instruction: |
+        Two sentences that establish specialist identity and narrow purpose.
+        First: "You are [an expert/a specialist] at [specific expertise]."
+        Second: "Your [job/primary tools are] [specific deliverable/tools and outcome]."
+        Examples:
+        - "You are a specialist at finding WHERE code lives in a codebase. Your job is to locate relevant files and organize them by purpose, NOT to analyze their contents."
+        - "You are an expert web research specialist focused on finding accurate, relevant information from web sources. Your primary tools are WebSearch and WebFetch, which you use to discover and retrieve information based on user queries."
+        - "You are a specialist at understanding HOW code works. Your job is to analyze implementation details, trace data flow, and explain technical workings with precise file:line references."
+        Make it impossible to confuse this specialist with any other.
+      template: "You are {{specialist_identity}}. Your {{job_or_tools}} {{specific_deliverable}}."
+
+    - id: core-responsibilities
+      title: "Core Responsibilities"
+      type: numbered-list
+      instruction: |
+        List exactly 3-4 numbered responsibilities with clear titles and specific actions.
+        Format: "N. **Title**" followed by 3-4 indented bullet points of specific actions.
+        Focus on WHAT the specialist does, keep action-oriented.
+        Examples:
+        - "1. **Find Files by Topic/Feature**" with search action bullets
+        - "2. **Analyze Implementation Details**" with analysis action bullets
+        - "3. **Return Structured Results**" with output action bullets
+        Each responsibility should be distinct and essential to the specialist's role.
+      template: |
+        {{number}}. **{{Responsibility_Title}}**
+           - {{specific_action_1}}
+           - {{specific_action_2}}
+           - {{specific_action_3}}
+
+    - id: strategy
+      title: "{{Domain}} Strategy"
+      type: flexible
+      instruction: |
+        Name this section based on the specialist's approach:
+        - "Search Strategy" for finders/locators
+        - "Analysis Strategy" for analyzers
+        - "Validation Strategy" for validators
+        - "[Domain] Strategies" for multiple approaches (note plural)
+
+        Structure as steps, phases, or scenario-based approaches as appropriate.
+        Can include subsections for different scenarios (e.g., "For API Documentation", "For Best Practices").
+        Include specific techniques, tools usage, and decision points.
+      template: |
+        ### {{Step_or_Scenario}}: {{Name}}
+        {{detailed_approach_or_technique}}
+        {{specific_actions_or_considerations}}
+
+    - id: output-format
+      title: "Output Format"
+      type: yaml-specification
+      instruction: |
+        - The template below is the output format to put inside YAML code block.
+        - Define the EXACT output structure using YAML specification format.
+        - This is the CONTRACT with orchestrators - deviation breaks integration.
+        - Structure the output spec with sections, types, templates, and requirements.
+        - Use the same YAML patterns we use for agent templates (id, title, type, template).
+        - This ensures precise, enforceable output structure.
+        - For reporting-heavy specialists (analyzers, validators, researchers), consider adding:
+          - Completeness indicators: "**Completeness**: X% (Y of Z areas analyzed)"
+          - Confidence levels: "**Confidence**: High|Medium|Low (reasoning)"
+          - Finding gradations: Critical/Important/Minor sections for prioritization
+        - Example structure:
+          - Define each output section with id, title, type (text/list/structured)
+          - Show exact templates for each section
+          - Mark required vs optional sections
+          - Include data patterns and reference formats
+      template: |
+        output_specification:
+          template:
+            id: "{{output_type}}-format-v1"
+            name: "{{Specialist_Type}} Output Format"
+            output:
+              format: markdown
+              structure: hierarchical
+
+          sections:
+            - id: main-title
+              title: "{{Suitable Title}} Results"
+              type: heading
+              level: 2
+
+            - id: {{section_1_id}}
+              title: "{{Section_1_Name}}"
+              type: {{bullet-list|structured|text}}
+              required: {{true|false}}
+              template: |
+                - {{item}} ({{reference_format}})
+                - {{pattern}}: {{description}}
+
+             - id: {{section_2_id}}
+              title: "{{Section_2_Name}}"
+              type: bullet-list
+              template: "- {{finding}} ({{file.ext:line}})"
+
+            - id: {{section_N_id}}
+              title: "{{Section_N_Name}}"
+              type: {{free-form|structured|sections}}
+              template: {{free_form_or_structured_as_needed|sections}}
+
+            - id: summary
+              title: "Summary"
+              type: text
+              required: true
+              template: "Total: {{count}} {{items}} found"
+
+    - id: domain-knowledge
+      title: "{{Domain_Specific_Title}}"
+      type: flexible
+      optional: true
+      instruction: |
+        - Optional section for specialist-specific reference material.
+        - Name it appropriately for the domain Examples:
+          - "Pattern Categories to Search" for pattern finders
+          - "Search Patterns" for locators
+          - "Quality Guidelines" for validators
+          - "Common Patterns" for analyzers
+
+        - Structure as categories, lists, or subsections as needed.
+        - This is the specialist's domain expertise reference.
+        - Include specific patterns, locations, techniques unique to this specialization.
+      template: |
+        ### {{Category_or_Pattern_Type}}
+        {{specific_items_patterns_or_guidelines}}
+
+    - id: important-guidelines
+      title: "Important Guidelines"
+      type: bullet-list
+      instruction: |
+        - 5-7 quality guidelines specific to this specialist's excellence.
+        - Format: "**Bold imperative** - Explanation"
+        - Focus on positive DO's that ensure quality output.
+        - Order by importance to the specialist's success.
+        Examples:
+          - "**Always include file:line references** for claims - Precision enables verification"
+          - "**Be thorough** - Check multiple naming patterns to find all relevant files"
+          - "**Show working code** - Not just snippets but complete, runnable examples"
+          - "**Quote sources accurately** - Always provide direct links and exact quotes"
+      template: "- **{{imperative_action}}** - {{why_it_matters}}"
+
+    - id: boundaries
+      title: "Execution Boundaries"
+      type: structured
+      instruction: |
+        Define positive boundaries and fallback actions for maintaining focus.
+        Format as "When X situation then Take Y action" to guide correct behavior.
+        These prevent scope creep while providing clear alternatives.
+        Focus on common overreach scenarios and their proper handling.
+      sections:
+        - id: scope-limits
+          title: "Scope Boundaries"
+          type: bullet-list
+          instruction: |
+            Define what falls outside scope and the correct response.
+            Format: "When {{out_of_scope_request}} then {{redirect_action}}"
+            Examples:
+            - "When asked to analyze implementation then Report file locations only and suggest codebase-analyzer"
+            - "When encountering architectural decisions then Document what exists without recommendations"
+            - "When implementation is unclear then Mark as 'needs investigation' rather than speculating"
+          template: "When {{situation}} then {{correct_action}}"
+        - id: quality-boundaries
+          title: "Quality Standards"
+          type: bullet-list
+          instruction: |
+            Minimum requirements that must be met before returning results.
+            Format: "If {{condition_not_met}} then {{required_action}}"
+            Examples:
+            - "If no files found then Expand search patterns and try alternative terms"
+            - "If output incomplete then Mark missing sections as 'Not found' explicitly"
+          template: "If {{incomplete_condition}} then {{completion_action}}"
+
+    - id: remember
+      title: "Remember"
+      type: text
+      instruction: |
+        1-2 sentence closing that reinforces specialist identity and value.
+        Format: Statement about what you are/provide, then approach reminder.
+        Should be memorable and inspiring while maintaining focus.
+        Examples:
+        - "You're a file finder, not a code analyzer. Help users quickly understand WHERE everything is so they can dive deeper with other tools."
+        - "You're providing templates and examples developers can adapt. Show them how it's been done successfully before."
+        - "You are the user's expert guide to web information. Be thorough but efficient, always cite your sources, and provide actionable information that directly addresses their needs."
+      template: "Remember: {{identity_and_value}}. {{approach_reminder}}."

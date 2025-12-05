@@ -1,0 +1,157 @@
+command_template:
+  template:
+    id: "command-template-v1"
+    name: "Command Template"
+    output:
+      format: markdown
+      filename: "{{COMMANDS_DIR}}{{command_name}}.md"
+
+  frontmatter:
+    required:
+      description: "{{brief_command_purpose}}"
+      agent: "{{which_agent_executes}}"
+    optional:
+      model: "{{model_override}}"
+      argument-hint: "{{hint_for_arguments}}"
+    instruction: |
+      - description: Clear, concise purpose (shown in command listings)
+      - agent: Which agent executes this command (e.g., build, prompter, plan)
+      - model: Optional model override for this specific command
+      - argument-hint: Shows users what arguments the command accepts
+
+  sections:
+    - id: variables
+      title: "Variables"
+      type: structured
+      optional: true
+      instruction: |
+        - Define reusable values and configuration for complex commands.
+        - Use UPPERCASE for variable names.
+        - Always reference variables with {{VARIABLE_NAME}} notation in instruction text.
+        - Add argument-hint in frontmatter for user discoverability.
+
+        Argument patterns:
+        - Single-use: Direct assignment (VAR: $ARGUMENTS) or use {{ARGUMENTS}} in instructions
+        - Multi-use: Extract to semantic variable since only first $ARGUMENTS gets swapped
+        - Multiple arguments: Use bullet declaration with parsing:
+          ```
+          - ARGUMENTS = $ARGUMENTS
+            argument-hint: "[arg1] [arg2]"
+          
+          ARG1: [arg1]
+          ARG2: [arg2]
+          ```
+
+        Example uses: file paths, thresholds, template names, repeated patterns.
+      sections:
+        - id: static-vars
+          title: "Static Variables"
+          type: key-value
+          instruction: |
+            Fixed values that don't change. Use for paths, defaults, thresholds.
+          template: "{{CONFIG_VALUE}}: {{value}}"
+        - id: dynamic-vars
+          title: "Dynamic Variables"
+          type: key-value
+          instruction: |
+            Single argument: {{SEMANTIC_NAME}}: $ARGUMENTS
+            Multiple arguments: Use bullet declaration with ARGUMENTS = $ARGUMENTS, then parse into individual variables
+          template: "{{USER_INPUT}}: $ARGUMENTS"
+
+    - id: context
+      title: "## Context"
+      type: markdown
+      optional: true
+      instruction: |
+        Gather information needed before execution using runtime injection.
+        Use @ for file inclusion, ! for shell command output.
+        Only include if command needs current state information.
+        Order matters - gather context in dependency order.
+        
+        Examples:
+        - @package.json - Include file contents
+        - !`git status` - Include command output
+        - @{{FILE_PATH}} - Include dynamic file path
+      template: |
+        Current test results:
+        !`{{test_command}}`
+
+        Configuration:
+        @{{config_file}}
+
+    - id: instructions
+      title: "## Instructions"
+      type: markdown
+      required: true
+      instruction: |
+        The core prompt - what the agent should do. Keep focused and clear.
+        For simple commands: 1-3 sentences describing the task.
+        For complex commands: Structured with subsections as needed.
+        Include {{ARGUMENTS}} for single-use parameters or {{SEMANTIC_NAME}} for multi-use (extracted in Variables section).
+        For complex analysis tasks: Prepend 'ultrathink:' to trigger ULTRATHINK.
+        Example: "ultrathink: Analyze the architectural implications of {{FILE_PATH}}"
+        This is the only required section - make it count.
+      template: |
+        {{core_task_description}}
+
+        {{specific_requirements_if_any}}
+
+        {{expected_outcome}}
+
+    - id: workflow
+      title: "## Workflow"
+      type: structured
+      optional: true
+      instruction: |
+        Multi-step execution for complex commands. Add only when single instruction isn't enough.
+        Structure as phases with clear progression.
+        Include decision points, validations, and checkpoints.
+        Keep to 3-5 major phases for maintainability.
+      sections:
+        - id: phase
+          title: "### Phase {{N}}: {{Phase_Name}}"
+          type: complex
+          template: |
+            {{phase_description}}
+
+            Steps:
+            1. {{step_1}}
+            2. {{step_2}}
+
+            {{validation_or_checkpoint}}
+
+    - id: output-template
+      title: "## Output Template"
+      type: yaml-specification
+      optional: true
+      instruction: |
+        For generator commands that create files or structures.
+        Define the EXACT output format using YAML specification.
+        Use the same pattern as agent templates for consistency.
+        Include file paths, content structure, and templates.
+      template: |
+        ```yaml
+        output:
+          type: {{file|structure|config}}
+          path: "{{output_path}}"
+          template:
+            id: "{{template_id}}"
+            format: {{markdown|yaml|json|typescript}}
+
+          content:
+            - id: {{section_id}}
+              type: {{text|code|structured}}
+              template: |
+                {{content_template}}
+        ```
+
+    - id: notes
+      title: "## Notes"
+      type: text
+      optional: true
+      instruction: |
+        Additional context, warnings, or clarifications.
+        Use sparingly - most guidance belongs in Instructions.
+        Good for: edge cases, important caveats, related commands.
+      template: |
+        {{additional_context_or_warnings}}

@@ -25,6 +25,17 @@ along with structured workflows for analyzing, categorizing, and responding to r
 - Requirement to resolve review threads or request re-review
 - Request to merge PR after addressing feedback
 
+## Quick Reference
+
+| Phase | Action | Command/Tool |
+|-------|--------|--------------|
+| 1 | Gather | `just -f {base_dir}/justfile unresolved OWNER REPO PR` |
+| 2 | Research | `session({mode: "message", agent: "researcher", ...})` |
+| 3 | Plan | `session({mode: "message", agent: "planner", ...})` |
+| 4 | Implement | `session({mode: "message", agent: "implement", ...})` |
+| 5 | Respond | `just reply ...` + `just resolve ...` |
+| 6 | Finalize | `just request-review ...` or `just merge ...` |
+
 ## Scripts
 
 All scripts are PEP 723 compliant Python files. The base directory for this skill is provided
@@ -77,42 +88,36 @@ uv run {base_dir}/scripts/get_pr_info.py 123
 uv run {base_dir}/scripts/fetch_review_threads.py owner repo 123
 ```
 
-## Comment Analysis Framework
+## Multi-Agent Workflow
 
-### Priority Extraction
+This skill orchestrates multiple specialized agents for thorough PR review analysis:
 
-Gemini Code Assist uses badge images to indicate priority. To extract from comment body:
-
-| Badge in Body | Priority | Action Required |
-|---------------|----------|-----------------|
-| `critical.svg` | Critical | Must address - blocks merge |
-| `medium-priority.svg` | Medium | Should address - improves quality |
-| `low-priority.svg` | Low | Optional - nice to have |
+| Agent | Role | When Used |
+|-------|------|-----------|
+| **researcher** | Deep codebase analysis, independent assessment | Phase 2: Evaluates each comment against actual code |
+| **planner** | Creates implementation plan | Phase 3: Plans approved changes |
+| **implement** | Executes the plan | Phase 4: Makes code changes |
 
 ### Decision Categories
 
-| Category | When to Apply | Response Template |
-|----------|---------------|-------------------|
-| **Address** | Valid concern improving code | `✅ **Addressed in commit {SHA}**\n\n{Details}` |
-| **Decline** | Invalid, by design, or not applicable | `❌ **Declined**: {Reasoning}` |
-| **Defer** | Valid but out of scope | `⏸️ **Deferred**: Will address in {issue/PR}` |
+The researcher agent will recommend one of these for each comment:
 
-### Analysis Table Format
+| Category | Criteria | Response Template |
+|----------|----------|-------------------|
+| **✅ Address** | Valid concern, within PR scope, clear improvement | `✅ **Addressed in commit {SHA}**\n\n{Details}` |
+| **❌ Decline** | Invalid, by design, project-specific exception, or Gemini missing context | `❌ **Declined**: {Reasoning}` |
+| **⏸️ Defer** | Valid but out of PR scope, belongs in separate PR/issue | `⏸️ **Deferred**: Will address in {issue/PR}` |
 
-To present findings to user:
+### Priority Badge Reference
 
-```markdown
-## PR #{number} Review Analysis
+Gemini uses badge images to indicate its priority assessment (note: these reflect Gemini's view, not objective truth):
 
-Found {N} unresolved review comments.
-
-| # | File | Issue | Priority | Recommendation | Reasoning |
-|---|------|-------|----------|----------------|-----------|
-| 1 | `path:line` | Description | Critical | ✅ Address | Why |
-| 2 | `path:line` | Description | Medium | ❌ Decline | Why |
-
-**Summary**: {X} to address, {Y} to decline
-```
+| Badge in Body | Gemini's Priority | Recommended Action |
+|---------------|-------------------|-------------|
+| `critical.svg` | Critical | Evaluate independently - may still decline |
+| `high-priority.svg` | High | Evaluate independently |
+| `medium-priority.svg` | Medium | Evaluate independently |
+| `low-priority.svg` | Low | Often safe to defer |
 
 ## Workflow Phases
 
@@ -131,27 +136,69 @@ Found {N} unresolved review comments.
    ```
 4. Parse results to identify unresolved threads
 
-### Phase 2: Analyze
+### Phase 2: Research & Assess
 
-1. Parse each comment for priority badges
-2. Formulate recommendation for each (address/decline/defer)
-3. Present analysis table to user
+Delegate deep analysis to the researcher agent using the session tool:
 
-**⚠️ CHECKPOINT - Wait for user approval before proceeding to implementation**
+```
+session({
+  mode: "message",
+  agent: "researcher",
+  text: "<use Researcher Prompt Template from {base_dir}/references/agent-prompts.md>"
+})
+```
+
+The researcher will:
+1. Understand the PR's intended scope and purpose
+2. Research the codebase for each comment's technical validity
+3. Check for project-specific patterns Gemini might have missed
+4. Return independent recommendations (✅ Address, ❌ Decline, ⏸️ Defer) with evidence
+
+#### CHECKPOINT: User Approval Required
+
+Present researcher's analysis and **wait for explicit approval** before proceeding.
+
+User options:
+- Approve all recommendations as-is
+- Override specific decisions (e.g., "address #3 even though researcher said decline")
+- Request more research on specific items
 
 ### Phase 3: Plan
 
-After approval, delegate to planner agent via `session()` tool with:
-- List of comments to address
-- File paths and line numbers
-- Issue descriptions
+After user approves the analysis, delegate to planner for items marked "Address":
+
+```
+session({
+  mode: "message",
+  agent: "planner",
+  text: "<use Planner Prompt Template from {base_dir}/references/agent-prompts.md>"
+})
+```
+
+The planner will:
+1. Analyze each approved item's requirements
+2. Determine the minimal changes needed
+3. Create a step-by-step implementation plan
+4. Define verification steps for each change
 
 ### Phase 4: Implement
 
-Delegate to implement agent via `session()` tool with:
-- Plan from planner
-- Test/build requirements
-- Commit message guidance
+Execute the plan from Phase 3:
+
+```
+session({
+  mode: "message",
+  agent: "implement",
+  text: "<use Implement Prompt Template from {base_dir}/references/agent-prompts.md>"
+})
+```
+
+The implement agent will:
+1. Execute each step of the plan
+2. Verify changes address the specific issues
+3. Run tests and build
+4. Commit and push changes
+5. Report back with commit SHA
 
 ### Phase 5: Respond
 
@@ -188,14 +235,26 @@ If all declined and user approves merge:
 just -f {base_dir}/justfile merge PR_NUMBER squash
 ```
 
+## Agent Prompt Templates
+
+Templates for delegating to specialized agents are in `{base_dir}/references/agent-prompts.md`:
+
+| Template | Used In | Purpose |
+|----------|---------|---------|
+| **Researcher** | Phase 2 | Deep codebase analysis, independent assessment of each comment |
+| **Planner** | Phase 3 | Creates minimal implementation plan for approved items |
+| **Implement** | Phase 4 | Executes plan, runs tests, commits and pushes |
+
+Read the templates file when preparing session handoffs to each agent.
+
 ## Error Handling
 
 - **GitHub CLI auth failure**: Run `gh auth status` to verify authentication
 - **PR not found**: Provide explicit PR number if auto-detect fails
 - **GraphQL errors**: Verify thread ID format (should start with `PRRT_`)
 - **Script errors**: Check `uv` is installed and available in PATH
-- **"not a git repository" error**: Justfile recipes that need git context (pr-info, merge, full-review) automatically run from the caller's directory. If running scripts directly, ensure you're in a git repository
-- **Body quoting issues**: For complex bodies with special characters, use direct `gh api` calls:
+- **"not a git repository" error**: Justfile recipes that need git context (pr-info, merge, full-review) automatically run from the caller's directory. When running scripts directly, ensure execution is within a git repository
+- **Body quoting issues**: For complex bodies with special characters, use direct `gh api` calls as an escape hatch (bypasses skill scripts):
   ```bash
   # Reply to comment with complex body
   gh api repos/OWNER/REPO/pulls/PR/comments \

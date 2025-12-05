@@ -1,0 +1,24 @@
+# Agent Creator Justfile
+# Scaffolding recipes for creating agent files
+
+# Get the directory where this justfile lives
+base_dir := justfile_directory()
+
+# Scaffold a primary agent
+scaffold-primary name path:
+    uv run {{base_dir}}/scripts/scaffold_agent.py primary {{name}} --path {{path}}
+
+# Scaffold a subagent
+scaffold-subagent name path:
+    uv run {{base_dir}}/scripts/scaffold_agent.py subagent {{name}} --path {{path}}
+
+# Show help
+help:
+    @echo "Agent Creator Recipes:"
+    @echo ""
+    @echo "  scaffold-primary <name> <path>  - Create a primary agent skeleton"
+    @echo "  scaffold-subagent <name> <path> - Create a subagent skeleton"
+    @echo ""
+    @echo "Examples:"
+    @echo "  just scaffold-primary my-agent .opencode/agent"
+    @echo "  just scaffold-subagent code-analyzer .opencode/agent"

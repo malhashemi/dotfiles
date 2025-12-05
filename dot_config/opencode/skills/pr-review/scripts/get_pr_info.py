@@ -36,6 +36,7 @@ def get_pr_info(pr_number: str | None = None) -> dict:
     fields = [
         "number",
         "title",
+        "body",
         "state",
         "url",
         "headRefName",

@@ -34,7 +34,7 @@ ultrathink: Analyze the current conversation for patterns, lessons, and insights
 
 3. **Create Extraction Todos**
    Use **todowrite** to create systematic tracking:
-   - Analyze conversation for {{agent}}-relevant patterns
+   - Analyze conversation for {{TARGET_AGENT}}-relevant patterns
    - Identify high-value insights worth preserving
    - Present findings for user approval
    - Determine optimal placement in agent's prompt
@@ -59,7 +59,7 @@ ultrathink: Analyze the current conversation for patterns, lessons, and insights
    ### 2. **{{Next Pattern}}**
    [Continue for all significant findings]
    
-   Which of these would you like to integrate into {{agent}}'s knowledge base?
+   Which of these would you like to integrate into {{TARGET_AGENT}}'s knowledge base?
    ```
 
 2. **⚠️ CHECKPOINT** - Await user selection of insights to keep
@@ -94,7 +94,7 @@ ultrathink: Analyze the current conversation for patterns, lessons, and insights
 ### Phase 4: Wording Refinement
 
 1. **Craft Precise Wording**
-   For each insight, create the exact text to add using git-style diff format (see system prompt pattern):
+   For each insight, create the exact text to add using git-style diff format:
    ```markdown
    ## Proposed Additions
    
@@ -126,7 +126,7 @@ ultrathink: Analyze the current conversation for patterns, lessons, and insights
    - {{Section}}: {{Brief description of addition}}
    - {{Section}}: {{Brief description of addition}}
    
-   These insights from our conversation are now part of {{agent}}'s operational knowledge.
+   These insights from our conversation are now part of {{TARGET_AGENT}}'s operational knowledge.
    ```
 
 ## Selection Criteria
