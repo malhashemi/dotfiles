@@ -1,0 +1,30 @@
+# Extern Researcher Skill - Justfile
+# Manage the global extern research catalog
+
+# Default recipe - list all research
+default:
+    @just --list
+
+# Directory containing scripts
+scripts_dir := justfile_directory() / "scripts"
+
+# List all research studies in the catalog
+list:
+    @uv run {{scripts_dir}}/catalog.py list
+
+# Search catalog by repo name or topic
+search term:
+    @uv run {{scripts_dir}}/catalog.py search "{{term}}"
+
+# Show catalog statistics
+stats:
+    @uv run {{scripts_dir}}/catalog.py stats
+
+# Add a new study to the catalog
+add-study repo url topic document context:
+    @uv run {{scripts_dir}}/catalog.py add-study \
+        --repo "{{repo}}" \
+        --url "{{url}}" \
+        --topic "{{topic}}" \
+        --document "{{document}}" \
+        --context "{{context}}"

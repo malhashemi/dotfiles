@@ -12,6 +12,7 @@ tools:
   todowrite: true
   todoread: true
   webfetch: false
+  skills_extern_researcher: true
 ---
 
 ## Variables
