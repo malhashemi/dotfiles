@@ -1,6 +1,6 @@
 ---
-description: Interactive template compliance review for agent/subagent/command prompts - systematic section-by-section updates with user approval
-argument-hint: "[file-path]"
+description: Interactive template compliance review for agent/subagent/command/skill prompts - systematic section-by-section updates with user approval
+argument-hint: "[path-or-name-or-description]"
 agent: prompter
 ---
 
@@ -12,15 +12,18 @@ TARGET_PATH: $ARGUMENTS
 
 ## Instructions
 
-ultrathink: Perform an interactive, section-by-section template compliance review of the prompt file at `{{TARGET_PATH}}`.
+ultrathink: Perform an interactive, section-by-section template compliance review of the prompt artifact at `{{TARGET_PATH}}`.
 
-**CRITICAL**: Work incrementally through **todowrite** and **todoread** tools - NEVER bulk process. Discuss each section with the user before implementing changes. Ensure perfect alignment with the appropriate template (primary agent, subagent, or command) while preserving any sections marked as IMMUTABLE.
+**CRITICAL**: Work incrementally through **todowrite** and **todoread** tools - NEVER bulk process. Discuss each section with the user before implementing changes. Ensure perfect alignment with the appropriate template (primary agent, subagent, command, or skill) while preserving any sections marked as IMMUTABLE.
 
-The file path provided may be:
+The input provided may be:
 
 - Full path: `.opencode/agent/architect.md`
 - Partial path: `agent/architect`
 - Just a name: `architect`
+- A skill path: `~/.config/opencode/skills/pr-review/SKILL.md`
+- A skill name: `pr-review`
+- A description: "the skill we just updated"
 
 Determine the correct file location and verify it exists before proceeding.
 
@@ -30,17 +33,21 @@ Determine the correct file location and verify it exists before proceeding.
 
 1. **Locate Target File**
    - Parse {{TARGET_PATH}} to determine actual file location
-   - Check common patterns: `.opencode/agent/`, `.opencode/command/`, `~/.config/opencode/agent/`, `~/.config/opencode/command/`
+   - Check common patterns:
+     - Agents: `.opencode/agent/`, `~/.config/opencode/agent/`
+     - Commands: `.opencode/command/`, `~/.config/opencode/command/`
+     - Skills: `.opencode/skills/`, `~/.config/opencode/skills/` (look for SKILL.md)
    - Verify file exists with read tool
+   - If descriptive input, infer from conversation context or ask user
 2. **Determine Artifact Type**
-   - Check frontmatter `mode` field if present:
-     - `mode: primary` → Primary Agent template
-     - `mode: subagent` → Subagent template
-     - No mode field → Command template (commands don't have mode)
+   - Skill: File is named `SKILL.md` or in a skills/ directory
+   - Agent: Has `mode:` field in frontmatter (primary or subagent)
+   - Command: In command/ directory, no mode field
    - Identify which template to use for compliance checking
 3. **Load Template Reference**
-   - For agents: Load `skills_prompter_agent_creator` to get exact template structure
-   - For commands: Load `skills_prompter_command_creator` to get exact template structure
+   - For agents: `skills_prompter_agent_creator`
+   - For commands: `skills_prompter_command_creator`
+   - For skills: `skills_prompter_skill_creator`
 4. **Create Compliance Todo List**
    - Use **todowrite** to create comprehensive section list
    - Include all required template sections
@@ -164,5 +171,6 @@ For each todo item:
 - For primary agents: Ensure all required sections present, skip Orchestration Patterns if agent doesn't spawn subagents
 - For subagents: Focus on specialist clarity and searchable descriptions
 - For commands: Keep minimal, include only needed sections
+- For skills: Verify SKILL.md structure, check references/ and scripts/ organization, validate progressive disclosure
 - Always preserve embedded templates and reference materials exactly as they are
 - Use emphasis keywords (CRITICAL, IMPORTANT, NEVER, ALWAYS) strategically based on observed issues

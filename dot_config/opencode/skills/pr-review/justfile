@@ -62,3 +62,13 @@ full-review owner repo pr_number:
     echo ""
     echo "=== Comments ==="
     uv run {{scripts_dir}}/fetch_pr_comments.py {{owner}} {{repo}} {{pr_number}}
+
+# Ensure a GitHub label exists, create if missing
+ensure-label label description="Valid feedback deferred from PR review" color="FEF2C0":
+    #!/usr/bin/env bash
+    if ! gh label list | grep -q "^{{label}}"; then
+        gh label create "{{label}}" --description "{{description}}" --color "{{color}}"
+        echo "Created label: {{label}}"
+    else
+        echo "Label exists: {{label}}"
+    fi

@@ -102,11 +102,11 @@ This skill orchestrates multiple specialized agents for thorough PR review analy
 
 The researcher agent will recommend one of these for each comment:
 
-| Category | Criteria | Response Template |
-|----------|----------|-------------------|
-| **✅ Address** | Valid concern, within PR scope, clear improvement | `✅ **Addressed in commit {SHA}**\n\n{Details}` |
-| **❌ Decline** | Invalid, by design, project-specific exception, or Gemini missing context | `❌ **Declined**: {Reasoning}` |
-| **⏸️ Defer** | Valid but out of PR scope, belongs in separate PR/issue | `⏸️ **Deferred**: Will address in {issue/PR}` |
+| Category | Criteria | Response Template | Resolution |
+|----------|----------|-------------------|------------|
+| **✅ Address** | Valid concern, within PR scope, clear improvement | `✅ **Addressed in commit {SHA}**\n\n{Details}` | Reply + Resolve |
+| **❌ Decline** | Invalid, by design, project-specific exception, or Gemini missing context | `❌ **Declined**: {Reasoning}` | Reply + Resolve |
+| **⏸️ Defer** | Valid but out of PR scope, belongs in separate PR/issue | `⏸️ **Deferred**: Tracked in #{issue}` | Create Issue → Reply → Resolve |
 
 ### Priority Badge Reference
 
@@ -135,6 +135,7 @@ Gemini uses badge images to indicate its priority assessment (note: these reflec
    just -f {base_dir}/justfile unresolved OWNER REPO PR_NUMBER
    ```
 4. Parse results to identify unresolved threads
+5. Check for already-responded threads (threads with prior `✅`/`❌`/`⏸️` responses that remain unresolved only need resolution, not re-assessment)
 
 ### Phase 2: Research & Assess
 
@@ -202,18 +203,26 @@ The implement agent will:
 
 ### Phase 5: Respond
 
-For each addressed comment:
-```bash
-just -f {base_dir}/justfile reply OWNER REPO PR_NUMBER COMMENT_ID "✅ **Addressed in commit SHA**
+All categories are resolved after proper handling.
 
-Description of fix"
+For addressed comments:
+```bash
+just -f {base_dir}/justfile reply OWNER REPO PR_NUMBER COMMENT_ID "✅ **Addressed in commit SHA**..."
 just -f {base_dir}/justfile resolve THREAD_ID
 ```
 
-For declined comments (reply only, do not resolve):
+For declined comments:
 ```bash
 just -f {base_dir}/justfile reply OWNER REPO PR_NUMBER COMMENT_ID "❌ **Declined**: Reasoning"
+just -f {base_dir}/justfile resolve THREAD_ID
 ```
+
+For deferred comments:
+1. Create GitHub issue with `deferred` label (see `{base_dir}/references/deferred-workflow.md`)
+2. Reply with issue link: `⏸️ **Deferred**: Tracked in #{issue_number}`
+3. Resolve thread
+
+**Note**: Threads with existing responses from prior review cycles only need resolution—skip the reply step.
 
 ### Phase 6: Finalize
 
@@ -230,7 +239,25 @@ just -f {base_dir}/justfile request-review OWNER REPO PR_NUMBER "## Review Feedb
 Please re-review."
 ```
 
-If all declined and user approves merge:
+If all declined/deferred (no code changes):
+- Post summary comment documenting decisions
+- No re-review needed
+
+#### Plan Reconciliation (if applicable)
+
+Before merge, if PR implements a plan from `thoughts/`:
+1. Compare implementation (`git diff {baseRefName}...HEAD`) against plan phases
+2. Correct any plan details that don't match reality
+3. Mark completed phases as done
+4. **CHECKPOINT**: User confirms plan accuracy
+
+If plan location is unknown, ask user. Skip if no associated plan.
+
+See `{base_dir}/references/plan-reconciliation.md` for detailed workflow.
+
+#### Merge
+
+After review cycle complete (and plan reconciled if applicable):
 ```bash
 just -f {base_dir}/justfile merge PR_NUMBER squash
 ```

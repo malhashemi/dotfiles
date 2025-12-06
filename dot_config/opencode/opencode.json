@@ -7,6 +7,10 @@
     "anthropic": {
       "models": {
         "claude-opus-4-5": {
+          "limit": {
+            "context": 200000,
+            "output": 200000
+          },
           "options": {
             "thinking": {
               "type": "enabled",
@@ -63,11 +67,7 @@
   "mcp": {
     "brave-search": {
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@brave/brave-search-mcp-server"
-      ],
+      "command": ["npx", "-y", "@brave/brave-search-mcp-server"],
       "enabled": true,
       "environment": {
         "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
@@ -87,11 +87,7 @@
       }
     }
   },
-  "plugin": [
-    "opencode-skills",
-    "opencode-sessions",
-    "opencode-gemini-auth"
-  ],
+  "plugin": ["opencode-skills", "opencode-sessions", "opencode-gemini-auth"],
   "tools": {
     "skills*": false,
     "skills_pr_review": true,

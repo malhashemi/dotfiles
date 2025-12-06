@@ -1,38 +1,58 @@
 ---
-description: Verifies template compliance of an agent/prompt that has been worked on in the current conversation
+description: Verifies template compliance of an agent/command/skill that has been worked on in the current conversation
+argument-hint: "[optional-path-or-name]"
 agent: prompter
 ---
 
+## Variables
+
+### Dynamic Variables
+TARGET: $ARGUMENTS
+
 ## Instructions
 
-Perform a comprehensive template compliance verification of the agent or prompt that has been modified in this conversation. Build a dynamic checklist based on the actual template requirements.
+Perform a comprehensive template compliance verification of the artifact that has been modified in this conversation. Build a dynamic checklist based on the actual template requirements.
+
+**If {{TARGET}} provided**: Use as target path/name hint
+**If no arguments**: Infer target from recent conversation context
 
 ## Workflow
 
 1. **Identify Target Artifact**
    - Look through recent conversation to identify which prompt file was being worked on
+   - If {{TARGET}} provided, use as hint for location
    - Read the current state of that file
-   - Determine artifact type (primary/subagent/command) from frontmatter or context
+   - Determine artifact type:
+     - Skill: File is SKILL.md or in skills/ directory
+     - Agent: Has mode: field in frontmatter
+     - Command: In command/ directory, no mode field
 
 2. **Create Base Compliance Checklist**
    Start with universal checks and add them to your todo list using todowrite:
    ```
    ## Universal Compliance Checks
    - [ ] Frontmatter exists and is properly formatted
-   - [ ] Mode field matches file location (for agents only - commands don't have mode)
+   - [ ] Mode field matches file location (agents only)
    - [ ] Description field is comprehensive and searchable
-   - [ ] For agents: Tools section lists appropriate permissions
+   - [ ] Tools section lists appropriate permissions (agents only)
    - [ ] Variables defined are actually utilized in the prompt
    - [ ] No residual content from old versions
    - [ ] Emphasis keywords (CRITICAL, IMPORTANT, ALWAYS, NEVER) used strategically
    - [ ] Section sequence matches the template exactly
    - [ ] Section names match template formatting
+   
+   ## Skill-Specific Checks (if applicable)
+   - [ ] SKILL.md follows skill template structure
+   - [ ] references/ files are appropriately sized and organized
+   - [ ] scripts/ follow PEP 723 format with proper metadata
+   - [ ] Progressive disclosure: lean SKILL.md, detailed references/
    ```
 
 3. **Add Template-Specific Checks**
    Load the appropriate template skill to get exact structure:
    - For agents: `skills_prompter_agent_creator`
    - For commands: `skills_prompter_command_creator`
+   - For skills: `skills_prompter_skill_creator`
    
    Then analyze deeply:
    - What structural patterns are mandatory?

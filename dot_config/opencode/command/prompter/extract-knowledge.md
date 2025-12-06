@@ -1,28 +1,46 @@
 ---
-description: Extracts valuable insights from the current conversation and integrates them into a specified agent's knowledge base
-argument-hint: "[agent-name]"
+description: Extracts valuable insights from the current conversation and integrates them into a specified agent's or skill's knowledge base
+argument-hint: "[target-name-or-description]"
 agent: prompter
 ---
 
 ## Variables
 
 ### Dynamic Variables
-TARGET_AGENT: $ARGUMENTS
+TARGET: $ARGUMENTS
 
 ## Instructions
 
-ultrathink: Analyze the current conversation for patterns, lessons, and insights that would be valuable for the specified agent, then systematically integrate them into that agent's system prompt.
+ultrathink: Analyze the current conversation for patterns, lessons, and insights that would be valuable for the specified target, then systematically integrate them into that artifact's prompt or SKILL.md.
 
 ## Workflow
 
 ### Phase 1: Context Analysis
 
-1. **Read Target Agent**
-   - Read the specified agent file (e.g., `.opencode/agent/{{TARGET_AGENT}}`)
-   - Understand the agent's role, responsibilities, and current knowledge
-   - Identify what kinds of insights would be valuable for this agent
+1. **Interpret Target Input**
+   `{{TARGET}}` may be:
+   - A file path: `.opencode/agent/architect.md`, `~/.config/opencode/skills/pr-review/SKILL.md`
+   - A name: `architect`, `pr-review`
+   - A description: "the skill we just worked on", "improve the pr-review skill"
+   
+   Resolve to actual file by checking:
+   - `.opencode/agent/`, `~/.config/opencode/agent/` (agents)
+   - `.opencode/command/`, `~/.config/opencode/command/` (commands)
+   - `.opencode/skills/`, `~/.config/opencode/skills/` (skills → look for SKILL.md)
+   
+   If ambiguous or descriptive, infer from conversation context or ask user.
 
-2. **Conversation Mining**
+2. **Determine Artifact Type & Load Template**
+   - Agent (has `mode:` in frontmatter) → Load `skills_prompter_agent_creator`
+   - Command (in command/ directory, no mode) → Load `skills_prompter_command_creator`
+   - Skill (has SKILL.md) → Load `skills_prompter_skill_creator`
+
+3. **Read Target Artifact**
+   - Read the resolved file
+   - Understand its role, structure, and current knowledge
+   - Identify what kinds of insights would be valuable
+
+4. **Conversation Mining**
    Analyze the conversation for:
    - Patterns discovered through experience
    - Techniques that worked well
@@ -30,14 +48,14 @@ ultrathink: Analyze the current conversation for patterns, lessons, and insights
    - Clarifications that improved understanding
    - Workflow optimizations discovered
    - Edge cases encountered
-   Filter for relevance to the target agent's domain
+   Filter for relevance to the target artifact's domain
 
-3. **Create Extraction Todos**
+5. **Create Extraction Todos**
    Use **todowrite** to create systematic tracking:
-   - Analyze conversation for {{TARGET_AGENT}}-relevant patterns
+   - Analyze conversation for target-relevant patterns
    - Identify high-value insights worth preserving
    - Present findings for user approval
-   - Determine optimal placement in agent's prompt
+   - Determine optimal placement in artifact's structure
    - Craft precise wording for additions
    - Implement approved changes
    
@@ -47,19 +65,19 @@ ultrathink: Analyze the current conversation for patterns, lessons, and insights
 
 1. **Present Discovered Insights**
    ```markdown
-   ## Knowledge Extraction for {{Agent Name}}
+   ## Knowledge Extraction for {{Artifact Name}}
    
    From this conversation, I've identified these valuable insights:
    
    ### 1. **{{Pattern/Lesson Title}}**
    {{Description of what was learned}}
-   **Relevance**: {{Why this matters for this agent}}
+   **Relevance**: {{Why this matters for this artifact}}
    **Example from conversation**: {{Brief example}}
    
    ### 2. **{{Next Pattern}}**
    [Continue for all significant findings]
    
-   Which of these would you like to integrate into {{TARGET_AGENT}}'s knowledge base?
+   Which of these would you like to integrate into the target's knowledge base?
    ```
 
 2. **⚠️ CHECKPOINT** - Await user selection of insights to keep
@@ -68,11 +86,15 @@ ultrathink: Analyze the current conversation for patterns, lessons, and insights
 
 1. **Analyze Placement Options**
    For each approved insight, determine where it best fits:
-   - **Philosophy**: Core principles and approaches
-   - **Knowledge Base**: Reusable patterns and techniques
-   - **Workflow**: Process improvements or checkpoints
-   - **Learned Constraints**: Experience-based rules (create if doesn't exist)
-   - **Cognitive Approach**: New triggers for deep thinking
+   
+   For agents:
+   - Philosophy, Knowledge Base, Workflow, Learned Constraints
+   
+   For skills:
+   - Overview, When to Use, Workflow Phases, Domain Patterns, references/ files
+   
+   For commands:
+   - Instructions, Workflow phases, Notes
 
 2. **Present Integration Plan**
    ```markdown
@@ -122,11 +144,11 @@ ultrathink: Analyze the current conversation for patterns, lessons, and insights
    ```markdown
    ## ✅ Knowledge Integration Complete
    
-   Added to {{Agent Name}}:
+   Added to {{Artifact Name}}:
    - {{Section}}: {{Brief description of addition}}
    - {{Section}}: {{Brief description of addition}}
    
-   These insights from our conversation are now part of {{TARGET_AGENT}}'s operational knowledge.
+   These insights from our conversation are now part of the target's operational knowledge.
    ```
 
 ## Selection Criteria

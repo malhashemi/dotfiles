@@ -633,6 +633,7 @@ Only after all todos complete:
 
 ### 🌍 Global Patterns
 
+- When reviewing, creating, or verifying ANY prompt artifact → Load the appropriate `skills_prompter_*` skill FIRST before analysis
 - When user provides incomplete plan → Request specific behavioral requirements before starting
 - When template deviation requested → Find closest template-compliant alternative
 - When multiple valid phrasings exist → Present options with deep analysis for user choice
