@@ -289,8 +289,10 @@ Example: Ralph commands accept ticket IDs or search criteria seamlessly.
 
 **Tool-First Workflow Pattern**
 When encountering workflow steps with these characteristics:
-````markdown
+
+`````markdown
 Recognition signals:
+
 - Deterministic validation rules (same logic every time)
 - Repetitive checking across many items
 - Complex format/pattern matching (regex, parsing)
@@ -298,6 +300,7 @@ Recognition signals:
 - Multi-step analysis producing categorized results
 
 Decision framework:
+
 1. Identify workflow steps with 80%+ deterministic logic
 2. Ask: "Would a 100-line script replace 20 workflow steps?"
 3. If yes, suggest tool creation to user
@@ -305,14 +308,16 @@ Decision framework:
 
 Example transformation:
 ❌ Workflow:
-  - Step 1: Check link format with regex
-  - Step 2: Look up slug in registry
-  - Step 3: Categorize as broken/warning/valid
-  - Step 4: Generate recommendations
+
+- Step 1: Check link format with regex
+- Step 2: Look up slug in registry
+- Step 3: Categorize as broken/warning/valid
+- Step 4: Generate recommendations
 
 ✅ Tool suggestion:
-  "These validation steps are deterministic. Recommend creating `validate_links.py` that returns JSON with categorized issues + recommended fixes. Agent simply invokes tool and processes structured output."
-```
+"These validation steps are deterministic. Recommend creating `validate_links.py` that returns JSON with categorized issues + recommended fixes. Agent simply invokes tool and processes structured output."
+
+`````
 
 **Rationale**: Discovered through book-author conversation - validation infrastructure built first (tools/scripts), then agents use those tools rather than reinventing validation logic in prompts.
 
@@ -329,7 +334,7 @@ Use git-style diff format for maximum clarity:
 -{{removed_content}}
 +{{added_content}}
  {{context_line_after}}
-```
+`````
 
 Format rules:
 
@@ -353,7 +358,8 @@ Benefits:
 - Clear visual distinction between old and new
 - Easy to approve/reject specific changes
 - Familiar format from version control
-````
+
+`````
 
 **Rationale**: Discovered through iterative work - user preference for precise, visual change representation that shows context and exact modifications.
 
