@@ -5,8 +5,14 @@
 """
 Request re-review by posting a summary comment tagging @gemini-code-assist.
 
-Usage: uv run request_review.py <OWNER> <REPO> <PR_NUMBER> <SUMMARY_BODY>
+Usage:
+  uv run request_review.py <OWNER> <REPO> <PR_NUMBER> <SUMMARY_BODY>
+  echo "body" | uv run request_review.py <OWNER> <REPO> <PR_NUMBER> --stdin
+
 Output: Comment URL
+
+Note: Use --stdin to pass body via stdin to avoid shell escaping issues with
+backticks, $variables, and other special characters.
 """
 
 import subprocess
@@ -40,14 +46,28 @@ def request_review(owner: str, repo: str, pr_number: str, body: str) -> str:
 
 
 def main():
-    if len(sys.argv) != 5:
+    # Support two modes:
+    # 1. Body as argument: script.py OWNER REPO PR BODY
+    # 2. Body from stdin:  script.py OWNER REPO PR --stdin
+    if len(sys.argv) == 5 and sys.argv[4] != "--stdin":
+        owner, repo, pr_number, body = sys.argv[1:5]
+    elif len(sys.argv) == 5 and sys.argv[4] == "--stdin":
+        owner, repo, pr_number = sys.argv[1:4]
+        body = sys.stdin.read().strip()
+    elif len(sys.argv) == 4 and not sys.stdin.isatty():
+        # Piped input without --stdin flag
+        owner, repo, pr_number = sys.argv[1:4]
+        body = sys.stdin.read().strip()
+    else:
         print(
             "Usage: uv run request_review.py <OWNER> <REPO> <PR_NUMBER> <SUMMARY_BODY>",
             file=sys.stderr,
         )
+        print(
+            "   or: echo 'body' | uv run request_review.py <OWNER> <REPO> <PR_NUMBER> --stdin",
+            file=sys.stderr,
+        )
         sys.exit(1)
-
-    owner, repo, pr_number, body = sys.argv[1:5]
 
     try:
         result = request_review(owner, repo, pr_number, body)

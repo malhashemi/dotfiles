@@ -25,18 +25,24 @@ fetch-threads owner repo pr_number:
     uv run {{scripts_dir}}/fetch_review_threads.py {{owner}} {{repo}} {{pr_number}}
 
 # Reply to a specific comment (body can contain markdown/special chars)
+# Uses heredoc with quoted delimiter to prevent shell interpretation of backticks, $, etc.
 reply owner repo pr_number comment_id body:
     #!/usr/bin/env bash
-    uv run "{{scripts_dir}}/reply_to_comment.py" "{{owner}}" "{{repo}}" "{{pr_number}}" "{{comment_id}}" "{{body}}"
+    cat <<'BODY_EOF' | uv run "{{scripts_dir}}/reply_to_comment.py" "{{owner}}" "{{repo}}" "{{pr_number}}" "{{comment_id}}" --stdin
+    {{body}}
+    BODY_EOF
 
 # Resolve a review thread
 resolve thread_id:
     uv run {{scripts_dir}}/resolve_thread.py {{thread_id}}
 
 # Request re-review with summary comment (body can contain markdown/special chars)
+# Uses heredoc with quoted delimiter to prevent shell interpretation of backticks, $, etc.
 request-review owner repo pr_number body:
     #!/usr/bin/env bash
-    uv run "{{scripts_dir}}/request_review.py" "{{owner}}" "{{repo}}" "{{pr_number}}" "{{body}}"
+    cat <<'BODY_EOF' | uv run "{{scripts_dir}}/request_review.py" "{{owner}}" "{{repo}}" "{{pr_number}}" --stdin
+    {{body}}
+    BODY_EOF
 
 # Merge a PR (method: merge, squash, or rebase)
 # Runs from caller's directory to ensure git context is available

@@ -5,8 +5,14 @@
 """
 Reply to a specific review comment.
 
-Usage: uv run reply_to_comment.py <OWNER> <REPO> <PR_NUMBER> <COMMENT_ID> <BODY>
+Usage:
+  uv run reply_to_comment.py <OWNER> <REPO> <PR_NUMBER> <COMMENT_ID> <BODY>
+  echo "body" | uv run reply_to_comment.py <OWNER> <REPO> <PR_NUMBER> <COMMENT_ID> --stdin
+
 Output: JSON response from GitHub API
+
+Note: Use --stdin to pass body via stdin to avoid shell escaping issues with
+backticks, $variables, and other special characters.
 """
 
 import json
@@ -38,14 +44,28 @@ def reply_to_comment(
 
 
 def main():
-    if len(sys.argv) != 6:
+    # Support two modes:
+    # 1. Body as argument: script.py OWNER REPO PR COMMENT_ID BODY
+    # 2. Body from stdin:  script.py OWNER REPO PR COMMENT_ID --stdin
+    if len(sys.argv) == 6 and sys.argv[5] != "--stdin":
+        owner, repo, pr_number, comment_id, body = sys.argv[1:6]
+    elif len(sys.argv) == 6 and sys.argv[5] == "--stdin":
+        owner, repo, pr_number, comment_id = sys.argv[1:5]
+        body = sys.stdin.read().strip()
+    elif len(sys.argv) == 5 and not sys.stdin.isatty():
+        # Piped input without --stdin flag
+        owner, repo, pr_number, comment_id = sys.argv[1:5]
+        body = sys.stdin.read().strip()
+    else:
         print(
             "Usage: uv run reply_to_comment.py <OWNER> <REPO> <PR_NUMBER> <COMMENT_ID> <BODY>",
             file=sys.stderr,
         )
+        print(
+            "   or: echo 'body' | uv run reply_to_comment.py <OWNER> <REPO> <PR_NUMBER> <COMMENT_ID> --stdin",
+            file=sys.stderr,
+        )
         sys.exit(1)
-
-    owner, repo, pr_number, comment_id, body = sys.argv[1:6]
 
     try:
         result = reply_to_comment(owner, repo, pr_number, comment_id, body)
