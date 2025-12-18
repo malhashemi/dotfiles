@@ -27,14 +27,38 @@ along with structured workflows for analyzing, categorizing, and responding to r
 
 ## Quick Reference
 
-| Phase | Action | Command/Tool |
-|-------|--------|--------------|
-| 1 | Gather | `just -f {base_dir}/justfile unresolved OWNER REPO PR` |
-| 2 | Research | `session({mode: "message", agent: "researcher", ...})` |
-| 3 | Plan | `session({mode: "message", agent: "planner", ...})` |
-| 4 | Implement | `session({mode: "message", agent: "implement", ...})` |
-| 5 | Respond | `just reply ...` + `just resolve ...` |
-| 6 | Finalize | `just request-review ...` or `just merge ...` |
+| Phase | Action | Command/Tool | Flow |
+|-------|--------|--------------|------|
+| 1 | Gather | `just -f {base_dir}/justfile unresolved OWNER REPO PR` | Autonomous |
+| 2 | Research | `session({mode: "message", agent: "researcher", ...})` | **⏸️ CHECKPOINT** |
+| 3 | Plan | `session({mode: "message", agent: "planner", ...})` | Autonomous ↓ |
+| 4 | Implement | `session({mode: "message", agent: "implement", ...})` | Autonomous ↓ |
+| 5 | Respond | `just reply ...` + `just resolve ...` | Autonomous ↓ |
+| 6 | Finalize | `just request-review ...` or `just merge ...` | Autonomous ↓ |
+
+> **Flow Model**: Phase 1 runs autonomously. Phase 2 ends with a checkpoint for user approval.
+> After approval, Phases 3-6 execute as an autonomous chain with no additional user interaction.
+
+## Workflow Initialization
+
+**IMMEDIATELY upon loading this skill**, create the todo list to track all phases:
+
+```
+todowrite([
+  { id: "pr-1", content: "Phase 1: Gather PR review data (autonomous)", status: "pending", priority: "high" },
+  { id: "pr-2", content: "Phase 2: Research & assess comments (⏸️ CHECKPOINT)", status: "pending", priority: "high" },
+  { id: "pr-3", content: "Phase 3: Create implementation plan (autonomous)", status: "pending", priority: "medium" },
+  { id: "pr-4", content: "Phase 4: Execute implementation (autonomous)", status: "pending", priority: "medium" },
+  { id: "pr-5", content: "Phase 5: Respond to review threads (autonomous)", status: "pending", priority: "medium" },
+  { id: "pr-6", content: "Phase 6: Finalize and request re-review (autonomous)", status: "pending", priority: "medium" }
+])
+```
+
+**Phase Execution Pattern**:
+1. Mark phase as `in_progress` when starting
+2. Mark phase as `completed` when done
+3. For CHECKPOINT phases: stop after presenting results, wait for user approval
+4. For autonomous phases: immediately proceed to next phase after completion
 
 ## Scripts
 
@@ -121,7 +145,9 @@ Gemini uses badge images to indicate its priority assessment (note: these reflec
 
 ## Workflow Phases
 
-### Phase 1: Gather
+### Phase 1: Gather (autonomous)
+
+**Todo**: Mark `pr-1` as `in_progress`
 
 1. Determine PR number (from user request or auto-detect)
 2. Extract OWNER/REPO from git remote: `git remote get-url origin`
@@ -137,7 +163,13 @@ Gemini uses badge images to indicate its priority assessment (note: these reflec
 4. Parse results to identify unresolved threads
 5. Check for already-responded threads (threads with prior `✅`/`❌`/`⏸️` responses that remain unresolved only need resolution, not re-assessment)
 
-### Phase 2: Research & Assess
+**Todo**: Mark `pr-1` as `completed`, mark `pr-2` as `in_progress`
+
+**Flow**: AUTONOMOUS → proceed immediately to Phase 2
+
+---
+
+### Phase 2: Research & Assess (⏸️ CHECKPOINT)
 
 Delegate deep analysis to the researcher agent using the session tool:
 
@@ -155,7 +187,7 @@ The researcher will:
 3. Check for project-specific patterns Gemini might have missed
 4. Return independent recommendations (✅ Address, ❌ Decline, ⏸️ Defer) with evidence
 
-#### CHECKPOINT: User Approval Required
+#### ⏸️ CHECKPOINT: User Approval Required
 
 Present researcher's analysis and **wait for explicit approval** before proceeding.
 
@@ -164,7 +196,21 @@ User options:
 - Override specific decisions (e.g., "address #3 even though researcher said decline")
 - Request more research on specific items
 
-### Phase 3: Plan
+**Todo**: Mark `pr-2` as `completed` only AFTER user approves
+
+**Flow**: CHECKPOINT → wait for user approval, then proceed autonomously through Phases 3-6
+
+> **IMPORTANT: Autonomous Flow After Approval**
+> 
+> This is the ONLY checkpoint in the workflow. Once the user approves the researcher's
+> analysis, the orchestrating agent MUST proceed autonomously through Phases 3-6 without
+> stopping for additional user input. Update todos as each phase completes.
+
+---
+
+### Phase 3: Plan (autonomous)
+
+**Todo**: Mark `pr-3` as `in_progress`
 
 After user approves the analysis, delegate to planner for items marked "Address":
 
@@ -182,7 +228,15 @@ The planner will:
 3. Create a step-by-step implementation plan
 4. Define verification steps for each change
 
-### Phase 4: Implement
+**Todo**: Mark `pr-3` as `completed`
+
+**Flow**: AUTONOMOUS → proceed immediately to Phase 4
+
+---
+
+### Phase 4: Implement (autonomous)
+
+**Todo**: Mark `pr-4` as `in_progress`
 
 Execute the plan from Phase 3:
 
@@ -201,7 +255,15 @@ The implement agent will:
 4. Commit and push changes
 5. Report back with commit SHA
 
-### Phase 5: Respond
+**Todo**: Mark `pr-4` as `completed`
+
+**Flow**: AUTONOMOUS → proceed immediately to Phase 5
+
+---
+
+### Phase 5: Respond (autonomous)
+
+**Todo**: Mark `pr-5` as `in_progress`
 
 All categories are resolved after proper handling.
 
@@ -224,7 +286,15 @@ For deferred comments:
 
 **Note**: Threads with existing responses from prior review cycles only need resolution—skip the reply step.
 
-### Phase 6: Finalize
+**Todo**: Mark `pr-5` as `completed`
+
+**Flow**: AUTONOMOUS → proceed immediately to Phase 6
+
+---
+
+### Phase 6: Finalize (autonomous)
+
+**Todo**: Mark `pr-6` as `in_progress`
 
 If comments were addressed:
 ```bash
@@ -243,24 +313,29 @@ If all declined/deferred (no code changes):
 - Post summary comment documenting decisions
 - No re-review needed
 
-#### Plan Reconciliation (if applicable)
+**Todo**: Mark `pr-6` as `completed`
+
+**Flow**: AUTONOMOUS → workflow complete, present summary to user
+
+#### Plan Reconciliation (if applicable, autonomous)
 
 Before merge, if PR implements a plan from `thoughts/`:
 1. Compare implementation (`git diff {baseRefName}...HEAD`) against plan phases
 2. Correct any plan details that don't match reality
 3. Mark completed phases as done
-4. **CHECKPOINT**: User confirms plan accuracy
 
 If plan location is unknown, ask user. Skip if no associated plan.
 
 See `{base_dir}/references/plan-reconciliation.md` for detailed workflow.
 
-#### Merge
+#### Merge (optional, autonomous)
 
 After review cycle complete (and plan reconciled if applicable):
 ```bash
 just -f {base_dir}/justfile merge PR_NUMBER squash
 ```
+
+Only merge if user explicitly requested it or if standard practice for the project.
 
 ## Agent Prompt Templates
 
