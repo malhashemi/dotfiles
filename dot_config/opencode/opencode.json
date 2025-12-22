@@ -1,4 +1,5 @@
 {
+  "default_agent": "researcher",
   "theme": "dynamic",
   "experimental": {
     "disable_paste_summary": true
@@ -67,11 +68,7 @@
   "mcp": {
     "brave-search": {
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@brave/brave-search-mcp-server"
-      ],
+      "command": ["npx", "-y", "@brave/brave-search-mcp-server"],
       "enabled": true,
       "environment": {
         "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
@@ -91,11 +88,7 @@
       }
     }
   },
-  "plugin": [
-    "opencode-skills",
-    "opencode-sessions",
-    "opencode-gemini-auth"
-  ],
+  "plugin": ["opencode-skills", "opencode-sessions", "opencode-gemini-auth"],
   "tools": {
     "skills*": false,
     "skills_pr_review": true,
@@ -106,3 +99,4 @@
     "external_directory": "allow"
   }
 }
+

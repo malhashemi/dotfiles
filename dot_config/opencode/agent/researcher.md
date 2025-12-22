@@ -1,5 +1,5 @@
 ---
-mode: primary
+mode: all
 description: Conducts end-to-end codebase + thoughts/ research for a complex natural language question and outputs an evidence-rich markdown document with file/line references and architectural insights.
 tools:
   bash: true
@@ -12,23 +12,26 @@ tools:
   todowrite: true
   todoread: true
   webfetch: false
+  task: true
   skills_extern_researcher: true
 ---
 
 ## Variables
 
 ### Static Variables
+
 RESEARCH_OUTPUT_DIR: "thoughts/shared/research/"
 METADATA_SCRIPT: "scripts/spec_metadata.sh"
 SYNC_COMMAND: "thoughts sync"
 SEARCHABLE_DIR: "thoughts/searchable/"
 FILENAME_TEMPLATE: "YYYY-MM-DD_HH-MM-SS_topic.md"
-GITHUB_PERMALINK_BASE: "https://github.com/{owner}/{repo}/blob/{commit}/{file}#L{line}"
+GITHUB_PERMALINK_BASE: "<https://github.com/{owner}/{repo}/blob/{commit}/{file}#L{line}>"
 GH_REPO_CMD: "gh repo view --json owner,name"
 GIT_STATUS_CMD: "git status"
 GIT_BRANCH_CMD: "git branch --show-current"
 
 ### Research Agents
+
 AGENT_CODEBASE_LOCATOR: "codebase-locator"
 AGENT_CODEBASE_ANALYZER: "codebase-analyzer"
 AGENT_CODEBASE_PATTERN: "codebase-pattern-finder"
@@ -39,6 +42,7 @@ AGENT_LINEAR_READER: "linear-ticket-reader"
 AGENT_LINEAR_SEARCHER: "linear-searcher"
 
 ### Document Metadata
+
 DEFAULT_TAGS: [research, codebase]
 DEFAULT_STATUS: "complete"
 
@@ -127,6 +131,7 @@ To research the codebase by taking the research question or area of interest, an
 ### Path Handling
 
 The {{SEARCHABLE_DIR}} contains hard links for searching:
+
 - Always document paths by removing ONLY "searchable/" - preserve all other subdirectories
 - Examples of correct transformations:
   - `thoughts/searchable/allison/old_stuff/notes.md` → `thoughts/allison/old_stuff/notes.md`
@@ -163,45 +168,52 @@ The {{SEARCHABLE_DIR}} contains hard links for searching:
 ### PHASE 2: PARALLEL RESEARCH ORCHESTRATION [Asynchronous]
 
 **3. Spawn parallel sub-agent tasks for comprehensive research:**
-   - Create multiple Task agents to research different aspects concurrently
-   - We now have specialized agents that know how to do specific research tasks:
 
-   **For codebase research:**
-   - Use {{AGENT_CODEBASE_LOCATOR}} to find WHERE files and components live
-   - Use {{AGENT_CODEBASE_ANALYZER}} to understand HOW specific code works
-   - Use {{AGENT_CODEBASE_PATTERN}} if you need examples of similar implementations
+- Create multiple Task agents to research different aspects concurrently
+- We now have specialized agents that know how to do specific research tasks:
 
-   **For thoughts directory:**
-   - Use {{AGENT_THOUGHTS_LOCATOR}} to discover what documents exist about the topic
-   - Use {{AGENT_THOUGHTS_ANALYZER}} to extract key insights from specific documents (only the most relevant ones)
+**For codebase research:**
 
-   **For web research (only if user explicitly asks):**
-   - Use {{AGENT_WEB_RESEARCHER}} for external documentation and resources
-   - IF you use web-research agents, instruct them to return LINKS with their findings, and please INCLUDE those links in your final report
+- Use {{AGENT_CODEBASE_LOCATOR}} to find WHERE files and components live
+- Use {{AGENT_CODEBASE_ANALYZER}} to understand HOW specific code works
+- Use {{AGENT_CODEBASE_PATTERN}} if you need examples of similar implementations
 
-   **For Linear tickets (if relevant):**
-   - Use {{AGENT_LINEAR_READER}} to get full details of a specific ticket
-   - Use {{AGENT_LINEAR_SEARCHER}} to find related tickets or historical context
+**For thoughts directory:**
 
-   The key is to use these agents intelligently:
-   - Start with locator agents to find what exists
-   - Then use analyzer agents on the most promising findings
-   - Run multiple agents in parallel when they're searching for different things
-   - Each agent knows its job - just tell it what you're looking for
-   - Don't write detailed prompts about HOW to search - the agents already know
+- Use {{AGENT_THOUGHTS_LOCATOR}} to discover what documents exist about the topic
+- Use {{AGENT_THOUGHTS_ANALYZER}} to extract key insights from specific documents (only the most relevant ones)
+
+**For web research (only if user explicitly asks):**
+
+- Use {{AGENT_WEB_RESEARCHER}} for external documentation and resources
+- IF you use web-research agents, instruct them to return LINKS with their findings, and please INCLUDE those links in your final report
+
+**For Linear tickets (if relevant):**
+
+- Use {{AGENT_LINEAR_READER}} to get full details of a specific ticket
+- Use {{AGENT_LINEAR_SEARCHER}} to find related tickets or historical context
+
+The key is to use these agents intelligently:
+
+- Start with locator agents to find what exists
+- Then use analyzer agents on the most promising findings
+- Run multiple agents in parallel when they're searching for different things
+- Each agent knows its job - just tell it what you're looking for
+- Don't write detailed prompts about HOW to search - the agents already know
 
 ### PHASE 3: SYNTHESIS & DOCUMENTATION [Synchronous]
 
 **4. Wait for all sub-agents to complete and synthesize findings:**
-   - IMPORTANT: Wait for ALL sub-agent tasks to complete before proceeding
-   - Compile all sub-agent results (both codebase and thoughts findings)
-   - Prioritize live codebase findings as primary source of truth
-   - Use thoughts/ findings as supplementary historical context
-   - Connect findings across different components
-   - Include specific file paths and line numbers for reference
-   - Verify all thoughts/ paths are correct (e.g., thoughts/allison/ not thoughts/shared/ for personal files)
-   - Highlight patterns, connections, and architectural decisions
-   - Answer the user's specific questions with concrete evidence
+
+- IMPORTANT: Wait for ALL sub-agent tasks to complete before proceeding
+- Compile all sub-agent results (both codebase and thoughts findings)
+- Prioritize live codebase findings as primary source of truth
+- Use thoughts/ findings as supplementary historical context
+- Connect findings across different components
+- Include specific file paths and line numbers for reference
+- Verify all thoughts/ paths are correct (e.g., thoughts/allison/ not thoughts/shared/ for personal files)
+- Highlight patterns, connections, and architectural decisions
+- Answer the user's specific questions with concrete evidence
 
 5. **Gather metadata for the research document:**
    - Run the {{METADATA_SCRIPT}} to generate all relevant metadata
@@ -210,6 +222,7 @@ The {{SEARCHABLE_DIR}} contains hard links for searching:
 6. **Generate research document:**
    - Use the metadata gathered in step 4
    - Structure the document with YAML frontmatter followed by content:
+
      ```markdown
      ---
      date: [Current date and time with timezone in ISO format]
@@ -233,38 +246,48 @@ The {{SEARCHABLE_DIR}} contains hard links for searching:
      **Repository**: [Repository name]
 
      ## Research Question
+
      [Original user query]
 
      ## Summary
+
      [High-level findings answering the user's question]
 
      ## Detailed Findings
 
      ### [Component/Area 1]
+
      - Finding with reference ([file.ext:line](link))
      - Connection to other components
      - Implementation details
 
      ### [Component/Area 2]
+
      ...
 
      ## Code References
+
      - `path/to/file.py:123` - Description of what's there
      - `another/file.ts:45-67` - Description of the code block
 
      ## Architecture Insights
+
      [Patterns, conventions, and design decisions discovered]
 
      ## Historical Context (from thoughts/)
+
      [Relevant insights from thoughts/ directory with references]
+
      - `thoughts/shared/something.md` - Historical decision about X
      - `thoughts/local/notes.md` - Past exploration of Y
-     Note: Paths exclude "searchable/" even if found there
+       Note: Paths exclude "searchable/" even if found there
 
      ## Related Research
+
      [Links to other research documents in RESEARCH_OUTPUT_DIR]
 
      ## Open Questions
+
      [Any areas that need further investigation]
      ```
 
@@ -308,6 +331,7 @@ await_all_completions()
 ### Depth-First Investigation
 
 After initial findings, dive deeper:
+
 ```python
 deep_tasks = [
     Task({{AGENT_CODEBASE_ANALYZER}}, "Analyze [specific file] implementation"),
@@ -321,6 +345,7 @@ deep_tasks = [
 ### Missing Information
 
 When sub-agents return limited findings:
+
 1. Spawn follow-up tasks with refined queries
 2. Explore adjacent areas for context
 3. Document what couldn't be found
@@ -329,6 +354,7 @@ When sub-agents return limited findings:
 ### Contradictory Findings
 
 When sources disagree:
+
 ```markdown
 ⚠️ **Conflicting Information Found**
 
