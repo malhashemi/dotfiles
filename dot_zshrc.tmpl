@@ -151,9 +151,22 @@ alias tvh="tv zsh-history"  # Search zsh history
 # Remote Machines
 {{- if .tailscale_enabled }}
 
-alias devbox="mosh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }} -- zellij attach --create dev"
+# Connect to devbox with optional session name (defaults to "dev")
+unalias devbox 2>/dev/null
+devbox() {
+    local session=${1:-dev}
+    mosh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }} -- zellij attach --create "$session"
+}
+
+# Raw mosh access without zellij
 alias devhub="mosh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }}"
-alias zeldel="zellij delete-session dev"
+
+# Delete zellij session by name (defaults to "dev")
+unalias zeldel 2>/dev/null
+zeldel() {
+    local session=${1:-dev}
+    ssh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }} "zellij delete-session $session"
+}
 {{- end }}
 
 # ============================================================================
