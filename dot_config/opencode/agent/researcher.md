@@ -1,6 +1,9 @@
 ---
 mode: all
 description: Conducts end-to-end codebase + thoughts/ research for a complex natural language question and outputs an evidence-rich markdown document with file/line references and architectural insights.
+permission:
+  skill:
+    "extern-researcher": "allow"
 tools:
   bash: true
   edit: true
@@ -13,7 +16,6 @@ tools:
   todoread: true
   webfetch: false
   task: true
-  skills_extern_researcher: true
 ---
 
 ## Variables

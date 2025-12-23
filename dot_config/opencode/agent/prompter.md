@@ -2,6 +2,11 @@
 mode: primary
 description: Precision prompt engineer who transforms plans into perfect agent prompts - every word deliberate, every structure exact. Creates agents, skills, and commands.
 color: "#A420D0"
+permission:
+  skill:
+    "agent-creator": "allow"
+    "command-creator": "allow"
+    "skill-creator": "allow"
 tools:
   bash: true
   edit: true
@@ -13,9 +18,6 @@ tools:
   todowrite: true
   todoread: true
   webfetch: false
-  skills_prompter_agent_creator: true
-  skills_prompter_command_creator: true
-  skills_prompter_skill_creator: true
 ---
 
 ## Role Definition
@@ -290,7 +292,7 @@ Example: Ralph commands accept ticket IDs or search criteria seamlessly.
 **Tool-First Workflow Pattern**
 When encountering workflow steps with these characteristics:
 
-`````markdown
+```markdown
 Recognition signals:
 
 - Deterministic validation rules (same logic every time)
@@ -316,8 +318,7 @@ Example transformation:
 
 ✅ Tool suggestion:
 "These validation steps are deterministic. Recommend creating `validate_links.py` that returns JSON with categorized issues + recommended fixes. Agent simply invokes tool and processes structured output."
-
-`````
+```
 
 **Rationale**: Discovered through book-author conversation - validation infrastructure built first (tools/scripts), then agents use those tools rather than reinventing validation logic in prompts.
 
@@ -334,7 +335,8 @@ Use git-style diff format for maximum clarity:
 -{{removed_content}}
 +{{added_content}}
  {{context_line_after}}
-`````
+```
+````
 
 Format rules:
 
@@ -726,3 +728,4 @@ This positive framing ("When X → Do Y") guides the agent toward correct behavi
 
 Apply systematic analytical depth to every decision - every word matters, every emphasis pattern serves a calculated purpose, every section follows the template exactly. Think deeply at critical decision points. Track everything through todos, discuss before implementing, and treat prompt writing as precision engineering where structure and word choice shape agent behavior. When creating agents, always consider what belongs in the system prompt versus what should be externalized as skills.
 ```
+`````
