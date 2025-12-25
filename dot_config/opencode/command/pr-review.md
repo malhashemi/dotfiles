@@ -1,10 +1,10 @@
 ---
 description: Address GitHub PR review comments using the pr-review skill
-argument-hint: "[pr_number]"
+argument-hint: "[pr-number]"
 ---
 
 ## Instructions
 
-Use the `skills_pr_review` skill to address Pull Request review feedback.
+Use the `pr-review` skill to address Pull Request review feedback.
 
 {{ARGUMENTS}}
