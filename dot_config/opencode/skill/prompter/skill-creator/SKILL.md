@@ -116,7 +116,7 @@ just -f {base_dir}/justfile <recipe> [args...]
 | Recipe | Arguments | Description |
 |--------|-----------|-------------|
 | `init` | `skill_name path` | Initialize new skill at specified path |
-| `init-global` | `skill_name` | Initialize in ~/.config/opencode/skills |
+| `init-global` | `skill_name` | Initialize in ~/.config/opencode/skill |
 | `validate` | `skill_path` | Validate a skill's structure |
 | `validate-all` | `skills_dir` | Validate all skills in a directory |
 
@@ -136,11 +136,11 @@ uv run {base_dir}/scripts/<script>.py [args...]
 ```bash
 # Via justfile (recommended)
 just -f {base_dir}/justfile init-global my-new-skill
-just -f {base_dir}/justfile validate ~/.config/opencode/skills/my-skill
+just -f {base_dir}/justfile validate ~/.config/opencode/skill/my-skill
 
 # Direct execution
-uv run {base_dir}/scripts/init_skill.py my-new-skill --path ~/.config/opencode/skills
-uv run {base_dir}/scripts/quick_validate.py ~/.config/opencode/skills/my-skill
+uv run {base_dir}/scripts/init_skill.py my-new-skill --path ~/.config/opencode/skill
+uv run {base_dir}/scripts/quick_validate.py ~/.config/opencode/skill/my-skill
 ```
 
 ## Skill Creation Process
@@ -183,7 +183,7 @@ Skip this step only if the skill being developed already exists and iteration is
 
 Ask the user where the skill should be created:
 
-- **Global** (`~/.config/opencode/skills/`) - Available across all projects
+- **Global** (`~/.config/opencode/skill/`) - Available across all projects
 - **Local** (project directory) - Specific to one project
 
 ```bash
@@ -255,10 +255,10 @@ if __name__ == "__main__":
 
 ```bash
 # Validate structure
-just -f {base_dir}/justfile validate ~/.config/opencode/skills/my-skill
+just -f {base_dir}/justfile validate ~/.config/opencode/skill/my-skill
 
 # Validate all skills in a directory
-just -f {base_dir}/justfile validate-all ~/.config/opencode/skills
+just -f {base_dir}/justfile validate-all ~/.config/opencode/skill
 ```
 
 ### Step 6: Iterate

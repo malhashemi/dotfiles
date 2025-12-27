@@ -9,8 +9,8 @@ Usage:
     uv run init_skill.py <skill-name> --path <path>
 
 Examples:
-    uv run init_skill.py my-new-skill --path ~/.config/opencode/skills
-    uv run init_skill.py my-api-helper --path ./skills
+    uv run init_skill.py my-new-skill --path ~/.config/opencode/skill
+    uv run init_skill.py my-api-helper --path ./skill
 """
 
 import sys
@@ -279,7 +279,7 @@ def init_skill(skill_name: str, path: str) -> Path | None:
     print("2. Add PEP 723 scripts to scripts/ and add recipes to justfile")
     print("3. Customize or delete example files in scripts/, references/, and assets/")
     print(
-        f"4. Validate: uv run ~/.config/opencode/skills/skill-creator/scripts/quick_validate.py {skill_dir}"
+        f"4. Validate: uv run ~/.config/opencode/skill/prompter/skill-creator/scripts/quick_validate.py {skill_dir}"
     )
 
     return skill_dir
@@ -293,8 +293,8 @@ def main():
         print("  - Lowercase letters, digits, and hyphens only")
         print("  - Max 40 characters")
         print("\nExamples:")
-        print("  uv run init_skill.py my-new-skill --path ~/.config/opencode/skills")
-        print("  uv run init_skill.py my-api-helper --path ./skills")
+        print("  uv run init_skill.py my-new-skill --path ~/.config/opencode/skill")
+        print("  uv run init_skill.py my-api-helper --path ./skill")
         sys.exit(1)
 
     skill_name = sys.argv[1]

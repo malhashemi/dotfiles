@@ -16,9 +16,9 @@ init skill_name path:
 validate skill_path:
     uv run {{scripts_dir}}/quick_validate.py {{skill_path}}
 
-# Initialize a new skill in the global opencode skills directory
+# Initialize a new skill in the global opencode skill directory
 init-global skill_name:
-    uv run {{scripts_dir}}/init_skill.py {{skill_name}} --path ~/.config/opencode/skills
+    uv run {{scripts_dir}}/init_skill.py {{skill_name}} --path ~/.config/opencode/skill
 
 # Validate all skills in a directory
 validate-all skills_dir:
