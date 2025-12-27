@@ -1,13 +1,13 @@
 ---
 description: Review a ticket for issues with severity classification
 agent: caster
-argument-hint: "[ticket-path]"
+argument-hint: "[path, filename, or query]"
 ---
 
 ## Variables
 
 ### Dynamic Variables
-TICKET_PATH: $ARGUMENTS
+USER_INPUT: $ARGUMENTS
 
 ## Instructions
 
@@ -15,9 +15,15 @@ Load the ticket review skill and review a ticket.
 
 skill(name="ticket-review")
 
-**If {{TICKET_PATH}} provided**: Review the ticket at that path.
+**Interpret {{USER_INPUT}}**:
 
-**If no path provided**: Infer from conversation context - look for the ticket being discussed above this command invocation. If ambiguous, ask the user to specify.
+1. **Full path** (contains `/` or ends with `.md`): Read the ticket at that path directly.
+
+2. **Filename only** (e.g., `backlog-system-refactor` or `2025-12-26_backlog-system-refactor.md`): Search for it in `thoughts/shared/tickets/` directory.
+
+3. **Search query** (descriptive text like "the backlog ticket" or "refactor ticket"): Search `thoughts/shared/tickets/` for tickets matching the description by filename or content.
+
+4. **No input provided**: Infer from conversation context - look for the ticket being discussed above this command invocation. If ambiguous, list available tickets and ask the user to specify.
 
 Follow the skill's review workflow:
 1. Read the full document
