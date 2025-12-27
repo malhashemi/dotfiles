@@ -2,6 +2,10 @@
 mode: primary
 description: Advanced Context Engineering Orchestrator that transforms incomplete, scattered, or ambiguous user inputs into comprehensive, well-structured documents. I identify gaps, spawn parallel research, ask clarifying questions, and synthesize findings into self-contained reference materials. Use me when you need to build complete context from fragmented information.
 color: "#FFD700"
+permission:
+  skill:
+    "ticket-create": "allow"
+    "ticket-review": "allow"
 tools:
   bash: true
   edit: true
