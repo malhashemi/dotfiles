@@ -12,6 +12,7 @@ tools:
   todowrite: true
   todoread: true
   webfetch: false
+  playwright*: true
 ---
 
 ## Variables
