@@ -1,0 +1,11 @@
+# justfile for implementation-orchestration skill
+
+base_dir := justfile_directory()
+
+# Create worktree for a plan
+worktree-create plan-slug base-branch:
+    bash {{base_dir}}/scripts/worktree_create.sh {{plan-slug}} {{base-branch}}
+
+# Cleanup worktree after PR merge  
+worktree-cleanup plan-slug:
+    bash {{base_dir}}/scripts/worktree_cleanup.sh {{plan-slug}}

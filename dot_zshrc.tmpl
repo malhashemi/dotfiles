@@ -288,4 +288,12 @@ alias theme="~/.config/theme-system/scripts/theme-manager.py"
 alias wallpaper="~/.config/theme-system/scripts/wallpaper-manager.py"
 alias secrets="~/scripts/secrets.sh && source ~/.secrets"
 
+# pnpm
+export PNPM_HOME="/home/malhashemi/.local/share/pnpm"
+case ":$PATH:" in
+  *":$PNPM_HOME:"*) ;;
+  *) export PATH="$PNPM_HOME:$PATH" ;;
+esac
+# pnpm end
+
 setopt INTERACTIVE_COMMENTS

@@ -68,8 +68,11 @@
   "mcp": {
     "playwright": {
       "type": "local",
-      "command": ["npx", "@playwright/mcp@latest"{{ if .is_headless }}, "--headless"{{ end }}],
-      "enabled": true
+      "command": ["npx", "@playwright/mcp@latest"{{ if .is_headless }}, "--headless"{{ end }}, "--browser", "chromium"],
+      "enabled": true,
+      "environment": {
+        "PLAYWRIGHT_BROWSERS_PATH": "{{ .chezmoi.homeDir }}/.cache/ms-playwright"
+      }
     },
     "brave-search": {
       "type": "local",
@@ -93,7 +96,11 @@
       }
     }
   },
-  "plugin": ["opencode-sessions", "opencode-gemini-auth"],
+  "plugin": [
+    "opencode-sessions",
+    "opencode-anthropic-auth@0.0.8",
+    "opencode-gemini-auth"
+  ],
   "agent": {
     "plan": {
       "tools": {

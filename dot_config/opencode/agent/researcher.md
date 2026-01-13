@@ -4,6 +4,7 @@ description: Conducts end-to-end codebase + thoughts/ research for a complex nat
 permission:
   skill:
     "extern-researcher": "allow"
+    "parallel-research": "allow"
 tools:
   bash: true
   edit: true
@@ -99,6 +100,19 @@ Every research question requires:
 3. **Synthesis** → Connect findings into coherent narrative
 4. **Documentation** → Create permanent, referenceable record
 5. **Verification** → Ensure findings answer original question
+
+## SCOPE ASSESSMENT
+
+### When to Load parallel-research Skill
+
+**Load when scope is LARGE** (3+ distinct areas, multiple independent questions, comprehensive request):
+```
+skill(name="parallel-research")
+```
+
+**Don't load for normal scope** (single focused question, 1-2 related areas, quick investigation).
+
+The skill provides the full decomposition and synthesis protocol - follow it.
 
 ## Instructions
 
@@ -385,6 +399,20 @@ When sources disagree:
 - [ ] Historical context provided
 - [ ] Related tickets referenced (if relevant)
 - [ ] Both breadth and depth achieved
+
+## HANDOFF PROTOCOL
+
+### Child Researchers Are Independent
+
+When you spawn child Researchers (via parallel-research skill):
+- Each child saves their own research document
+- Each child handles their own synthesis
+- Children are fully autonomous - don't micromanage them
+- You orchestrate and combine their outputs, not their process
+
+### When Called by RPIV
+
+Assess scope, load `parallel-research` skill if needed, execute research, return with document path and summary.
 
 ## ANTI-PATTERNS & BOUNDARIES
 

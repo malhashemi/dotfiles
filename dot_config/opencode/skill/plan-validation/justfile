@@ -1,0 +1,49 @@
+# Plan Validation Skill - Task Recipes
+
+base_dir := justfile_directory()
+
+# Render validation report from JSON findings (to stdout)
+render findings_json:
+    uv run {{base_dir}}/scripts/render_report.py {{findings_json}}
+
+# Render from stdin (to stdout)
+render-stdin:
+    uv run {{base_dir}}/scripts/render_report.py -
+
+# Render and save to specified directory (auto-generates filename)
+save findings_json output_dir:
+    uv run {{base_dir}}/scripts/render_report.py {{findings_json}} --output-dir {{output_dir}}
+
+# Render from stdin and save to specified directory
+save-stdin output_dir:
+    uv run {{base_dir}}/scripts/render_report.py - --output-dir {{output_dir}}
+
+# Show example JSON schema
+schema:
+    @echo '{'
+    @echo '  "plan": "plan-alias",'
+    @echo '  "plan_path": "path/to/plan.md",'
+    @echo '  "phase": 1,'
+    @echo '  "phase_title": "Phase Title",'
+    @echo '  "branch": "branch-name",'
+    @echo '  "commit": "abc1234",'
+    @echo '  "verdict": "PROCEED | PROCEED WITH NOTES | BLOCKED",'
+    @echo '  "summary": "Overall assessment",'
+    @echo '  "code_review": {'
+    @echo '    "critical": [],'
+    @echo '    "warnings": [],'
+    @echo '    "suggestions": [],'
+    @echo '    "patterns": {"passed": [], "concerns": []}'
+    @echo '  },'
+    @echo '  "plan_validation": {'
+    @echo '    "checks": {'
+    @echo '      "tests": {"result": "pass", "detail": "665 pass"},'
+    @echo '      "types": {"result": "pass", "detail": "clean"},'
+    @echo '      "lint": {"result": "pass", "detail": ""}'
+    @echo '    },'
+    @echo '    "steps": [{"id": "1.1", "description": "Step desc", "status": "complete"}],'
+    @echo '    "deviations": [],'
+    @echo '    "manual_tests": []'
+    @echo '  },'
+    @echo '  "next_steps": []'
+    @echo '}'
