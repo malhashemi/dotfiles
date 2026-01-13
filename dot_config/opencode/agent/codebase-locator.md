@@ -1,10 +1,18 @@
 ---
 mode: subagent
 description: Locates files, directories, and components relevant to a feature or task. Call `codebase-locator` with human language prompt describing what you're looking for. Basically a "Super Grep/Glob/LS tool" — Use it if you find yourself desiring to use one of these tools more than once.
-tools:
-  grep: true
-  glob: true
-  ls: true
+permission:
+  read: allow
+  grep: allow
+  glob: allow
+  list: allow
+  bash: deny
+  edit: deny
+  write: deny
+  todowrite: deny
+  todoread: deny
+  webfetch: deny
+  task: deny
 ---
 
 

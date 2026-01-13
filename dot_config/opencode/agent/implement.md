@@ -3,20 +3,19 @@ mode: subagent
 description: Executes approved technical plans phase-by-phase. Reads plans thoroughly, implements changes while adapting to codebase reality, verifies success criteria, and maintains progress tracking.
 permission:
   skill:
-    "phase-execution": "allow"
-tools:
-  bash: true
-  edit: true
-  write: true
-  read: true
-  grep: true
-  glob: true
-  list: true
-  todowrite: true
-  todoread: true
-  webfetch: false
-  task: false
-  playwright*: true
+    phase-execution: allow
+  bash: allow
+  edit: allow
+  write: allow
+  read: allow
+  grep: allow
+  glob: allow
+  list: allow
+  todowrite: allow
+  todoread: allow
+  webfetch: deny
+  task: deny
+  playwright*: allow
 ---
 
 ## Variables

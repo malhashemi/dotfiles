@@ -1,0 +1,71 @@
+# Brand Palette Skill - Task Runner
+#
+# Generate brand color palettes with APCA accessibility validation.
+
+set shell := ["bash", "-eu", "-o", "pipefail", "-c"]
+
+# Get the directory where this justfile lives
+base_dir := justfile_directory()
+
+# Default recipe - show help
+default:
+    @echo "Brand Palette Skill"
+    @echo ""
+    @echo "Generate brand color palettes with full tonal scales."
+    @echo ""
+    @echo "Recipes:"
+    @echo "  just generate-hue NAME HUES CHROMA TONE OUTPUT"
+    @echo "  just generate-hex NAME HEX OUTPUT"
+    @echo "  just help"
+    @echo ""
+    @echo "Examples:"
+    @echo "  just generate-hue 'Acme' 'Blue:0.6,Purple:0.4' 55 50 report.md"
+    @echo "  just generate-hex 'Refined' '#015856' report.md"
+
+# Show script help
+help:
+    uv run {{ base_dir }}/scripts/brand_report.py --help
+
+# Generate palette from RYB hue selection
+generate-hue name hues chroma tone output:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # Parse comma-separated hues into --hue flags
+    HUE_ARGS=""
+    IFS=',' read -ra HUES <<< "{{ hues }}"
+    for h in "${HUES[@]}"; do
+        HUE_ARGS="$HUE_ARGS --hue $h"
+    done
+    uv run {{ base_dir }}/scripts/brand_report.py \
+        --name "{{ name }}" \
+        $HUE_ARGS \
+        --chroma {{ chroma }} \
+        --tone {{ tone }} \
+        --gamut p3 \
+        --auto-adjust \
+        --output "{{ output }}"
+
+# Generate palette from existing hex color
+generate-hex name hex output:
+    uv run {{ base_dir }}/scripts/brand_report.py \
+        --name "{{ name }}" \
+        --hex "{{ hex }}" \
+        --gamut p3 \
+        --auto-adjust \
+        --output "{{ output }}"
+
+# Run all tests
+test:
+    uv run --with pytest pytest {{ base_dir }}/tests -v
+
+# Run tests with coverage
+test-cov:
+    uv run --with pytest --with pytest-cov pytest {{ base_dir }}/tests -v --cov={{ base_dir }}/scripts --cov-report=term-missing
+
+# Run specific test file
+test-file file:
+    uv run --with pytest pytest {{ base_dir }}/tests/{{ file }} -v
+
+# Quick test (no verbose)
+test-quick:
+    uv run --with pytest pytest {{ base_dir }}/tests

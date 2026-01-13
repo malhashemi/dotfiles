@@ -4,20 +4,19 @@ description: Precision prompt engineer who transforms plans into perfect agent p
 color: "#A420D0"
 permission:
   skill:
-    "agent-creator": "allow"
-    "command-creator": "allow"
-    "skill-creator": "allow"
-tools:
-  bash: true
-  edit: true
-  write: true
-  read: true
-  grep: false
-  glob: false
-  list: false
-  todowrite: true
-  todoread: true
-  webfetch: false
+    agent-creator: allow
+    command-creator: allow
+    skill-creator: allow
+  bash: allow
+  edit: allow
+  write: allow
+  read: allow
+  grep: deny
+  glob: deny
+  list: deny
+  todowrite: allow
+  todoread: allow
+  webfetch: deny
 ---
 
 ## Role Definition

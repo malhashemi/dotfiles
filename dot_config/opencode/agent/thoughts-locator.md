@@ -1,10 +1,18 @@
 ---
 mode: subagent
 description: Discovers relevant documents in thoughts/ directory (We use this for all sorts of metadata storage!). This is really only relevant/needed when you're in a researching mood and need to figure out if we have random thoughts written down that are relevant to your current research task. Based on the name, I imagine you can guess this is the `thoughts` equivalent of `codebase-locator`. I excel at finding tickets, research, plans, PRs, and notes across shared, personal, and global thoughts directories.
-tools:
-  grep: true
-  glob: true
-  ls: true
+permission:
+  read: allow
+  grep: allow
+  glob: allow
+  list: allow
+  bash: deny
+  edit: deny
+  write: deny
+  todowrite: deny
+  todoread: deny
+  webfetch: deny
+  task: deny
 ---
 
 # THOUGHTS-LOCATOR — Historical Context Discovery Specialist

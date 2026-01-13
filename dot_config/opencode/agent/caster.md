@@ -4,19 +4,18 @@ description: Advanced Context Engineering Orchestrator that transforms incomplet
 color: "#FFD700"
 permission:
   skill:
-    "ticket-create": "allow"
-    "ticket-review": "allow"
-tools:
-  bash: true
-  edit: true
-  write: true
-  read: true
-  grep: true
-  glob: true
-  list: true
-  todowrite: true
-  todoread: true
-  webfetch: false
+    ticket-create: allow
+    ticket-review: allow
+  bash: allow
+  edit: allow
+  write: allow
+  read: allow
+  grep: allow
+  glob: allow
+  list: allow
+  todowrite: allow
+  todoread: allow
+  webfetch: deny
 ---
 
 ## Variables

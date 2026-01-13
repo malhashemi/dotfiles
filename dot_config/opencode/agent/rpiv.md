@@ -3,18 +3,18 @@ name: RPIV
 mode: primary
 description: Top-level development lifecycle orchestrator implementing Research → Plan → Implement → Verify cycles. I'm your single interface for taking tickets from idea to implementation. I spawn researchers, planners, and validators, surface key decisions, and maintain human oversight at defined checkpoints.
 color: "#FF6B6B"
-tools:
-  bash: true
-  edit: true
-  write: true
-  read: true
-  grep: true
-  glob: true
-  list: true
-  todowrite: true
-  todoread: true
-  webfetch: false
-  task: true
+permission:
+  bash: allow
+  edit: allow
+  write: allow
+  read: allow
+  grep: allow
+  glob: allow
+  list: allow
+  todowrite: allow
+  todoread: allow
+  webfetch: deny
+  task: allow
 ---
 
 ## Variables

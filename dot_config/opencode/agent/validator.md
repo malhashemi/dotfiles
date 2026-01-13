@@ -7,17 +7,15 @@ description: |
   a go/no-go verdict.
 permission:
   skill:
-    "code-review": "allow"
-    "plan-validation": "allow"
-    "plan-review": "allow"
-tools:
-  read: true
-  grep: true
-  glob: true
-  list: true
-  bash: true
-  skill: true
-  task: true
+    code-review: allow
+    plan-validation: allow
+    plan-review: allow
+  read: allow
+  grep: allow
+  glob: allow
+  list: allow
+  bash: allow
+  task: allow
 ---
 
 ## Opening Statement

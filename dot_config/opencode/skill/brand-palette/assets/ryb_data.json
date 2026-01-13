@@ -1,0 +1,380 @@
+[
+  {
+    "ryb_hue": 0,
+    "colors": {
+      "primary": {
+        "ryb_hue": 0,
+        "shades": ["FFAAAA", "D46A6A", "AA3939", "801515", "550000"]
+      },
+      "secondary_a": {
+        "ryb_hue": 90,
+        "shades": ["FFF0AA", "D4C26A", "AA9739", "806D15", "554600"]
+      },
+      "secondary_b": {
+        "ryb_hue": 180,
+        "shades": ["887CAF", "615192", "403075", "261758", "13073A"]
+      },
+      "complement": {
+        "ryb_hue": 270,
+        "shades": ["88CC88", "55AA55", "2D882D", "116611", "004400"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 5,
+    "colors": {
+      "primary": {
+        "ryb_hue": 5,
+        "shades": ["FFB4AA", "D4776A", "AA4639", "802215", "550A00"]
+      },
+      "secondary_a": {
+        "ryb_hue": 95,
+        "shades": ["FFF3AA", "D4C56A", "AA9A39", "807015", "554900"]
+      },
+      "secondary_b": {
+        "ryb_hue": 185,
+        "shades": ["8A7BAF", "645092", "442F74", "2A1657", "16063A"]
+      },
+      "complement": {
+        "ryb_hue": 275,
+        "shades": ["7FBF90", "4F9F64", "2A7F41", "105F25", "004011"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 10,
+    "colors": {
+      "primary": {
+        "ryb_hue": 10,
+        "shades": ["FFBCAA", "D4806A", "AA5039", "802B15", "551200"]
+      },
+      "secondary_a": {
+        "ryb_hue": 100,
+        "shades": ["FFF5AA", "D4C86A", "AA9D39", "807315", "554B00"]
+      },
+      "secondary_b": {
+        "ryb_hue": 190,
+        "shades": ["8D79AE", "674F91", "482E74", "2D1557", "19063A"]
+      },
+      "complement": {
+        "ryb_hue": 280,
+        "shades": ["79B694", "4C986D", "28794C", "0F5B30", "003D1A"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 15,
+    "colors": {
+      "primary": {
+        "ryb_hue": 15,
+        "shades": ["FFC2AA", "D4886A", "AA5939", "803315", "551800"]
+      },
+      "secondary_a": {
+        "ryb_hue": 105,
+        "shades": ["FFF7AA", "D4CB6A", "AAA039", "807615", "554D00"]
+      },
+      "secondary_b": {
+        "ryb_hue": 195,
+        "shades": ["8F78AD", "6B4E90", "4B2D73", "311557", "1C053A"]
+      },
+      "complement": {
+        "ryb_hue": 285,
+        "shades": ["75AF96", "499272", "277553", "0F5738", "003A21"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 20,
+    "colors": {
+      "primary": {
+        "ryb_hue": 20,
+        "shades": ["FFC8AA", "D48F6A", "AA6039", "803A15", "551E00"]
+      },
+      "secondary_a": {
+        "ryb_hue": 110,
+        "shades": ["FFFAAA", "D4CE6A", "AAA339", "807915", "555000"]
+      },
+      "secondary_b": {
+        "ryb_hue": 200,
+        "shades": ["9177AC", "6E4D8F", "4F2C73", "351456", "1F0439"]
+      },
+      "complement": {
+        "ryb_hue": 290,
+        "shades": ["70A897", "468C77", "25705A", "0E543F", "003827"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 25,
+    "colors": {
+      "primary": {
+        "ryb_hue": 25,
+        "shades": ["FFCCAA", "D4956A", "AA6639", "804015", "552200"]
+      },
+      "secondary_a": {
+        "ryb_hue": 115,
+        "shades": ["FFFCAA", "D4D16A", "AAA639", "807C15", "555200"]
+      },
+      "secondary_b": {
+        "ryb_hue": 205,
+        "shades": ["9476AB", "724C8F", "532B72", "391356", "220439"]
+      },
+      "complement": {
+        "ryb_hue": 295,
+        "shades": ["6CA299", "43877B", "246C60", "0D5146", "00362D"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 30,
+    "colors": {
+      "primary": {
+        "ryb_hue": 30,
+        "shades": ["FFD1AA", "D49A6A", "AA6C39", "804515", "552700"]
+      },
+      "secondary_a": {
+        "ryb_hue": 120,
+        "shades": ["FFFFAA", "D4D46A", "AAAA39", "808015", "555500"]
+      },
+      "secondary_b": {
+        "ryb_hue": 210,
+        "shades": ["9775AA", "764B8E", "582A72", "3D1255", "260339"]
+      },
+      "complement": {
+        "ryb_hue": 300,
+        "shades": ["669999", "407F7F", "226666", "0D4D4D", "003333"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 35,
+    "colors": {
+      "primary": {
+        "ryb_hue": 35,
+        "shades": ["FFD4AA", "D49F6A", "AA7139", "804A15", "552A00"]
+      },
+      "secondary_a": {
+        "ryb_hue": 125,
+        "shades": ["F7FCA8", "CBD269", "A1A838", "777E15", "4F5400"]
+      },
+      "secondary_b": {
+        "ryb_hue": 215,
+        "shades": ["9B73A9", "7B498D", "5E2971", "431155", "2A0238"]
+      },
+      "complement": {
+        "ryb_hue": 305,
+        "shades": ["6B949E", "447784", "255C69", "0F434F", "012B35"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 40,
+    "colors": {
+      "primary": {
+        "ryb_hue": 40,
+        "shades": ["FFD8AA", "D4A36A", "AA7539", "804E15", "552E00"]
+      },
+      "secondary_a": {
+        "ryb_hue": 130,
+        "shades": ["EFF9A6", "C3CF68", "99A637", "707C15", "495300"]
+      },
+      "secondary_b": {
+        "ryb_hue": 220,
+        "shades": ["A071A8", "82478C", "652770", "4A1054", "300138"]
+      },
+      "complement": {
+        "ryb_hue": 310,
+        "shades": ["6E91A1", "477286", "27556C", "113C51", "032536"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 45,
+    "colors": {
+      "primary": {
+        "ryb_hue": 45,
+        "shades": ["FFDBAA", "D4A76A", "AA7939", "805215", "553100"]
+      },
+      "secondary_a": {
+        "ryb_hue": 135,
+        "shades": ["E8F6A4", "BCCD67", "91A437", "6A7B15", "445200"]
+      },
+      "secondary_b": {
+        "ryb_hue": 225,
+        "shades": ["A66FA6", "8A458A", "6F256F", "530E53", "370037"]
+      },
+      "complement": {
+        "ryb_hue": 315,
+        "shades": ["718EA4", "496D89", "29506D", "123652", "042037"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 50,
+    "colors": {
+      "primary": {
+        "ryb_hue": 50,
+        "shades": ["FFDDAA", "D4AB6A", "AA7D39", "805615", "553300"]
+      },
+      "secondary_a": {
+        "ryb_hue": 140,
+        "shades": ["E1F4A2", "B4CB65", "8AA236", "637A14", "3F5100"]
+      },
+      "secondary_b": {
+        "ryb_hue": 230,
+        "shades": ["B77AAB", "984C8A", "7A296A", "5B0F4D", "3D0031"]
+      },
+      "complement": {
+        "ryb_hue": 320,
+        "shades": ["738CA6", "4B698B", "2B4B6F", "133253", "041D37"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 55,
+    "colors": {
+      "primary": {
+        "ryb_hue": 55,
+        "shades": ["FFE0AA", "D4AE6A", "AA8139", "805915", "553600"]
+      },
+      "secondary_a": {
+        "ryb_hue": 145,
+        "shades": ["DBF1A1", "ADC964", "83A136", "5D7814", "3A5000"]
+      },
+      "secondary_b": {
+        "ryb_hue": 235,
+        "shades": ["C382AE", "A25188", "822B66", "611047", "41002C"]
+      },
+      "complement": {
+        "ryb_hue": 325,
+        "shades": ["7689A9", "4D658D", "2C4770", "152D54", "051938"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 60,
+    "colors": {
+      "primary": {
+        "ryb_hue": 60,
+        "shades": ["FFE3AA", "D4B16A", "AA8439", "805C15", "553900"]
+      },
+      "secondary_a": {
+        "ryb_hue": 150,
+        "shades": ["D4EE9F", "A5C663", "7B9F35", "567714", "354F00"]
+      },
+      "secondary_b": {
+        "ryb_hue": 240,
+        "shades": ["CD88AF", "AA5585", "882D61", "661141", "440027"]
+      },
+      "complement": {
+        "ryb_hue": 330,
+        "shades": ["7887AB", "4F628E", "2E4272", "162955", "061539"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 65,
+    "colors": {
+      "primary": {
+        "ryb_hue": 65,
+        "shades": ["FFE5AA", "D4B46A", "AA8739", "805F15", "553B00"]
+      },
+      "secondary_a": {
+        "ryb_hue": 155,
+        "shades": ["CCEB9D", "9DC462", "739D34", "4F7514", "2F4E00"]
+      },
+      "secondary_b": {
+        "ryb_hue": 245,
+        "shades": ["D58EAF", "B15983", "8E2F5C", "6A123C", "470022"]
+      },
+      "complement": {
+        "ryb_hue": 335,
+        "shades": ["7A85AD", "515E90", "303E73", "172557", "07123A"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 70,
+    "colors": {
+      "primary": {
+        "ryb_hue": 70,
+        "shades": ["FFE7AA", "D4B76A", "AA8B39", "806215", "553D00"]
+      },
+      "secondary_a": {
+        "ryb_hue": 160,
+        "shades": ["C4E79A", "94C160", "6B9A33", "477413", "294D00"]
+      },
+      "secondary_b": {
+        "ryb_hue": 250,
+        "shades": ["DC93AF", "B85C7F", "933157", "6E1236", "49001C"]
+      },
+      "complement": {
+        "ryb_hue": 340,
+        "shades": ["7D83B0", "535A92", "313975", "182058", "080E3B"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 75,
+    "colors": {
+      "primary": {
+        "ryb_hue": 75,
+        "shades": ["FFEAAA", "D4BA6A", "AA8E39", "806515", "554000"]
+      },
+      "secondary_a": {
+        "ryb_hue": 165,
+        "shades": ["BAE397", "8ABD5F", "609732", "3E7213", "224C00"]
+      },
+      "secondary_b": {
+        "ryb_hue": 255,
+        "shades": ["E498AF", "BE5F7C", "983351", "721330", "4C0017"]
+      },
+      "complement": {
+        "ryb_hue": 345,
+        "shades": ["8080B3", "565695", "343477", "1A1A59", "09093B"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 80,
+    "colors": {
+      "primary": {
+        "ryb_hue": 80,
+        "shades": ["FFECAA", "D4BD6A", "AA9139", "806815", "554200"]
+      },
+      "secondary_a": {
+        "ryb_hue": 170,
+        "shades": ["AEDE94", "7DB95C", "549431", "336F12", "1A4A00"]
+      },
+      "secondary_b": {
+        "ryb_hue": 260,
+        "shades": ["EC9DAE", "C56277", "9D344B", "761429", "4F0011"]
+      },
+      "complement": {
+        "ryb_hue": 350,
+        "shades": ["837EB1", "5A5494", "383276", "1F1959", "0D083B"]
+      }
+    }
+  },
+  {
+    "ryb_hue": 85,
+    "colors": {
+      "primary": {
+        "ryb_hue": 85,
+        "shades": ["FFEEAA", "D4BF6A", "AA9439", "806A15", "554400"]
+      },
+      "secondary_a": {
+        "ryb_hue": 175,
+        "shades": ["9ED78F", "6CB359", "448F30", "256B12", "0F4800"]
+      },
+      "secondary_b": {
+        "ryb_hue": 265,
+        "shades": ["F5A3AD", "CC6672", "A33643", "7A1420", "52000A"]
+      },
+      "complement": {
+        "ryb_hue": 355,
+        "shades": ["867DB0", "5D5393", "3C3176", "231858", "10073B"]
+      }
+    }
+  }
+]

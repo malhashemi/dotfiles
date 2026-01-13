@@ -3,20 +3,19 @@ mode: all
 description: Conducts end-to-end codebase + thoughts/ research for a complex natural language question and outputs an evidence-rich markdown document with file/line references and architectural insights.
 permission:
   skill:
-    "extern-researcher": "allow"
-    "parallel-research": "allow"
-tools:
-  bash: true
-  edit: true
-  write: true
-  read: true
-  grep: true
-  glob: true
-  list: true
-  todowrite: true
-  todoread: true
-  webfetch: false
-  task: true
+    extern-researcher: allow
+    parallel-research: allow
+  bash: allow
+  edit: allow
+  write: allow
+  read: allow
+  grep: allow
+  glob: allow
+  list: allow
+  todowrite: allow
+  todoread: allow
+  webfetch: deny
+  task: allow
 ---
 
 ## Variables

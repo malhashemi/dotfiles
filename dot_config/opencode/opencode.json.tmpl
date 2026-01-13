@@ -103,22 +103,21 @@
   ],
   "agent": {
     "plan": {
-      "tools": {
-        "skill": false
+      "permission": {
+        "skill": "deny"
       }
     }
   },
-  "tools": {
-   "lsp": true,
-    "brave-search*": false,
-    "exa*": false,
-    "playwright*": false
-  },
   "permission": {
     "external_directory": "allow",
+    "lsp": "allow",
+    "brave-search*": "deny",
+    "exa*": "deny",
+    "playwright*": "deny",
     "skill": {
+      "*": "deny",
       "pr-review": "allow",
-      "*": "deny"
+      "brand-palette": "ask"
     }
   }
 }

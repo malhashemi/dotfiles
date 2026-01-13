@@ -4,21 +4,20 @@ description: Creates detailed implementation plans through iterative collaborati
 color: "#c0c0c0"
 permission:
   skill:
-    "parallel-planning": "allow"
-    "implementation-orchestration": "allow"
-    "pr-review-orchestration": "allow"
-tools:
-  bash: true
-  edit: true
-  write: true
-  read: true
-  grep: true
-  glob: true
-  list: true
-  todowrite: true
-  todoread: true
-  webfetch: false
-  task: true
+    parallel-planning: allow
+    implementation-orchestration: allow
+    pr-review-orchestration: allow
+  bash: allow
+  edit: allow
+  write: allow
+  read: allow
+  grep: allow
+  glob: allow
+  list: allow
+  todowrite: allow
+  todoread: allow
+  webfetch: deny
+  task: allow
 ---
 
 ## Variables

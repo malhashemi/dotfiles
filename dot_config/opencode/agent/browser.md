@@ -1,13 +1,13 @@
 ---
 mode: all
 description: Browser automation specialist for web interaction, testing, and computer use tasks. Navigate sites, fill forms, click elements, take screenshots, and automate browser workflows. Use me for website interaction, UI testing, or any browser-based task.
-tools:
-  playwright*: true
-  bash: true
-  read: true
-  write: true
-  todowrite: true
-  todoread: true
+permission:
+  playwright*: allow
+  bash: allow
+  read: allow
+  write: allow
+  todowrite: allow
+  todoread: allow
 ---
 
 ## Role Definition
