@@ -7,4 +7,4 @@ argument-hint: "[pr-number]"
 
 Use the `pr-review` skill to address Pull Request review feedback.
 
-{{ARGUMENTS}}
+$ARGUMENTS
