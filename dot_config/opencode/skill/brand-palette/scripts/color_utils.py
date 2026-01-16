@@ -5,14 +5,19 @@ Shared color utilities for Ripple color system.
 Provides:
 - Basic math utilities (clamp, deg/rad conversion, circular mean)
 - RYB to RGB hue mapping
-- OKLCH <-> sRGB/P3 conversions
+- OKLCH <-> sRGB/P3 conversions (using coloraide library)
 - Display P3 gamut support
 - Gamut boundary detection and max chroma search
 - APCA contrast calculation
+
+Note: This module requires the coloraide library for accurate color space conversions.
+      Entry point scripts should include 'coloraide' in their PEP 723 dependencies.
 """
 
 import math
 from typing import Dict, List, Literal, Optional, Tuple
+
+from coloraide import Color
 
 Gamut = Literal["srgb", "p3"]
 
@@ -806,27 +811,34 @@ def oklch_to_linear_p3(L: float, C: float, h_deg: float) -> Tuple[float, float, 
 
 def oklch_in_p3_gamut(L: float, C: float, h_deg: float, eps: float = 1e-6) -> bool:
     """Check if OKLCH color is within Display P3 gamut."""
-    r, g, b = oklch_to_linear_p3(L, C, h_deg)
-    return linear_rgb_in_gamut(r, g, b, eps)
+    c = Color("oklch", [L, C, h_deg])
+    return c.in_gamut("display-p3")
+
+
+def oklch_in_srgb_gamut(L: float, C: float, h_deg: float) -> bool:
+    """Check if OKLCH color is within sRGB gamut."""
+    c = Color("oklch", [L, C, h_deg])
+    return c.in_gamut("srgb")
 
 
 def oklch_to_p3(L: float, C: float, h_deg: float) -> Tuple[float, float, float, bool]:
     """
-    Convert OKLCH to Display P3 [0,1], returning (r, g, b, in_gamut).
+    Convert OKLCH to Display P3 [0,1] using coloraide library with gamut mapping.
 
-    Uses same gamma curve as sRGB (2.4 with linear segment).
+    Returns (r, g, b, in_gamut) where in_gamut indicates if the original
+    color was within P3 gamut before mapping.
     """
-    r_lin, g_lin, b_lin = oklch_to_linear_p3(L, C, h_deg)
-    in_gamut = linear_rgb_in_gamut(r_lin, g_lin, b_lin, eps=1e-6)
+    c = Color("oklch", [L, C, h_deg])
+    in_gamut = c.in_gamut("display-p3")
 
-    # Clamp and gamma encode (P3 uses sRGB transfer function)
-    r_lin = clamp(r_lin, -1e-6, 1.0 + 1e-6)
-    g_lin = clamp(g_lin, -1e-6, 1.0 + 1e-6)
-    b_lin = clamp(b_lin, -1e-6, 1.0 + 1e-6)
+    # Use CSS-style gamut mapping (reduces chroma while preserving L and H)
+    if not in_gamut:
+        c = c.fit("display-p3", method="oklch-chroma")
 
-    r = clamp(linear_to_srgb(r_lin), 0.0, 1.0)
-    g = clamp(linear_to_srgb(g_lin), 0.0, 1.0)
-    b = clamp(linear_to_srgb(b_lin), 0.0, 1.0)
+    p3 = c.convert("display-p3")
+    r = clamp(p3["red"], 0.0, 1.0)
+    g = clamp(p3["green"], 0.0, 1.0)
+    b = clamp(p3["blue"], 0.0, 1.0)
     return r, g, b, in_gamut
 
 
@@ -874,21 +886,22 @@ def linear_rgb_in_gamut(r: float, g: float, b: float, eps: float = 1e-9) -> bool
 
 def oklch_to_srgb(L: float, C: float, h_deg: float) -> Tuple[float, float, float, bool]:
     """
-    Convert OKLCH to sRGB [0,1], returning (r, g, b, in_gamut).
+    Convert OKLCH to sRGB [0,1] using coloraide library with gamut mapping.
 
-    Does NOT clip - caller should handle out-of-gamut colors.
+    Returns (r, g, b, in_gamut) where in_gamut indicates if the original
+    color was within sRGB gamut before mapping.
     """
-    r_lin, g_lin, b_lin = oklch_to_linear_srgb(L, C, h_deg)
-    in_gamut = linear_rgb_in_gamut(r_lin, g_lin, b_lin, eps=1e-6)
+    c = Color("oklch", [L, C, h_deg])
+    in_gamut = c.in_gamut("srgb")
 
-    # Tiny numerical safety clamp before gamma
-    r_lin = clamp(r_lin, -1e-6, 1.0 + 1e-6)
-    g_lin = clamp(g_lin, -1e-6, 1.0 + 1e-6)
-    b_lin = clamp(b_lin, -1e-6, 1.0 + 1e-6)
+    # Use CSS-style gamut mapping (reduces chroma while preserving L and H)
+    if not in_gamut:
+        c = c.fit("srgb", method="oklch-chroma")
 
-    r = clamp(linear_to_srgb(r_lin), 0.0, 1.0)
-    g = clamp(linear_to_srgb(g_lin), 0.0, 1.0)
-    b = clamp(linear_to_srgb(b_lin), 0.0, 1.0)
+    srgb = c.convert("srgb")
+    r = clamp(srgb["red"], 0.0, 1.0)
+    g = clamp(srgb["green"], 0.0, 1.0)
+    b = clamp(srgb["blue"], 0.0, 1.0)
     return r, g, b, in_gamut
 
 
@@ -914,7 +927,7 @@ def rgb01_from_hex(hex_str: str) -> Tuple[float, float, float]:
 
 def srgb_to_oklch(r: float, g: float, b: float) -> Tuple[float, float, float]:
     """
-    Convert sRGB [0,1] to OKLCH (L, C, H).
+    Convert sRGB [0,1] to OKLCH (L, C, H) using coloraide library.
 
     Args:
         r, g, b: sRGB values in 0-1 range
@@ -922,9 +935,14 @@ def srgb_to_oklch(r: float, g: float, b: float) -> Tuple[float, float, float]:
     Returns:
         (L, C, H) where L is 0-1, C is 0-0.37, H is 0-360 degrees
     """
-    L, a, b2 = srgb_to_oklab(r, g, b)
-    C = math.sqrt(a * a + b2 * b2)
-    H = (rad_to_deg(math.atan2(b2, a)) + 360.0) % 360.0
+    c = Color("srgb", [r, g, b])
+    oklch = c.convert("oklch")
+    L = oklch["lightness"]
+    C = oklch["chroma"]
+    H = oklch["hue"]
+    # Handle achromatic colors (NaN hue)
+    if H != H:  # NaN check
+        H = 0.0
     return L, C, H
 
 
