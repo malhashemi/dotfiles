@@ -102,8 +102,14 @@ class BrandColorResult:
 
     primary_ryb_hue: float  # Primary hue in RYB degrees
     oklch_hues: Dict[str, float] = field(default_factory=dict)  # {label: oklch_hue_deg}
-    L: float = 0.0  # Chosen lightness (0-1)
-    C: float = 0.0  # Chosen chroma (0-0.37)
+    oklch_chromas: Dict[str, float] = field(
+        default_factory=dict
+    )  # {label: oklch_chroma}
+    oklch_lightnesses: Dict[str, float] = field(
+        default_factory=dict
+    )  # {label: oklch_L}
+    L: float = 0.0  # Base lightness (0-1)
+    C: float = 0.0  # Base chroma (0-0.37)
     hex_codes: Dict[str, str] = field(default_factory=dict)  # {label: srgb_hex_code}
     hex_codes_p3: Dict[str, str] = field(default_factory=dict)  # {label: p3_hex_code}
     srgb_values: Dict[str, Tuple[float, float, float]] = field(
@@ -352,9 +358,15 @@ def brand_color_from_hex(
     hex_codes_p3 = {
         lab: hex_from_rgb01(r, g, b) for lab, (r, g, b) in zip(deduped_labels, p3_list)
     }
-    # Extract just the hues from OKLCH values for the oklch_hues dict
+    # Extract OKLCH components per label
     oklch_hues_dict = {
         lab: H for lab, (_, _, H) in zip(deduped_labels, oklch_values_list)
+    }
+    oklch_chromas_dict = {
+        lab: C for lab, (_, C, _) in zip(deduped_labels, oklch_values_list)
+    }
+    oklch_lightnesses_dict = {
+        lab: L for lab, (L, _, _) in zip(deduped_labels, oklch_values_list)
     }
     srgb_values = {lab: rgb for lab, rgb in zip(deduped_labels, srgb_list)}
     p3_values = {lab: rgb for lab, rgb in zip(deduped_labels, p3_list)}
@@ -362,6 +374,8 @@ def brand_color_from_hex(
     return BrandColorResult(
         primary_ryb_hue=H_ryb,
         oklch_hues=oklch_hues_dict,
+        oklch_chromas=oklch_chromas_dict,
+        oklch_lightnesses=oklch_lightnesses_dict,
         L=base_L,
         C=base_C,
         hex_codes=hex_codes,
@@ -369,6 +383,49 @@ def brand_color_from_hex(
         srgb_values=srgb_values,
         p3_values=p3_values,
         labels=deduped_labels,
+    )
+
+
+def brand_color_from_oklch(
+    L: float,
+    C: float,
+    H: float,
+    palette_set: str = "full",
+    x_deg: float = 30.0,
+    include_complementary: bool = False,
+) -> BrandColorResult:
+    """
+    Create a BrandColorResult from OKLCH values.
+
+    Converts OKLCH to sRGB hex, then uses Paletton algorithm for harmonics.
+
+    Args:
+        L: Lightness (0-1)
+        C: Chroma (0-0.37 typical)
+        H: Hue in degrees (0-360)
+        palette_set: "base", "adjacent", "triad", or "full"
+        x_deg: Angle for adjacent/triad offsets
+        include_complementary: Include complement hue
+
+    Returns:
+        BrandColorResult with harmonics derived from the OKLCH color
+    """
+    # Convert OKLCH to sRGB hex
+    r, g, b, in_gamut = oklch_to_srgb(L, C, H)
+
+    # Clamp to valid range if out of gamut
+    r = clamp(r, 0.0, 1.0)
+    g = clamp(g, 0.0, 1.0)
+    b = clamp(b, 0.0, 1.0)
+
+    hex_color = hex_from_rgb01(r, g, b)
+
+    # Use the hex-based function for Paletton harmonics
+    return brand_color_from_hex(
+        hex_color=hex_color,
+        palette_set=palette_set,
+        x_deg=x_deg,
+        include_complementary=include_complementary,
     )
 
 

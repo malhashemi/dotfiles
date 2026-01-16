@@ -5,10 +5,10 @@ description: |
   helping users create brand color palettes, design systems, or Tailwind color configs.
   It guides through hue selection (RYB color wheel), chroma/tone decisions, and
   generates Obsidian-compatible palette reports with APCA accessibility validation.
-  Also supports starting from an existing hex color for refinement workflows.
+  Supports starting from hex color or OKLCH values for refinement workflows.
   Triggers: "brand colors", "palette", "color scheme", "design system colors",
-  "Tailwind colors", "generate palette from hex", or when users describe brand values
-  that imply color decisions.
+  "Tailwind colors", "generate palette from hex", "generate palette from OKLCH",
+  or when users describe brand values that imply color decisions.
 ---
 
 # Brand Palette
@@ -20,9 +20,10 @@ It walks through understanding brand identity, selecting hues from the RYB color
 setting chroma/tone preferences, then generates Obsidian-compatible markdown with
 full tonal scales (50-950), Tailwind configs, and APCA contrast validation.
 
-**Two entry points:**
+**Three entry points:**
 1. **Discovery flow** - Guide users through brand identity → hue selection → palette
-2. **Hex refinement flow** - Start from an existing hex color (user already has a color they like)
+2. **Hex refinement flow** - Start from an existing hex color (e.g., #00b9c3)
+3. **OKLCH refinement flow** - Start from OKLCH values (e.g., 0.72 0.12 201.7)
 
 ## When to Use
 
@@ -32,6 +33,7 @@ full tonal scales (50-950), Tailwind configs, and APCA contrast validation.
 - User mentions competitors' colors to differentiate from
 - User asks about accessible/APCA-compliant color schemes
 - User has an existing hex color and wants to generate a full palette from it
+- User has OKLCH values and wants to generate a palette from them
 - User picked a color from a previous palette and wants to regenerate around it
 
 ## Scripts
@@ -53,6 +55,7 @@ uv run {base_dir}/scripts/brand_report.py [options]
 | `--name NAME` | Brand name (required) |
 | `--hue NAME:WEIGHT` | Hue with weight, repeat 1-3 times (e.g., Blue:0.6) |
 | `--hex COLOR` | Start from hex color (e.g., #015856). Overrides --hue/--chroma/--tone |
+| `--oklch 'L C H'` | Start from OKLCH values (e.g., '0.72 0.12 201.7'). Overrides --hue/--chroma/--tone |
 | `--chroma 0-100` | Chroma/saturation intent (default: 50) |
 | `--tone 0-100` | Tone/lightness intent (default: 50) |
 | `--gamut p3\|srgb` | Target color gamut (default: p3) |
@@ -232,30 +235,37 @@ After generation:
 - If adjustments are needed, re-run discovery or tweak parameters
 - Use `--hex` to refine: pick a specific color from the palette and regenerate around it
 
-## Workflow B: Hex Refinement (Quick Start)
+## Workflow B: Color Refinement (Quick Start)
 
 Use this when the user already has a specific color they want to build from:
-- They have an existing brand color
+- They have an existing brand color (hex or OKLCH)
 - They picked a color from a previous palette
 - They refined a color externally and want to regenerate
 
 ### Process
 
-1. **Get the hex color** from the user (e.g., #015856)
+1. **Get the color** from the user - either hex (e.g., #015856) or OKLCH (e.g., 0.72 0.12 201.7)
 
 2. **Confirm the color** by showing what palette will be generated:
-   - The hex becomes the primary anchor
+   - The color becomes the primary anchor
    - L (lightness) and C (chroma) are extracted automatically
-   - Harmonics (analogous, complements) are derived from the hue
+   - Harmonics (analogous, complements) are derived from the hue via Paletton
 
 3. **Generate directly:**
 
 ```bash
+# From hex color
 uv run {base_dir}/scripts/brand_report.py \
     --name "Brand Name" \
     --hex "#015856" \
-    --gamut p3 \
-    --auto-adjust \
+    --include-complement \
+    --output thoughts/shared/brand/YYYY-MM-DD_brand-name_palette.md
+
+# From OKLCH values
+uv run {base_dir}/scripts/brand_report.py \
+    --name "Brand Name" \
+    --oklch "0.72 0.12 201.7" \
+    --include-complement \
     --output thoughts/shared/brand/YYYY-MM-DD_brand-name_palette.md
 ```
 
@@ -274,6 +284,7 @@ Generating palette..."
 uv run {base_dir}/scripts/brand_report.py \
     --name "Refined Brand" \
     --hex "#015856" \
+    --include-complement \
     --output thoughts/shared/brand/2026-01-01_refined_palette.md
 ```
 
@@ -281,8 +292,10 @@ uv run {base_dir}/scripts/brand_report.py \
 
 Reports include:
 - Brand anchor colors at the chosen tone/chroma
-- Max Chroma scales (bold, vibrant) with Tailwind config
-- Even Chroma scales (harmonious, balanced) with Tailwind config
+- **Paletton Colors** scales - Exact colors from Paletton harmonics preserved at natural anchor levels
+- **Max Chroma** scales - Maximum saturation per hue (bold, vibrant)
+- **Even Chroma** scales - Consistent saturation across all hues (harmonious, balanced)
+- Tailwind configs with OKLCH values for all three modes
 - All scales in Obsidian palette plugin format
 - Metadata table with generation parameters
 

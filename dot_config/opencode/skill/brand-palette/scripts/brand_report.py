@@ -10,7 +10,7 @@ Generate brand palette report in Obsidian-compatible markdown.
 
 The report includes:
 - Brand anchor colors at chosen tone/chroma
-- Max Chroma scales (bold and vibrant)
+- Paletton Colors scales (exact input colors preserved)
 - Even Chroma scales (harmonious and balanced)
 - Tailwind configs for both modes
 - Metadata table
@@ -40,7 +40,12 @@ from pathlib import Path
 from typing import List, Literal, cast
 
 # Import from sibling modules
-from brandcolor import compute_brand_colors, brand_color_from_hex, BrandColorResult
+from brandcolor import (
+    compute_brand_colors,
+    brand_color_from_hex,
+    brand_color_from_oklch,
+    BrandColorResult,
+)
 from palette import (
     generate_palette,
     generate_palette_from_brand_color,
@@ -104,9 +109,10 @@ class ReportData:
     # Brand anchor colors
     brand_colors: BrandColorResult
 
-    # Full palettes
-    max_chroma_palette: Palette
-    even_chroma_palette: Palette
+    # Full palettes (three modes)
+    input_palette: Palette  # Exact Paletton colors preserved
+    even_palette: Palette  # Minimum chroma across all hues
+    max_palette: Palette  # Maximum chroma per hue
 
 
 # ========== Report Generation ==========
@@ -229,7 +235,7 @@ def generate_report(data: ReportData) -> str:
     lines.append("The anchor colors at your chosen tone with maximum chroma.")
     lines.append("")
     lines.append(
-        "> These appear at **level {}** in the Max Chroma palette below.".format(
+        "> These appear at **level {}** in the Paletton Colors palette below.".format(
             data.anchor_level
         )
     )
@@ -249,7 +255,7 @@ def generate_report(data: ReportData) -> str:
     lines.append("")
 
     # Add neutral endpoints to brand colors line for quick reference
-    neutral_scale = data.even_chroma_palette.scales.get("neutral")
+    neutral_scale = data.input_palette.scales.get("neutral")
     if neutral_scale:
         neutral_light = neutral_scale.colors[50].hex_srgb
         neutral_dark = neutral_scale.colors[950].hex_srgb
@@ -259,14 +265,14 @@ def generate_report(data: ReportData) -> str:
         lines.append(f"```palette\n{','.join(all_anchors)}\n```")
         lines.append("")
 
-    # Full palette: all colors from all scales concatenated
+    # Full palette: all colors from all scales concatenated (from input palette)
     lines.append("**Full palette** (all scales concatenated):")
     lines.append("")
     all_colors = []
     for name in SCALE_ORDER:
-        if name not in data.even_chroma_palette.scales:
+        if name not in data.input_palette.scales:
             continue
-        scale = data.even_chroma_palette.scales[name]
+        scale = data.input_palette.scales[name]
         hex_list = scale.get_hex_list("srgb")
         all_colors.extend(hex_list)
     lines.append(f"```palette\n{', '.join(all_colors)}\n```")
@@ -274,12 +280,21 @@ def generate_report(data: ReportData) -> str:
     lines.append("---")
     lines.append("")
 
+    # Paletton Colors section (preserves exact input colors)
+    lines.extend(
+        format_chroma_section(
+            "Paletton Colors",
+            "Exact colors from Paletton harmonics. Your input color appears at its natural anchor level.",
+            data.input_palette,
+        )
+    )
+
     # Max Chroma section
     lines.extend(
         format_chroma_section(
             "Max Chroma",
-            "Full saturation at each lightness level. Bold and vibrant.",
-            data.max_chroma_palette,
+            "Maximum saturation per hue. Bold and vibrant.",
+            data.max_palette,
         )
     )
 
@@ -288,7 +303,7 @@ def generate_report(data: ReportData) -> str:
         format_chroma_section(
             "Even Chroma",
             "Consistent saturation across all hues. Harmonious and balanced.",
-            data.even_chroma_palette,
+            data.even_palette,
         )
     )
 
@@ -386,6 +401,11 @@ EXAMPLES:
         help="Start from existing hex color (e.g., #015856). Overrides --hue, --chroma, --tone.",
     )
     parser.add_argument(
+        "--oklch",
+        metavar="'L C H'",
+        help="Start from OKLCH values (e.g., '0.72 0.12 201.7'). Overrides --hue, --chroma, --tone.",
+    )
+    parser.add_argument(
         "--chroma",
         type=int,
         default=50,
@@ -421,9 +441,9 @@ EXAMPLES:
 
     args = parser.parse_args()
 
-    # Validate: either --hex or --hue is required
-    if not args.hex and not args.hue:
-        parser.error("Either --hex or --hue is required")
+    # Validate: either --hex, --oklch, or --hue is required
+    if not args.hex and not args.oklch and not args.hue:
+        parser.error("Either --hex, --oklch, or --hue is required")
 
     # Compute brand colors based on input mode
     if args.hex:
@@ -437,6 +457,23 @@ EXAMPLES:
         # Override chroma/tone with actual values from hex
         chroma_intent = int(brand_colors.C / 0.37 * 100)  # Convert back to 0-100
         tone_intent = int(brand_colors.L * 100)
+    elif args.oklch:
+        # Start from OKLCH values
+        oklch_str = args.oklch.strip()
+        parts = oklch_str.split()
+        if len(parts) != 3:
+            parser.error("--oklch requires 3 values: 'L C H' (e.g., '0.72 0.12 201.7')")
+        try:
+            L, C, H = float(parts[0]), float(parts[1]), float(parts[2])
+        except ValueError:
+            parser.error("--oklch values must be numbers: 'L C H'")
+        print(f"Computing brand colors from OKLCH({L}, {C}, {H}) for {args.name}...")
+        brand_colors = brand_color_from_oklch(
+            L, C, H, include_complementary=args.include_complement
+        )
+        hue_description = f"From OKLCH: L={L:.2f}, C={C:.2f}, H={H:.1f}"
+        chroma_intent = int(C / 0.37 * 100)
+        tone_intent = int(L * 100)
     else:
         # Parse hues from RYB color wheel
         hue_weights = []
@@ -468,7 +505,14 @@ EXAMPLES:
     anchor_level, _ = find_anchor_level(brand_colors.L)
     print(f"Anchor level: {anchor_level} (L={brand_colors.L:.3f})")
 
-    # Generate palettes using anchored generation
+    # Generate all three palette modes
+    print("Generating Paletton Colors palette (preserves exact input colors)...")
+    input_palette = generate_palette_from_brand_color(
+        brand_result=brand_colors,
+        chroma_mode="input",
+        gamut=args.gamut,
+    )
+
     print("Generating Max Chroma palette...")
     max_palette = generate_palette_from_brand_color(
         brand_result=brand_colors,
@@ -486,6 +530,7 @@ EXAMPLES:
     # Auto-adjust if requested
     if args.auto_adjust:
         print("Auto-adjusting for APCA contrast...")
+        auto_adjust_palette_contrast(input_palette)
         auto_adjust_palette_contrast(max_palette)
         auto_adjust_palette_contrast(even_palette)
 
@@ -501,8 +546,9 @@ EXAMPLES:
         auto_adjusted=args.auto_adjust,
         anchor_level=anchor_level,
         brand_colors=brand_colors,
-        max_chroma_palette=max_palette,
-        even_chroma_palette=even_palette,
+        input_palette=input_palette,
+        even_palette=even_palette,
+        max_palette=max_palette,
     )
 
     # Generate and write report

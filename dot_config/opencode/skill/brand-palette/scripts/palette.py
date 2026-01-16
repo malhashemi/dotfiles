@@ -68,7 +68,7 @@ from color_utils import (
 # ========== Type Definitions ==========
 
 Gamut = Literal["srgb", "p3"]
-ChromaMode = Literal["even", "max", "both", "anchored"]
+ChromaMode = Literal["even", "max", "both", "input"]
 OutputFormat = Literal["palette", "tailwind", "json", "css", "css-hex", "all", "none"]
 
 # ========== Terminal Utilities ==========
@@ -1161,7 +1161,7 @@ def generate_palette(
 
 def generate_palette_from_brand_color(
     brand_result: "BrandColorResult",
-    chroma_mode: Literal["even", "max"] = "even",
+    chroma_mode: Literal["even", "max", "input"] = "even",
     gamut: Gamut = "p3",
     neutral_max_chroma: float = 0.10,
     hue_shift: bool = False,
@@ -1179,8 +1179,9 @@ def generate_palette_from_brand_color(
 
     Args:
         brand_result: Output from compute_brand_colors()
-        chroma_mode: "even" uses brand_result.C for all hues,
-                     "max" computes per-hue max chroma at brand_result.L
+        chroma_mode: "even" uses minimum max chroma across all hues,
+                     "max" computes per-hue max chroma (P3 gamut),
+                     "input" preserves exact input color chromas
         gamut: Target gamut
         neutral_max_chroma: Max chroma for neutral scale at level 950
                            (Note: ColorBox uses HSB saturation 0→0.9)
@@ -1191,7 +1192,7 @@ def generate_palette_from_brand_color(
     Returns:
         Palette with all scales using ColorBox curves
     """
-    palette = Palette(chroma_mode="anchored", gamut=gamut)
+    palette = Palette(chroma_mode=chroma_mode, gamut=gamut)
 
     # Find which level matches anchor L
     anchor_level, anchor_t = find_anchor_level(brand_result.L)
@@ -1230,6 +1231,7 @@ def generate_palette_from_brand_color(
     # Step 2: Generate color scales with ColorBox curves
     # For "even" mode, compute minimum achievable chroma across all hues at anchor L
     # This ensures all hues can achieve the same chroma level
+    even_chroma: float = 0.0
     if chroma_mode == "even":
         all_hues = [brand_result.oklch_hues[lab] for lab in brand_result.labels]
         min_cmax = float("inf")
@@ -1242,20 +1244,31 @@ def generate_palette_from_brand_color(
         oklch_hue = brand_result.oklch_hues[label]
         scale_name = map_name(label)  # "base" -> "primary", etc.
 
-        # Determine chroma for this scale
-        if chroma_mode == "max":
+        # Determine L and C for this scale based on mode
+        if chroma_mode == "input":
+            # Use the exact L, C, H from the input color (per-label)
+            # This preserves Paletton's exact color for each harmonic
+            scale_anchor_L = brand_result.oklch_lightnesses.get(label, brand_result.L)
+            anchor_C = brand_result.oklch_chromas.get(label, brand_result.C)
+            # Each harmonic may have a different anchor level based on its L
+            scale_anchor_level, _ = find_anchor_level(scale_anchor_L)
+        elif chroma_mode == "max":
             # Use maximum safe chroma at anchor L for this hue
-            anchor_C = cmax_for_L_h(brand_result.L, oklch_hue, gamut) * 0.95
+            scale_anchor_L = brand_result.L
+            anchor_C = cmax_for_L_h(scale_anchor_L, oklch_hue, gamut) * 0.95
+            scale_anchor_level = anchor_level
         else:
             # Use even chroma (minimum across all harmonics)
+            scale_anchor_L = brand_result.L
             anchor_C = even_chroma
+            scale_anchor_level = anchor_level
 
         scale = compute_scale_colorbox(
             name=scale_name,
-            anchor_L=brand_result.L,
+            anchor_L=scale_anchor_L,
             anchor_C=anchor_C,
             anchor_H=oklch_hue,
-            anchor_level=anchor_level,
+            anchor_level=scale_anchor_level,
             gamut=gamut,
             hue_shift=hue_shift,
             light_hue_shift=light_hue_shift,
