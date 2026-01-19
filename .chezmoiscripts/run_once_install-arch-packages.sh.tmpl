@@ -135,6 +135,39 @@ print_header "Updating Package Database"
 sudo pacman -Sy &>/dev/null && echo -e "  ${GREEN}✓${NC} Package database updated"
 
 # ─────────────────────────────────────────────────────────────────────────────────
+# Homebrew/Linuxbrew
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "Installing Homebrew (Linuxbrew)"
+
+if ! command -v brew &>/dev/null; then
+    print_info "Installing Homebrew for Linux..."
+    
+    # Install Homebrew dependencies
+    sudo pacman -S --noconfirm --needed base-devel curl file git &>/dev/null
+    
+    # Install Homebrew
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    
+    # Add to PATH for current session
+    if [[ -d /home/linuxbrew/.linuxbrew ]]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    fi
+    
+    if command -v brew &>/dev/null; then
+        print_success "homebrew"
+    else
+        print_fail "homebrew (manual install required)"
+    fi
+else
+    print_skip "homebrew"
+    # Ensure it's in PATH for this session
+    if [[ -d /home/linuxbrew/.linuxbrew ]]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    fi
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────────
 # Packages (Pacman - Official Repos)
 # ─────────────────────────────────────────────────────────────────────────────────
 
