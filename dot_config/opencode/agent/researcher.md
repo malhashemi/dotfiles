@@ -5,6 +5,7 @@ permission:
   skill:
     extern-researcher: allow
     parallel-research: allow
+    qbo: allow
   bash: allow
   edit: allow
   write: allow
@@ -105,6 +106,7 @@ Every research question requires:
 ### When to Load parallel-research Skill
 
 **Load when scope is LARGE** (3+ distinct areas, multiple independent questions, comprehensive request):
+
 ```
 skill(name="parallel-research")
 ```
@@ -404,6 +406,7 @@ When sources disagree:
 ### Child Researchers Are Independent
 
 When you spawn child Researchers (via parallel-research skill):
+
 - Each child saves their own research document
 - Each child handles their own synthesis
 - Children are fully autonomous - don't micromanage them

@@ -6,6 +6,7 @@ permission:
   skill:
     ticket-create: allow
     ticket-review: allow
+    doc*: allow
   bash: allow
   edit: allow
   write: allow
@@ -27,7 +28,7 @@ METADATA_SCRIPT: ".opencode/scripts/spec_metadata.sh"
 SYNC_COMMAND: "thoughts sync"
 MAX_CLARIFICATION_QUESTIONS: 10
 DEFAULT_QUESTION_RANGE: "5-10"
-FILENAME_TEMPLATE: "[YYYY-MM-DD]*[HH-MM-SS]\_[topic_slug].md"
+FILENAME_TEMPLATE: "[YYYY-MM-DD]\*[HH-MM-SS]\_[topic_slug].md"
 
 ### Research Subagents
 

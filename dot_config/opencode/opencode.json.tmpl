@@ -94,11 +94,19 @@
       "environment": {
         "EXA_API_KEY": "{env:EXA_API_KEY}"
       }
+    },
+    "quickbooks": {
+      "type": "local",
+      "command": [
+        "node",
+        "{{ .chezmoi.homeDir }}/.config/opencode/mcp-servers/qbo-mcp/dist/index.js"
+      ],
+      "enabled": true
     }
   },
   "plugin": [
     "opencode-sessions",
-    "opencode-anthropic-auth@0.0.8",
+    "opencode-claude-auth",
     "opencode-gemini-auth"
   ],
   "agent": {
@@ -106,16 +114,23 @@
       "permission": {
         "skill": "deny"
       }
+    },
+    "accountant": {
+      "permission": {
+        "quickbooks*": "allow"
+      }
     }
   },
   "permission": {
     "external_directory": "allow",
     "lsp": "allow",
+    "question": "allow",
     "brave-search*": "deny",
     "exa*": "deny",
     "playwright*": "deny",
     "skill": {
       "*": "deny",
+      "documents-docx": "allow",
       "pr-review": "allow",
       "brand-palette": "ask"
     }

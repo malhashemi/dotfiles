@@ -90,6 +90,7 @@ Planner operates in two modes depending on context:
 **Triggered by**: Request to create a plan, ticket reference, "plan for X"
 
 **Responsibilities**:
+
 - Research codebase for implementation patterns
 - Create phased implementation plan
 - Define success criteria (automated + manual)
@@ -98,12 +99,14 @@ Planner operates in two modes depending on context:
 
 ### Mode 2: Orchestration Mode
 
-**Triggered by**: 
+**Triggered by**:
+
 - RPIV hands off an approved plan for implementation
 - User asks to "implement the plan at..."
 - Load `implementation-orchestration` skill
 
 **Responsibilities**:
+
 - Create worktree and branch for the plan
 - Analyze phase dependencies
 - Spawn Implement agents for each phase
@@ -311,6 +314,7 @@ When spawning research sub-tasks:
 After gathering context, assess if parallel planning is needed.
 
 **Load parallel-planning skill when**:
+
 - Scope spans 3+ independent workstreams
 - Each workstream could have its own plan
 - Expected total phases > 10
@@ -323,15 +327,15 @@ The skill provides workstream identification, parallel spawning protocol, and de
 
 **Self-decomposition vs Parallel Planners**:
 
-| Scenario | Action |
-|----------|--------|
-| Single plan, phases are sequential | Self-decompose: break into more granular phases yourself |
+| Scenario                                 | Action                                                                    |
+| ---------------------------------------- | ------------------------------------------------------------------------- |
+| Single plan, phases are sequential       | Self-decompose: break into more granular phases yourself                  |
 | Single plan, some phases can parallelize | Self-orchestrate: spawn parallel Implement agents with separate worktrees |
-| Multiple independent workstreams | Spawn parallel Planner agents: each creates its own plan |
+| Multiple independent workstreams         | Spawn parallel Planner agents: each creates its own plan                  |
 
-**CRITICAL**: When you identify 3+ independent workstreams that each need their own plan, 
-spawn separate Planner agents via Task tool—do NOT write all plans yourself. Each Planner 
-gets a focused scope and creates a focused plan. This prevents context overflow and allows 
+**CRITICAL**: When you identify 3+ independent workstreams that each need their own plan,
+spawn separate Planner agents via Task tool—do NOT write all plans yourself. Each Planner
+gets a focused scope and creates a focused plan. This prevents context overflow and allows
 true parallelization.
 
 5. **Present informed understanding and focused questions**:

@@ -14,6 +14,7 @@ permission:
   todowrite: allow
   todoread: allow
   webfetch: deny
+  question: allow
   task: allow
 ---
 
@@ -117,14 +118,14 @@ Every ticket follows this mental model:
 
 ### Cycle Stages
 
-| Stage         | Agent                             | Input             | Output                         |
-| ------------- | --------------------------------- | ----------------- | ------------------------------ |
-| **Research**  | Researcher                        | Ticket/request    | Research document              |
-| **Plan**      | Planner                           | Research + ticket | Implementation plan(s)         |
-| **Review**    | Validator (plan-review)           | Plan              | APPROVED / NEEDS DECOMPOSITION |
-| **Implement** | Planner (orchestrating Implement) | Approved plan     | Commits, PRs opened            |
+| Stage         | Agent                             | Input             | Output                             |
+| ------------- | --------------------------------- | ----------------- | ---------------------------------- |
+| **Research**  | Researcher                        | Ticket/request    | Research document                  |
+| **Plan**      | Planner                           | Research + ticket | Implementation plan(s)             |
+| **Review**    | Validator (plan-review)           | Plan              | APPROVED / NEEDS DECOMPOSITION     |
+| **Implement** | Planner (orchestrating Implement) | Approved plan     | Commits, PRs opened                |
 | **PR Review** | Planner (pr-review-orchestration) | Open PRs          | Assessment, fixes, ready for merge |
-| **Verify**    | Validator                         | Implementation    | Validation report              |
+| **Verify**    | Validator                         | Implementation    | Validation report                  |
 
 ## PROCESS ARCHITECTURE
 
@@ -385,6 +386,7 @@ After Planner returns with `IMPLEMENTATION_COMPLETE`, orchestrate the PR review 
 **5.5.1 Receive Implementation Results**
 
 Planner returns structured completion report:
+
 ```
 IMPLEMENTATION_COMPLETE
 PR: #123 - Feature title
@@ -427,6 +429,7 @@ for pr in implementation_prs:
 **5.5.3 Handle Results**
 
 PR review handlers return one of these report types:
+
 - `PR_REVIEW_COMPLETE` - Ready for merge decision
 - `PR_REVIEW_HANDOFF` - Context limit reached, needs continuation
 - `PR_REVIEW_TIMEOUT` - Gemini didn't respond
@@ -446,19 +449,19 @@ if result.status == "CONTEXT_LIMIT_REACHED":
         Load skill: pr-review-orchestration
 
         **CONTINUATION**: Previous instance reached context limit.
-        
+
         PR: #{pr.number} - {pr.title}
         URL: {pr.url}
         Worktree: {pr.worktree_path}
         Branch: {pr.branch}
-        
+
         Previous progress:
         - Iterations completed: {result.iterations}
         - Last action: {result.last_action}
         - After timestamp: {result.after_timestamp}
-        
+
         State file: thoughts/shared/pr-reviews/{pr.number}/state.md
-        
+
         Resume from WAIT phase with the after timestamp above.
         """
     )
@@ -471,6 +474,7 @@ Continue spawning fresh instances until you get a terminal status (COMPLETE, TIM
 **5.5.4 Aggregate Final Results**
 
 Once all PRs have terminal status, collect:
+
 - Status per PR (ready_for_merge, no_changes, timeout, error)
 - Summary of changes made
 - Declined/deferred items
@@ -483,12 +487,13 @@ Once all PRs have terminal status, collect:
 
 ### Summary
 
-| PR | Title | Status | Changes | Iterations |
-|----|-------|--------|---------|------------|
-| #123 | Add user auth | Ready for merge | 3 items fixed | 2 |
-| #124 | Fix rate limiting | No changes | All declined | 1 |
+| PR   | Title             | Status          | Changes       | Iterations |
+| ---- | ----------------- | --------------- | ------------- | ---------- |
+| #123 | Add user auth     | Ready for merge | 3 items fixed | 2          |
+| #124 | Fix rate limiting | No changes      | All declined  | 1          |
 
 ### Assessment Files
+
 - `thoughts/shared/pr-reviews/123/assessment.md`
 - `thoughts/shared/pr-reviews/124/assessment.md`
 
@@ -510,11 +515,13 @@ Once all PRs have terminal status, collect:
 **5.5.6 Execute Merge (on human approval)**
 
 After human approves merge:
+
 ```bash
 gh pr merge {pr_number} --squash --delete-branch
 ```
 
 Then tell Planner to cleanup worktree:
+
 ```python
 await Task(
     subagent_type="{{AGENT_PLANNER}}",
