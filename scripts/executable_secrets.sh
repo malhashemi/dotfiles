@@ -271,9 +271,17 @@ unlock_vault() {
   echo -e "  ${DIM}Enter master password:${RESET}" >&2
 
   local session
-  if ! session=$(bw unlock --raw); then
+  if ! session=$(bw unlock --raw 2>/dev/null); then
     error_exit "Failed to unlock vault" \
       "Check your master password and try again"
+  fi
+
+  # Strip any extra whitespace/control chars from session key (bw 2026.x compat)
+  session=$(printf '%s' "$session" | tr -d '[:space:][:cntrl:]')
+
+  if [[ -z "$session" ]]; then
+    error_exit "Unlock returned empty session key" \
+      "Try: bw logout && bw login, then run secrets again"
   fi
 
   export BW_SESSION="$session"
@@ -297,7 +305,8 @@ login_vault() {
 
 sync_vault() {
   spinner_start "Syncing vault..."
-  if ! bw sync &>/dev/null; then
+  local sync_err
+  if ! sync_err=$(bw --session "$BW_SESSION" sync 2>&1); then
     spinner_stop false "Sync failed (continuing with cached data)"
   else
     spinner_stop true "Vault synced"
@@ -309,7 +318,7 @@ fetch_secrets() {
 
   spinner_start "Fetching secrets from '${BW_ITEM_NAME}'..."
 
-  if ! item_json=$(bw get item "$BW_ITEM_NAME" 2>&1); then
+  if ! item_json=$(bw --session "$BW_SESSION" get item "$BW_ITEM_NAME" 2>&1); then
     spinner_stop false ""
     error_exit "Failed to fetch item '${BW_ITEM_NAME}'" \
       "Ensure the item exists in your Bitwarden vault with custom fields"
