@@ -242,7 +242,7 @@ function atail() {
 # ============================================================================
 
 # Starship prompt
-eval "$(starship init zsh)"
+command -v starship &>/dev/null && eval "$(starship init zsh)"
 export STARSHIP_CONFIG=~/.config/starship/starship.toml
 
 # Atuin shell history
@@ -250,7 +250,7 @@ export STARSHIP_CONFIG=~/.config/starship/starship.toml
 command -v atuin &>/dev/null && eval "$(atuin init zsh)"
 
 # Zoxide smart cd
-eval "$(zoxide init zsh)"
+command -v zoxide &>/dev/null && eval "$(zoxide init zsh)"
 
 # ============================================================================
 # Completions

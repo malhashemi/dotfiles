@@ -5,10 +5,17 @@
 {{- $userName := promptStringOnce . "user.name" "Your full name" -}}
 {{- $userEmail := promptStringOnce . "user.email" "Your email" -}}
 
-{{- /* Tailscale hostnames - prompted once, cached locally */ -}}
-{{- $devHub := promptStringOnce . "tailscale_hosts.dev_hub" "Tailscale devbox hostname" -}}
-{{- $archDesktop := promptStringOnce . "tailscale_hosts.arch_desktop" "Tailscale desktop hostname" -}}
-{{- $macWorkstation := promptStringOnce . "tailscale_hosts.mac_workstation" "Tailscale Mac workstation hostname" -}}
+{{- /* Tailscale mesh VPN - prompted once, cached locally */ -}}
+{{- /* To enable later: chezmoi init --prompt  (or edit ~/.config/chezmoi/chezmoi.toml) */ -}}
+{{- $tailscaleEnabled := promptBoolOnce . "tailscale_enabled" "Do you use Tailscale" -}}
+{{- $devHub := "" -}}
+{{- $archDesktop := "" -}}
+{{- $macWorkstation := "" -}}
+{{- if $tailscaleEnabled -}}
+{{-   $devHub = promptStringOnce . "tailscale_hosts.dev_hub" "Tailscale devbox hostname" -}}
+{{-   $archDesktop = promptStringOnce . "tailscale_hosts.arch_desktop" "Tailscale desktop hostname" -}}
+{{-   $macWorkstation = promptStringOnce . "tailscale_hosts.mac_workstation" "Tailscale Mac workstation hostname" -}}
+{{- end -}}
 
 [data]
     name = "{{ .chezmoi.username }}"
@@ -35,10 +42,11 @@
     config_home = "{{ .chezmoi.homeDir }}/.config"
     cache_dir = "{{ .chezmoi.homeDir }}/.cache"
     {{- end }}
+    tailscale_enabled = {{ $tailscaleEnabled }}
     # Headless detection for VPS vs desktop
     {{- if contains "MacBook" $hostname }}
     is_headless = false
-    {{- else if eq $hostname $devHub }}
+    {{- else if and (ne $devHub "") (eq $hostname $devHub) }}
     is_headless = true
     {{- else if contains "vps" $hostname }}
     is_headless = true

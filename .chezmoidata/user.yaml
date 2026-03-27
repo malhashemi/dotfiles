@@ -16,9 +16,10 @@ preferences:
     dynamic: "~/Pictures/Wallpapers"
 
 # Tailscale mesh VPN configuration
-tailscale_enabled: true
+# tailscale_enabled is prompted during `chezmoi init` (cached in chezmoi.toml)
+# To enable later: chezmoi init --prompt
 
-# tailscale_hosts are prompted during `chezmoi init`
+# tailscale_hosts are prompted during `chezmoi init` (only when tailscale_enabled)
 # Values are cached in ~/.config/chezmoi/chezmoi.toml (not in repo)
 
 # Theme sync configuration (push to headless devbox)

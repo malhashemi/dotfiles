@@ -239,6 +239,8 @@ done
 # ─────────────────────────────────────────────────────────────────────────────────
 
 print_header "Cargo Packages"
+# Source cargo env — brew install rust puts cargo in ~/.cargo/bin which isn't on PATH yet
+[[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
 if command -v cargo &>/dev/null; then
     for pkg in matugen just-lsp; do
         if command -v "$pkg" &>/dev/null; then
@@ -312,13 +314,13 @@ echo -e "  ${BOLD}Next steps:${NC}"
 echo ""
 echo -e "     ${CYAN}1.${NC} ${BOLD}chezmoi apply${NC}              ${DIM}# Apply dotfiles${NC}"
 echo -e "     ${CYAN}2.${NC} ${BOLD}secrets${NC}                    ${DIM}# Sync secrets from Bitwarden${NC}"
-echo -e "     ${CYAN}3.${NC} ${BOLD}tailscale up${NC}               ${DIM}# Authenticate with Tailscale${NC}"
-echo -e "     ${CYAN}4.${NC} ${BOLD}gh auth login${NC}              ${DIM}# GitHub CLI (optional)${NC}"
-echo -e "     ${CYAN}5.${NC} ${BOLD}atuin login${NC}                ${DIM}# Shell history sync (optional)${NC}"
+echo -e "     ${CYAN}3.${NC} ${BOLD}gh auth login${NC}              ${DIM}# GitHub CLI (optional)${NC}"
+echo -e "     ${CYAN}4.${NC} ${BOLD}atuin login${NC}                ${DIM}# Shell history sync (optional)${NC}"
 echo ""
 echo -e "  ${DIM}First time? Create 'dotfiles-secrets' item in Bitwarden with${NC}"
 echo -e "  ${DIM}custom fields for your API keys. Run 'secrets --help' for details.${NC}"
 echo ""
+echo -e "  ${DIM}Want Tailscale later? Run: chezmoi init --prompt${NC}"
 echo -e "  ${DIM}AeroSpace will auto-start at login${NC}"
 echo ""
 
