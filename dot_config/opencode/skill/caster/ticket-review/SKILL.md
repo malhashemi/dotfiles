@@ -115,15 +115,28 @@ After:
 **Recommendation**: [Fix the N critical/high issues before implementation]
 ```
 
-### Phase 5: Apply Fixes
+### Phase 5: Collect Decisions
 
-**Wait for user approval** before applying any changes.
+After presenting all findings and the summary, use the **Question tool** to collect the user's decision on each finding individually:
 
-When approved:
-1. Apply fixes in order of severity (Critical first)
-2. Update `last_updated` and `last_updated_by` in frontmatter
-3. Add `last_updated_note` summarizing changes
-4. Confirm each change was applied
+- **One question per finding** — each finding gets its own question in a single Question tool call
+- **Question header**: Finding ID + short title (e.g., "M1: Attachment var context")
+- **Question text**: One-sentence summary of the finding and proposed fix
+- **Standard options**: "Approve" (apply as proposed) and "Reject" (skip entirely)
+- **Design-choice findings**: When a finding presents alternatives (e.g., support vs prohibit a feature), offer each alternative as a separate Approve option with a description
+- **Custom input**: Always enabled — user can type modifications to the proposed fix
+
+Do NOT apply any changes until all decisions are collected.
+
+### Phase 6: Apply Fixes
+
+Apply only the approved fixes using the **Edit tool** for targeted changes — never rewrite the entire file:
+
+1. Apply in order of severity (Critical first)
+2. For custom responses, adapt the proposed fix to match the user's instructions
+3. Update `last_updated` and `last_updated_by` in frontmatter
+4. Add `last_updated_note` summarizing changes
+5. Confirm each change was applied
 
 ## Finding Format
 
