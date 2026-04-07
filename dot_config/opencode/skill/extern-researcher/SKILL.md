@@ -33,18 +33,25 @@ workspaces; research is the persistent artifact.
 
 ### Directory Structure
 
-```
-thoughts/global/extern/           # Persistent research storage
-├── catalog.md                    # Global research catalog (markdown + YAML frontmatter)
-└── repos/{org-repo}/             # Research documents per repository
+The catalog lives inside the org-global `shared/` directory so thoughts-cli can scan it
+and it syncs across all projects via the org-global git repo.
 
-{any-project}/.extern/            # Temporary workspace (disposable)
-└── {org-repo}/                   # Cloned repos for study
 ```
+{thoughtsHome}/{orgGlobal.path}/shared/extern/   # Persistent research storage (canonical)
+├── catalog.md                                    # Global research catalog
+└── repos/{org-repo}/                             # Research documents per repository
+
+{any-project}/thoughts/global/org/shared/extern/  # Same location via project symlink
+{any-project}/.extern/                            # Temporary workspace (disposable)
+└── {org-repo}/                                   # Cloned repos for study
+```
+
+The script reads `~/.config/thoughts/config.json` to resolve `thoughtsHome` and
+`orgGlobal.path` automatically. Default: `~/thoughts/global/shared/extern/`.
 
 ### Catalog Format
 
-The catalog at `thoughts/global/extern/catalog.md` uses markdown with YAML frontmatter:
+The catalog uses markdown with YAML frontmatter:
 
 ```yaml
 ---
@@ -99,7 +106,7 @@ uv run {base_dir}/scripts/catalog.py <command> [args...]
 
 Before cloning any repository:
 
-1. **Read the global catalog**: `thoughts/global/extern/catalog.md`
+1. **Read the global catalog**: `{thoughtsHome}/global/shared/extern/catalog.md`
 2. **Search for the repo** by name, URL, or topic
 3. **If found**:
    - Read existing research documents
@@ -149,7 +156,7 @@ If cloning is needed:
 ### Phase 5: Persist Research
 
 1. **Create research document**:
-   - Location: `thoughts/global/extern/repos/{org-repo}/`
+   - Location: `{thoughtsHome}/global/shared/extern/repos/{org-repo}/`
    - Filename: `{YYYY-MM-DD}_{topic-slug}.md`
    - Use the research document template below
 
@@ -178,7 +185,7 @@ When workspace is no longer needed:
    ```bash
    rm -rf .extern/
    ```
-3. **Research remains** in thoughts/global/extern/
+3. **Research remains** in `{thoughtsHome}/global/shared/extern/`
 
 ## Research Document Template
 
@@ -233,14 +240,14 @@ tags: [extern-research, {domain-tags}]
 
 1. **ALWAYS check catalog first** - Never clone without checking existing research
 2. **Workspace is temporary** - Do not store valuable data in .extern/
-3. **Research is permanent** - Always persist to thoughts/global/extern/
+3. **Research is permanent** - Always persist to `{thoughtsHome}/global/shared/extern/`
 4. **Update catalog** - Every study must update the global catalog
 5. **Respect clone depth** - Use shallow clones unless full history needed
 6. **Use org-repo naming** - Include organization to avoid conflicts
 
 ## Error Handling
 
-- **Catalog not found** → Create initial catalog at `thoughts/global/extern/catalog.md`
+- **Catalog not found** → Auto-created on first `add-study` at `{thoughtsHome}/global/shared/extern/catalog.md`
 - **Clone fails** → Check URL format, network, permissions; report to user
 - **Research exists but stale** → Proceed with new research, reference existing findings
 - **Workspace already exists** → Reuse existing .extern/, check if repo is already cloned

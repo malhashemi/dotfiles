@@ -28,29 +28,112 @@ from typing import Any
 import yaml
 
 
-def find_catalog() -> Path:
+def _read_thoughts_config() -> dict[str, Any] | None:
+    """Read ~/.config/thoughts/config.json to discover thoughtsHome and orgGlobal path."""
+    config_path = Path.home() / ".config" / "thoughts" / "config.json"
+    if not config_path.exists():
+        return None
+    try:
+        import json
+
+        with config_path.open() as f:
+            return json.load(f).get("thoughts", {})
+    except (json.JSONDecodeError, OSError):
+        return None
+
+
+def _catalog_in_dir(base: Path) -> Path:
+    """Return the catalog path under a given extern directory."""
+    return base / "catalog.md"
+
+
+def _ensure_catalog(catalog_path: Path) -> Path:
+    """Create the catalog and parent directories if they don't exist."""
+    catalog_path.parent.mkdir(parents=True, exist_ok=True)
+    repos_dir = catalog_path.parent / "repos"
+    repos_dir.mkdir(exist_ok=True)
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    initial_content = (
+        "---\n"
+        "type: extern-research-catalog\n"
+        "version: '1.0'\n"
+        f"last_updated: '{today}'\n"
+        "total_repos_studied: 0\n"
+        "total_studies: 0\n"
+        "repos: []\n"
+        "---\n"
+        "\n"
+        "# External Repository Research Catalog\n"
+        "\n"
+        "*No repositories studied yet. Use `/extern/research [url] [question]` to begin.*\n"
+    )
+    catalog_path.write_text(initial_content)
+    print(f"  Created new catalog at {catalog_path}")
+    return catalog_path
+
+
+def find_catalog(create_if_missing: bool = False) -> Path:
     """Find the global extern catalog.
 
-    Looks for thoughts/global/extern/catalog.md relative to common locations.
+    Resolution order:
+      1. Read ~/.config/thoughts/config.json → {thoughtsHome}/{orgGlobal.path}/shared/extern/
+      2. Walk up from cwd looking for thoughts/global/org/shared/extern/ (project symlink)
+      3. Fallback: ~/thoughts/global/shared/extern/ (default home path)
+
+    If create_if_missing is True, creates the catalog at the canonical location
+    (from thoughts config) when it doesn't exist.
     """
-    # Try relative to current directory (walk up to find thoughts/)
+    candidates: list[Path] = []
+
+    # 1. Canonical: read thoughts config for thoughtsHome + orgGlobal.path
+    config = _read_thoughts_config()
+    canonical_path: Path | None = None
+    if config:
+        thoughts_home = Path(config.get("thoughtsHome", "~/thoughts")).expanduser()
+        org_global = config.get("orgGlobal", {})
+        if org_global.get("enabled", False):
+            org_path = org_global.get("path", "global")
+            canonical_path = thoughts_home / org_path / "shared" / "extern"
+            candidates.append(_catalog_in_dir(canonical_path))
+
+    # 2. Walk up from cwd looking for project-level thoughts/global/org/shared/extern/
     current = Path.cwd()
-    for _ in range(10):  # Max 10 levels up
-        catalog = current / "thoughts" / "global" / "extern" / "catalog.md"
-        if catalog.exists():
-            return catalog
+    for _ in range(10):
+        project_path = current / "thoughts" / "global" / "org" / "shared" / "extern"
+        candidates.append(_catalog_in_dir(project_path))
+        # Also check legacy path (thoughts/global/extern/) for backward compat
+        legacy_path = current / "thoughts" / "global" / "extern"
+        candidates.append(_catalog_in_dir(legacy_path))
         if current.parent == current:
             break
         current = current.parent
 
-    # Try home directory
-    home_catalog = Path.home() / "thoughts" / "global" / "extern" / "catalog.md"
-    if home_catalog.exists():
-        return home_catalog
+    # 3. Fallback: default home path
+    candidates.append(
+        _catalog_in_dir(Path.home() / "thoughts" / "global" / "shared" / "extern")
+    )
+    # Legacy fallback
+    candidates.append(_catalog_in_dir(Path.home() / "thoughts" / "global" / "extern"))
+
+    # Return first existing candidate
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+
+    # Not found — create if requested
+    if create_if_missing:
+        if canonical_path:
+            return _ensure_catalog(_catalog_in_dir(canonical_path))
+        # Fallback creation path
+        return _ensure_catalog(
+            _catalog_in_dir(Path.home() / "thoughts" / "global" / "shared" / "extern")
+        )
 
     raise FileNotFoundError(
-        "Could not find thoughts/global/extern/catalog.md\n"
-        "Please ensure the catalog exists in your thoughts directory."
+        "Could not find extern research catalog.\n"
+        "Searched in: {thoughtsHome}/{orgGlobal.path}/shared/extern/catalog.md\n"
+        "Run with create_if_missing=True or use add-study to auto-create."
     )
 
 
@@ -87,9 +170,10 @@ def save_catalog(catalog_path: Path, frontmatter: dict[str, Any], body: str) -> 
 def cmd_list(args: argparse.Namespace) -> None:
     """List all research studies."""
     try:
-        catalog_path = find_catalog()
-    except FileNotFoundError as e:
-        print(f"\n{e}\n")
+        catalog_path = find_catalog(create_if_missing=False)
+    except FileNotFoundError:
+        print("\n  No extern research catalog found.")
+        print("  It will be created automatically on first add-study.\n")
         return
 
     frontmatter, _ = parse_catalog(catalog_path)
@@ -129,9 +213,9 @@ def cmd_list(args: argparse.Namespace) -> None:
 def cmd_search(args: argparse.Namespace) -> None:
     """Search catalog by repo name or topic."""
     try:
-        catalog_path = find_catalog()
-    except FileNotFoundError as e:
-        print(f"\n{e}\n")
+        catalog_path = find_catalog(create_if_missing=False)
+    except FileNotFoundError:
+        print(f"\nNo results found for '{args.term}' (no catalog exists yet)\n")
         return
 
     frontmatter, _ = parse_catalog(catalog_path)
@@ -164,9 +248,9 @@ def cmd_search(args: argparse.Namespace) -> None:
 def cmd_stats(args: argparse.Namespace) -> None:
     """Show catalog statistics."""
     try:
-        catalog_path = find_catalog()
-    except FileNotFoundError as e:
-        print(f"\n{e}\n")
+        catalog_path = find_catalog(create_if_missing=False)
+    except FileNotFoundError:
+        print("\n  No extern research catalog found (0 repos, 0 studies).\n")
         return
 
     frontmatter, _ = parse_catalog(catalog_path)
@@ -193,12 +277,8 @@ def cmd_stats(args: argparse.Namespace) -> None:
 
 
 def cmd_add_study(args: argparse.Namespace) -> None:
-    """Add a new study to the catalog."""
-    try:
-        catalog_path = find_catalog()
-    except FileNotFoundError as e:
-        print(f"\n{e}\n")
-        return
+    """Add a new study to the catalog. Auto-creates catalog if it doesn't exist."""
+    catalog_path = find_catalog(create_if_missing=True)
 
     frontmatter, body = parse_catalog(catalog_path)
     repos = frontmatter.get("repos", [])
