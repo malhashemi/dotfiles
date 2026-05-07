@@ -75,6 +75,7 @@ brew_cask() {
     local app_name
     case "$cask" in
         ghostty) app_name="Ghostty" ;;
+        cmux) app_name="cmux" ;;
         zen) app_name="Zen" ;;
         wezterm) app_name="WezTerm" ;;
         neovide-app) app_name="Neovide" ;;
@@ -222,7 +223,7 @@ done
 # ─────────────────────────────────────────────────────────────────────────────────
 
 print_header "GUI Applications"
-for cask in wezterm ghostty neovide-app aerospace flameshot \
+for cask in wezterm ghostty cmux neovide-app aerospace flameshot \
             docker-desktop visual-studio-code zen macfuse; do
     brew_cask "$cask"
 done
