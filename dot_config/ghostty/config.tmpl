@@ -1,0 +1,49 @@
+# Ghostty Configuration
+# https://ghostty.org/docs/config
+
+# Theme - managed by theme system
+# Static: theme = Catppuccin <Variant>
+# Dynamic: config-file = colors-ghostty.conf
+{{- if eq .theme.name "dynamic" }}
+config-file = colors-ghostty.conf
+{{- else }}
+theme = Catppuccin {{ .theme.name | title }}
+{{- end }}
+
+# Font
+font-family = {{ .preferences.terminal.font_family }}
+font-size = {{ .preferences.terminal.font_size }}
+
+# Window
+window-padding-x = 8
+window-padding-y = 8
+window-decoration = false
+
+# Cursor
+cursor-style = bar
+cursor-style-blink = true
+
+# Shell integration
+shell-integration = zsh
+
+# Behavior (match wezterm: no confirm on close)
+confirm-close-surface = false
+
+# Keybinds (mirroring wezterm.lua)
+keybind = ctrl+alt+r=reload_config
+keybind = ctrl+q=toggle_fullscreen
+keybind = ctrl+apostrophe=clear_screen
+keybind = cmd+w=close_surface
+keybind = cmd+d=new_split:right
+keybind = cmd+shift+d=new_split:down
+keybind = cmd+k=clear_screen
+keybind = cmd+ctrl+t=toggle_window_decorations
+{{- $opacity := .theme.opacity | default 0 }}
+{{- if and (gt $opacity 0) (lt $opacity 100) }}
+
+# Transparency (managed by theme system)
+background-opacity = {{ printf "%.2f" (divf (float64 $opacity) 100.0) }}
+{{- if eq .chezmoi.os "darwin" }}
+background-blur = 80
+{{- end }}
+{{- end }}

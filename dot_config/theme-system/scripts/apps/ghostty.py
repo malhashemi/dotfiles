@@ -1,5 +1,7 @@
 """Ghostty terminal emulator theme integration"""
 
+import platform
+import subprocess
 from pathlib import Path
 from .base import BaseApp
 from utils import get_material_colors, is_dynamic_theme, get_theme_variant
@@ -39,7 +41,7 @@ class GhosttyTheme(BaseApp):
             self._update_config_for_static(variant)
 
         self._apply_opacity(theme_data)
-        self.log_warning("Reload Ghostty: Cmd+Shift+, (macOS) or Ctrl+Shift+, (Linux)")
+        self._reload_app()
 
     def _generate_dynamic_colors(self, theme_data: dict) -> None:
         """Generate colors-ghostty.conf from Material Design 3 colors"""
@@ -243,9 +245,9 @@ palette = 15={mat.get("on_surface_variant", "#5c5f77")}"""
             # Update background-blur
             if "background-blur" in stripped:
                 if opacity_percent > 0:
-                    new_lines.append("background-blur = 20")
+                    new_lines.append("background-blur = 80")
                 else:
-                    new_lines.append("# background-blur = 20")
+                    new_lines.append("# background-blur = 80")
                 has_blur = True
                 continue
 
@@ -259,6 +261,42 @@ palette = 15={mat.get("on_surface_variant", "#5c5f77")}"""
                 new_lines.append("# Transparency")
                 new_lines.append(f"background-opacity = {opacity_value:.2f}")
             if not has_blur:
-                new_lines.append("background-blur = 20")
+                new_lines.append("background-blur = 80")
 
         self.config_file.write_text("\n".join(new_lines))
+
+    def _reload_app(self) -> None:
+        """Reload running Ghostty by sending Cmd+Shift+, via osascript (macOS).
+
+        Ghostty has no IPC reload; it only reloads when the user presses the
+        configured keybind. On macOS we simulate it via System Events. On other
+        platforms we just log a manual-reload hint.
+        """
+        if platform.system() != "Darwin":
+            self.log_warning("Reload Ghostty: Ctrl+Shift+, (or Ctrl+Alt+R)")
+            return
+        try:
+            check = subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    'tell application "System Events" to (name of processes) contains "Ghostty"',
+                ],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            if "true" not in check.stdout:
+                return
+            subprocess.run(
+                [
+                    "osascript",
+                    "-e",
+                    'tell application "System Events" to tell process "Ghostty" to keystroke "," using {command down, shift down}',
+                ],
+                capture_output=True,
+                timeout=2,
+            )
+            self.log_success("Reloaded running Ghostty")
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            self.log_warning("Could not auto-reload Ghostty (manual: Ctrl+Alt+R)")

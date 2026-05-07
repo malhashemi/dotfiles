@@ -5,8 +5,15 @@ echo "🔄 Reloading applications..."
 
 {{- if eq .chezmoi.os "darwin" }}
 pkill -USR2 WezTerm 2>/dev/null || true
+
+# Ghostty: no IPC reload; simulate reload-config keybind via System Events.
+# Silently no-ops if Ghostty isn't running or accessibility perms missing.
+if osascript -e 'tell application "System Events" to (name of processes) contains "Ghostty"' 2>/dev/null | grep -q true; then
+  osascript -e 'tell application "System Events" to tell process "Ghostty" to keystroke "," using {command down, shift down}' 2>/dev/null || true
+fi
 {{- else }}
 pkill -USR2 wezterm 2>/dev/null || true
+# Ghostty on Linux: no IPC reload; user must press Ctrl+Shift+, or Ctrl+Alt+R.
 {{- end }}
 
 # Note: opencode reload is handled by theme-system/scripts/apps/opencode.py
