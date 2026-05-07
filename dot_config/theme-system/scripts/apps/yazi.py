@@ -227,12 +227,6 @@ title = {{ fg = "{primary}" }}
 # ============================================================================
 [filetype]
 rules = [
-    # Directories
-    {{ url = "*/", fg = "{secondary}" }},
-
-    # Executables
-    {{ is = "exec", fg = "{tertiary}" }},
-
     # Media files
     {{ mime = "image/*", fg = "{mat.get("tertiary_fixed", tertiary)}" }},
     {{ mime = "{{audio,video}}/*", fg = "{warning}" }},
@@ -249,9 +243,9 @@ rules = [
     # Plain text / config files
     {{ mime = "text/*", fg = "{fg_text}" }},
 
-    # Symlinks
-    {{ is = "link", fg = "{secondary}" }},
-    {{ is = "orphan", fg = "{error}" }},
+    # Fallback (yazi 26.x removed `is = "exec"` / "link" / "orphan" filetype matchers)
+    {{ url = "*", fg = "{fg_text}" }},
+    {{ url = "*/", fg = "{secondary}" }},
 ]
 
 # ============================================================================

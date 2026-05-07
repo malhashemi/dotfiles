@@ -1,185 +1,215 @@
-# Catppuccin Macchiato Flavor for Yazi
-# Based on: https://github.com/catppuccin/yazi
-# Accent: Mauve (#c6a0f6)
+# vim:fileencoding=utf-8:foldmethod=marker
 
-# ============================================================================
-# Manager (main file list)
-# ============================================================================
+# : Manager {{{
+
 [mgr]
-cwd = { fg = "#8bd5ca" }                                    # Teal - current directory
-hovered = { reversed = true }
-preview_hovered = { underline = true }
-find_keyword = { fg = "#eed49f", bold = true, italic = true, underline = true }
+cwd = { fg = "#8bd5ca" }
+
+# Find
+find_keyword  = { fg = "#eed49f", bold = true, italic = true, underline = true }
 find_position = { fg = "#f5bde6", bg = "reset", bold = true, italic = true }
-marker_copied = { fg = "#a6da95", bg = "#a6da95" }          # Green
-marker_cut = { fg = "#ed8796", bg = "#ed8796" }             # Red
-marker_marked = { fg = "#8bd5ca", bg = "#8bd5ca" }          # Teal
-marker_selected = { fg = "#eed49f", bg = "#eed49f" }        # Yellow
-border_style = { fg = "#8087a2" }                           # Overlay0
-border_symbol = "│"
-count_copied = { fg = "#24273a", bg = "#a6da95" }
-count_cut = { fg = "#24273a", bg = "#ed8796" }
+
+# Marker
+marker_copied   = { fg = "#a6da95", bg = "#a6da95" }
+marker_cut      = { fg = "#ed8796", bg = "#ed8796" }
+marker_marked   = { fg = "#8bd5ca", bg = "#8bd5ca" }
+marker_selected = { fg = "#eed49f", bg = "#eed49f" }
+
+# Count
+count_copied   = { fg = "#24273a", bg = "#a6da95" }
+count_cut      = { fg = "#24273a", bg = "#ed8796" }
 count_selected = { fg = "#24273a", bg = "#eed49f" }
 
-# Syntax highlighting theme for code preview
-syntect_theme = ""
+# Border
+border_symbol = "│"
+border_style  = { fg = "#8087a2" }
 
-# ============================================================================
-# Tabs
-# ============================================================================
+# : }}}
+
+
+# : Tabs {{{
+
 [tabs]
-active = { fg = "#24273a", bg = "#c6a0f6", bold = true }    # Mauve accent
-inactive = { fg = "#c6a0f6", bg = "#363a4f" }               # Mauve on Surface0
+active   = { fg = "#24273a", bg = "#8aadf4", bold = true }
+inactive = { fg = "#8aadf4", bg = "#363a4f" }
 
-# ============================================================================
-# Mode indicators (bottom left)
-# ============================================================================
+# : }}}
+
+
+# : Mode {{{
+
 [mode]
-normal_main = { fg = "#24273a", bg = "#c6a0f6", bold = true }
-normal_alt = { fg = "#c6a0f6", bg = "#363a4f" }
-select_main = { fg = "#24273a", bg = "#a6da95", bold = true }
-select_alt = { fg = "#a6da95", bg = "#363a4f" }
+
+normal_main = { fg = "#24273a", bg = "#8aadf4", bold = true }
+normal_alt  = { fg = "#8aadf4", bg = "#363a4f" }
+
+# Select mode
+select_main = { fg = "#24273a", bg = "#8bd5ca", bold = true }
+select_alt  = { fg = "#8bd5ca", bg = "#363a4f" }
+
+# Unset mode
 unset_main = { fg = "#24273a", bg = "#f0c6c6", bold = true }
-unset_alt = { fg = "#f0c6c6", bg = "#363a4f" }
+unset_alt  = { fg = "#f0c6c6", bg = "#363a4f" }
 
-# ============================================================================
-# Status bar (bottom)
-# ============================================================================
+# : }}}
+
+
+# : Status bar {{{
+
 [status]
-sep_left = { open = "", close = "", fg = "#5b6078", bg = "#5b6078" }
-sep_right = { open = "", close = "", fg = "#5b6078", bg = "#5b6078" }
-sep_style = { fg = "#24273a", bg = "#5b6078" }
-
-# Progress indicator
-progress_label = { fg = "#cad3f5", bold = true }
-progress_normal = { fg = "#c6a0f6", bg = "#363a4f" }
-progress_error = { fg = "#ed8796", bg = "#363a4f" }
-
 # Permissions
-perm_sep = { fg = "#8087a2" }
-perm_type = { fg = "#c6a0f6" }
-perm_read = { fg = "#eed49f" }
+perm_sep   = { fg = "#8087a2" }
+perm_type  = { fg = "#8aadf4" }
+perm_read  = { fg = "#eed49f" }
 perm_write = { fg = "#ed8796" }
-perm_exec = { fg = "#a6da95" }
+perm_exec  = { fg = "#a6da95" }
 
-# ============================================================================
-# Confirmation dialogs
-# ============================================================================
-[confirm]
-border = { fg = "#c6a0f6" }
-title = { fg = "#c6a0f6" }
-content = { fg = "#cad3f5" }
-list = { fg = "#cad3f5" }
-btn_yes = { bg = "#a6da95" }
-btn_no = { bg = "#ed8796" }
-btn_label = { bold = true }
+# Progress
+progress_label  = { fg = "#ffffff", bold = true }
+progress_normal = { fg = "#a6da95", bg = "#494d64" }
+progress_error  = { fg = "#eed49f", bg = "#ed8796" }
 
-# ============================================================================
-# Input fields
-# ============================================================================
+# : }}}
+
+
+# : Pick {{{
+
+[pick]
+border   = { fg = "#8aadf4" }
+active   = { fg = "#f5bde6", bold = true }
+inactive = {}
+
+# : }}}
+
+
+# : Input {{{
+
 [input]
-border = { fg = "#c6a0f6" }
-title = { fg = "#c6a0f6" }
-value = { fg = "#cad3f5" }
-value_bg = { bg = "#363a4f" }
+border   = { fg = "#8aadf4" }
+title    = {}
+value    = {}
 selected = { reversed = true }
 
-# ============================================================================
-# Completion menu
-# ============================================================================
+# : }}}
+
+
+# : Completion {{{
+
 [cmp]
-border = { fg = "#c6a0f6" }
-active = { fg = "#24273a", bg = "#c6a0f6" }
-inactive = { fg = "#cad3f5" }
+border = { fg = "#8aadf4" }
 
-# ============================================================================
-# Help popup
-# ============================================================================
-[help]
-on = { fg = "#8bd5ca" }
-run = { fg = "#c6a0f6" }
-desc = { fg = "#cad3f5" }
-hovered = { reversed = true, bold = true }
-footer = { fg = "#8087a2" }
+# : }}}
 
-# ============================================================================
-# Which-key popup
-# ============================================================================
+
+# : Tasks {{{
+
+[tasks]
+border  = { fg = "#8aadf4" }
+title   = {}
+hovered = { fg = "#f5bde6", bold = true }
+
+# : }}}
+
+
+# : Which {{{
+
 [which]
-sep = { fg = "#5b6078" }
-cols = 3
-mask = { bg = "#363a4f" }
-rest = { fg = "#8087a2" }
-cand = { fg = "#8bd5ca" }
-desc = { fg = "#cad3f5" }
+mask            = { bg = "#363a4f" }
+cand            = { fg = "#8bd5ca" }
+rest            = { fg = "#939ab7" }
+desc            = { fg = "#f5bde6" }
+separator       = "  "
+separator_style = { fg = "#5b6078" }
 
-# ============================================================================
-# Notifications
-# ============================================================================
+# : }}}
+
+
+# : Help {{{
+
+[help]
+on      = { fg = "#8bd5ca" }
+run     = { fg = "#f5bde6" }
+hovered = { reversed = true, bold = true }
+footer  = { fg = "#363a4f", bg = "#cad3f5" }
+
+# : }}}
+
+
+# : Spotter {{{
+
+[spot]
+border   = { fg = "#8aadf4" }
+title    = { fg = "#8aadf4" }
+tbl_col  = { fg = "#8bd5ca" }
+tbl_cell = { fg = "#f5bde6", bg = "#494d64" }
+
+# : }}}
+
+
+# : Notification {{{
+
 [notify]
-title_info = { fg = "#a6da95" }
-title_warn = { fg = "#eed49f" }
+title_info  = { fg = "#a6da95" }
+title_warn  = { fg = "#eed49f" }
 title_error = { fg = "#ed8796" }
 
-# ============================================================================
-# Picker menus
-# ============================================================================
-[pick]
-border = { fg = "#c6a0f6" }
-active = { fg = "#24273a", bg = "#c6a0f6" }
-inactive = { fg = "#cad3f5" }
+# : }}}
 
-# ============================================================================
-# Task manager
-# ============================================================================
-[tasks]
-border = { fg = "#c6a0f6" }
-title = { fg = "#c6a0f6" }
-hovered = { fg = "#c6a0f6", underline = true }
 
-# ============================================================================
-# Spot preview
-# ============================================================================
-[spot]
-border = { fg = "#c6a0f6" }
-title = { fg = "#c6a0f6" }
+# : File-specific styles {{{
 
-# ============================================================================
-# File type colors
-# ============================================================================
 [filetype]
+
 rules = [
-    # Directories
-    { url = "*/", fg = "#8aadf4" },
-
-    # Executables
-    { is = "exec", fg = "#a6da95" },
-
-    # Media files
-    { mime = "image/*", fg = "#f5bde6" },
-    { mime = "{audio,video}/*", fg = "#eed49f" },
-
-    # Documents
-    { mime = "application/pdf", fg = "#ed8796" },
-    { mime = "application/*zip*", fg = "#f0c6c6" },
-    { mime = "application/x-tar", fg = "#f0c6c6" },
-    { mime = "application/x-bzip*", fg = "#f0c6c6" },
-    { mime = "application/x-7z*", fg = "#f0c6c6" },
-    { mime = "application/x-rar", fg = "#f0c6c6" },
-    { mime = "application/x-xz", fg = "#f0c6c6" },
-
-    # Plain text / config files
-    { mime = "text/*", fg = "#cad3f5" },
-
-    # Symlinks
-    { is = "link", fg = "#8bd5ca" },
-    { is = "orphan", fg = "#ed8796" },
+	# Image
+	{ mime = "image/*", fg = "#8bd5ca" },
+	# Media
+	{ mime = "{audio,video}/*", fg = "#eed49f" },
+	# Archive
+	{ mime = "application/{zip,rar,7z*,tar,gzip,xz,zstd,bzip*,lzma,compress,archive,cpio,arj,xar,ms-cab*}", fg = "#f5bde6" },
+	# Document
+	{ mime = "application/{pdf,doc,rtf}", fg = "#a6da95" },
+	# Virtual file system
+	{ mime = "vfs/{absent,stale}", fg = "#939ab7" },
+	# Fallback
+	{ url = "*", fg = "#cad3f5" },
+	{ url = "*/", fg = "#8aadf4" },
 ]
 
-# ============================================================================
-# Icons (optional - can be extended)
-# ============================================================================
+# : }}}
+
 [icon]
-prepend_dirs = []
-prepend_files = []
-prepend_exts = []
+
+dirs = [
+	{ name = ".config", text = "", fg = "#f5bde6" },
+	{ name = ".git", text = "", fg = "#8bd5ca" },
+	{ name = ".github", text = "", fg = "#8aadf4" },
+	{ name = ".npm", text = "", fg = "#8aadf4" },
+	{ name = "Desktop", text = "", fg = "#8bd5ca" },
+	{ name = "Development", text = "", fg = "#8bd5ca" },
+	{ name = "Documents", text = "", fg = "#8bd5ca" },
+	{ name = "Downloads", text = "", fg = "#8bd5ca" },
+	{ name = "Library", text = "", fg = "#8bd5ca" },
+	{ name = "Movies", text = "", fg = "#8bd5ca" },
+	{ name = "Music", text = "", fg = "#8bd5ca" },
+	{ name = "Pictures", text = "", fg = "#8bd5ca" },
+	{ name = "Public", text = "", fg = "#8bd5ca" },
+	{ name = "Videos", text = "", fg = "#8bd5ca" },
+]
+conds = [
+	# Special files
+	{ if = "orphan", text = "", fg = "#cad3f5" },
+	{ if = "link", text = "", fg = "#8087a2" },
+	{ if = "block", text = "", fg = "#f0c6c6" },
+	{ if = "char", text = "", fg = "#f0c6c6" },
+	{ if = "fifo", text = "", fg = "#f0c6c6" },
+	{ if = "sock", text = "", fg = "#f0c6c6" },
+	{ if = "sticky", text = "", fg = "#f0c6c6" },
+	{ if = "dummy", text = "", fg = "#ed8796" },
+
+	# Fallback
+	{ if = "dir & hovered", text = "", fg = "#8aadf4" },
+	{ if = "dir", text = "", fg = "#8aadf4" },
+	{ if = "exec", text = "", fg = "#a6da95" },
+	{ if = "!dir", text = "", fg = "#cad3f5" },
+]

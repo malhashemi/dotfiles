@@ -96,22 +96,22 @@ lazygit = [
 # Custom open rules - prepend to defaults
 prepend_rules = [
     # Config files
-    { name = "*.json", use = ["edit", "open"] },
-    { name = "*.yaml", use = ["edit", "open"] },
-    { name = "*.yml", use = ["edit", "open"] },
-    { name = "*.toml", use = ["edit", "open"] },
-    { name = "*.md", use = ["edit", "open"] },
-    { name = "*.txt", use = ["edit", "open"] },
+    { url = "*.json", use = ["edit", "open"] },
+    { url = "*.yaml", use = ["edit", "open"] },
+    { url = "*.yml", use = ["edit", "open"] },
+    { url = "*.toml", use = ["edit", "open"] },
+    { url = "*.md", use = ["edit", "open"] },
+    { url = "*.txt", use = ["edit", "open"] },
 
     # Code files
-    { name = "*.lua", use = "edit" },
-    { name = "*.py", use = "edit" },
-    { name = "*.rs", use = "edit" },
-    { name = "*.go", use = "edit" },
-    { name = "*.js", use = "edit" },
-    { name = "*.ts", use = "edit" },
-    { name = "*.sh", use = "edit" },
-    { name = "*.zsh", use = "edit" },
+    { url = "*.lua", use = "edit" },
+    { url = "*.py", use = "edit" },
+    { url = "*.rs", use = "edit" },
+    { url = "*.go", use = "edit" },
+    { url = "*.js", use = "edit" },
+    { url = "*.ts", use = "edit" },
+    { url = "*.sh", use = "edit" },
+    { url = "*.zsh", use = "edit" },
 
     # Text files by MIME
     { mime = "text/*", use = "edit" },
