@@ -84,7 +84,7 @@ palette = 4={mat.get("primary", "#89b4fa")}
 palette = 5={mat.get("primary", "#cba6f7")}
 palette = 6={mat.get("tertiary", "#94e2d5")}
 palette = 7={mat.get("on_surface", "#bac2de")}
-palette = 8={mat.get("surface_container", "#585b70")}
+palette = 8={mat.get("outline", "#585b70")}
 palette = 9={mat.get("error", "#f38ba8")}
 palette = 10={mat.get("tertiary", "#a6e3a1")}
 palette = 11={mat.get("secondary", "#f9e2af")}

@@ -307,6 +307,10 @@ esac
 
 setopt INTERACTIVE_COMMENTS
 
+# worktrunk (`wt`) — git worktree CLI for parallel agent workflows.
+# Self-guarded with `command -v` so it no-ops on machines that don't have it.
+if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
+
 {{- if .is_linux }}
 # Linuxbrew (Homebrew for Linux)
 if [[ -d /home/linuxbrew/.linuxbrew ]]; then
