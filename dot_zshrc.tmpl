@@ -307,6 +307,9 @@ esac
 
 setopt INTERACTIVE_COMMENTS
 
+# CF CLI completions — guarded with [[ -f ]] so it no-ops if `cf` isn't installed.
+[[ -f "$HOME/.config/cf/completions/_cf.zsh" ]] && source "$HOME/.config/cf/completions/_cf.zsh"
+
 # worktrunk (`wt`) — git worktree CLI for parallel agent workflows.
 # Self-guarded with `command -v` so it no-ops on machines that don't have it.
 if command -v wt >/dev/null 2>&1; then eval "$(command wt config shell init zsh)"; fi
