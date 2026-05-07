@@ -3,7 +3,11 @@
 	email = "{{ .user.email }}"
 
 [core]
+{{- if and (hasKey . "is_headless") .is_headless }}
 	editor = nvim
+{{- else }}
+	editor = zed --wait
+{{- end }}
 	pager = delta
 	autocrlf = input
 	whitespace = trailing-space,space-before-tab

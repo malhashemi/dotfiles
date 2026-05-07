@@ -67,7 +67,16 @@ bindkey '^j' down-line-or-search
 # ============================================================================
 
 export LANG=en_US.UTF-8
+{{- if and (hasKey . "is_headless") .is_headless }}
 export EDITOR="nvim"
+export VISUAL="nvim"
+{{- else }}
+# Mac: Zed for $EDITOR. `zed` must be on PATH (brew cask installs it
+# automatically; manual installs need Zed.app menu → "Install CLI").
+# `--wait` blocks until the editor closes the file — required for git commits.
+export EDITOR="zed --wait"
+export VISUAL="zed --wait"
+{{- end }}
 export GOPATH="$HOME/go"
 export XDG_CONFIG_HOME="$HOME/.config"
 
@@ -277,8 +286,8 @@ for pydir in "$HOME/Library/Python"/*/bin(N); do
     [[ -d "$pydir" ]] && export PATH="$pydir:$PATH"
 done
 
-# Zed
-alias zed="/Applications/Zed.app/Contents/MacOS/cli"
+# Zed CLI is on PATH via /opt/homebrew/bin/zed (symlink → Zed.app/Contents/MacOS/cli)
+# installed automatically by `brew install --cask zed`. No alias needed.
 {{- else }}
 # Linux PATH additions (minimal - .local/bin already in zshenv handles pip packages)
 export PATH="$HOME/.bun/bin:$HOME/.atuin/bin:$HOME/go/bin:$PATH"

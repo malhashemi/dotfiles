@@ -239,16 +239,7 @@ cmd-shift-semicolon = 'mode service'
 cmd-ctrl-r = 'reload-config'
 
 # Primary application shortcuts (matching Hyprland)
-cmd-enter = '''exec-and-forget osascript -e '
-tell application "wezterm"
-    if it is running then
-        activate
-        tell application "System Events" to keystroke "n" using {command down}
-    else
-        activate
-    end if
-end tell'
-'''
+cmd-enter = 'exec-and-forget open -a cmux'
 alt-b = 'exec-and-forget open -a /Applications/Zen.app'
 
 # Secondary application shortcuts
