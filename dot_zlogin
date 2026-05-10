@@ -1,5 +1,5 @@
 # ~/.zlogin — auto-attach `cmux ssh` interactive shells to a per-workspace
-# zellij session for laptop-close durability + per-pane sequential tab assignment.
+# zellij session for laptop-close durability + source-relative tab cycling.
 #
 # Triggers ONLY when:
 #   - On Linux (no-op on macOS where cmux runs as the local terminal app)
@@ -13,26 +13,27 @@
 # Behavior matrix (inside an active cdevbox workspace):
 #   - Primary pane (`cdevbox foo`)
 #       → zellij attach --create foo (lands on tab position 0)
-#       → marker initialized to "foo:1" (next sibling targets position 1)
+#       → marker initialized to "foo"
 #
 #   - Sibling pane (Cmd+D or Cmd+T) — both behave identically:
-#       Read marker's next_pos, then:
-#         IF next_pos < total_tabs → zellij action go-to-tab (next_pos + 1)
-#         ELSE                     → zellij action new-tab
-#       Either way: write back "foo:$((next_pos + 1))" so the next sibling
-#       advances. Each Cmd+D/T cycles forward through existing tabs and only
-#       creates a new tab when it runs off the end.
+#       Query the SOURCE pane's current zellij tab position via
+#       `zellij action current-tab-info`. This works because at the moment
+#       the new pane's .zlogin runs, the new pane has not yet attached, so
+#       zellij's "most-recently-focused client" is still the source pane —
+#       the one in which the user pressed Cmd+D. Then:
+#         IF source_pos + 1 < total_tabs → focus tab (source_pos + 1)
+#         ELSE                           → create new tab (auto-focuses)
+#       New attachment lands on the target/created tab.
 #
 #   - Bare `cmuxbox` (no staging/marker) → fall through to plain shell
 #
-# Use Ctrl+N inside zellij to make panes WITHIN a tab.
-# Use Alt+H/Alt+L/Alt+1..5 to manually navigate this viewport between tabs.
+# ⚠ Known caveat: when focusing an existing tab, zellij's go-to-tab from
+# outside the session has no per-client targeting (mirror_session=false +
+# no `--client-id` flag in zellij CLI). The source pane's view also yanks
+# to the same tab; press Alt+H/L to navigate it back.
 #
-# Counter caveat: the position counter monotonically advances. If you close
-# zellij tabs (not just cmux panes), the counter doesn't rewind — eventually
-# next_pos exceeds total_tabs and Cmd+D resumes creating new tabs at the end.
-# That self-corrects within a few presses; explicit reset isn't worth the
-# complexity.
+# Use Ctrl+N inside zellij to make panes WITHIN a tab.
+# Use Alt+H/Alt+L/Alt+1..5 to manually navigate a viewport between tabs.
 #
 # See dot_zshrc.tmpl for the matching Mac-side `cdevbox` function.
 
@@ -51,7 +52,7 @@ local marker=""
 # Housekeeping: purge orphaned workspace markers older than 7 days.
 [[ -d "$marker_dir" ]] && find "$marker_dir" -type f -mtime +7 -delete 2>/dev/null
 
-local zsess="" is_sibling=false next_pos=1
+local zsess="" is_sibling=false
 
 # Path 1: Mac-side `cdevbox` staged the session name → primary pane.
 if [[ -r "$stage" ]]; then
@@ -64,38 +65,44 @@ if [[ -r "$stage" ]]; then
 fi
 
 # Path 2: Sibling pane (Cmd+D or Cmd+T) in an existing cdevbox-tagged workspace.
-# Marker format: "<session>:<next_pos>" where next_pos is the 0-indexed tab
-# position the next sibling should target. Legacy ":<tab_id_uuid>" markers
-# are treated as next_pos=1 (sane default).
+# Marker stores just the session name; back-compat strip for any legacy
+# ":<n>" or ":<tab_id_uuid>" suffix from prior implementations.
 if [[ -z "$zsess" && -n "$marker" && -r "$marker" ]]; then
   local mc=$(<"$marker"); mc=${mc//[$'\n\r']/}
   zsess=${mc%%:*}
-  local stored=${mc#*:}
-  if [[ "$stored" =~ ^[0-9]+$ ]]; then
-    next_pos=$stored
-  fi
   is_sibling=true
 fi
 
 # Bare cmuxbox (no durability context requested) → plain shell.
 [[ -n "$zsess" ]] || return
 
+# Persist the workspace marker once (only the primary writes it).
+if [[ -n "$marker" && ! -f "$marker" ]]; then
+  mkdir -p "$marker_dir" 2>/dev/null
+  print -r -- "$zsess" > "$marker"
+fi
+
+# Sibling: source-relative cycle-or-create.
 if $is_sibling; then
-  # Cycle: focus the next existing tab, OR create a new one if we've run off the end.
-  local total_tabs=$(zellij --session "$zsess" action query-tab-names 2>/dev/null | wc -l)
-  if (( next_pos < total_tabs )); then
-    # Tab at this position exists. zellij's go-to-tab is 1-based; position is 0-based.
-    zellij --session "$zsess" action go-to-tab $((next_pos + 1)) 2>/dev/null
+  # Source pane = whoever the user pressed Cmd+D in. Their zellij client is
+  # the most-recently-focused at the moment we run (we haven't attached yet).
+  local cur_pos
+  cur_pos=$(zellij --session "$zsess" action current-tab-info 2>/dev/null | awk '/^position:/ {print $2}')
+  [[ "$cur_pos" =~ ^[0-9]+$ ]] || cur_pos=0
+
+  local total_tabs
+  total_tabs=$(zellij --session "$zsess" action query-tab-names 2>/dev/null | wc -l)
+
+  local target=$((cur_pos + 1))
+
+  if (( target < total_tabs )); then
+    # Tab to the right of source's tab exists → focus it.
+    # NOTE: this also yanks the source pane's view; user navigates back with Alt+H.
+    zellij --session "$zsess" action go-to-tab $((target + 1)) 2>/dev/null
   else
-    # No existing tab to cycle to → create one (auto-focuses for the creating session).
+    # Source was on the rightmost tab → create new (auto-focuses for next attach).
     zellij --session "$zsess" action new-tab >/dev/null 2>&1
   fi
-  # Advance the counter for the next sibling.
-  print -r -- "${zsess}:$((next_pos + 1))" > "$marker"
-elif [[ -n "$marker" && ! -f "$marker" ]]; then
-  # Primary pane: initialize marker. Primary is at position 0; first sibling targets 1.
-  mkdir -p "$marker_dir" 2>/dev/null
-  print -r -- "${zsess}:1" > "$marker"
 fi
 
 exec zellij attach --create "$zsess"
