@@ -114,15 +114,6 @@ keybinds clear-defaults=true {
         bind "Alt 5" { GoToTab 5; }
         bind "Alt h" { GoToPreviousTab; }
         bind "Alt l" { GoToNextTab; }
-
-        // Direct split / new-tab bindings (single-key, no mode prefix).
-        // Inside cdevbox panes, cmux's Cmd+D/Cmd+T cause a new cmux pane
-        // whose ~/.zlogin auto-invokes `zellij action new-pane` / `new-tab`;
-        // these Alt bindings are the manual equivalent when you're already
-        // focused inside a zellij viewport and want a fresh pane/tab.
-        bind "Alt d" { NewPane "Right"; }
-        bind "Alt D" { NewPane "Down"; }   // Shift+Alt+D = vertical split
-        bind "Alt t" { NewTab; }
     }
     
     // Pane mode
