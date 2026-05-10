@@ -1,0 +1,77 @@
+# ~/.zlogin — auto-attach `cmux ssh` interactive shells to a per-workspace
+# zellij session for laptop-close durability + per-pane independent focus.
+#
+# Triggers ONLY when:
+#   - On Linux (no-op on macOS where cmux runs as the local terminal app)
+#   - Interactive shell
+#   - Inside `cmux ssh` (CMUX_SOCKET_PATH set by cmux's session shell init)
+#   - Not already inside zellij ($ZELLIJ unset)
+#   - Not opted out (CMUX_NO_ZELLIJ unset)
+#   - EITHER a staging file (from Mac-side `cdevbox`) OR a workspace marker
+#     left by a primary pane in the same cmux workspace exists
+#
+# Behavior matrix (inside an active cdevbox workspace):
+#   - Primary pane (`cdevbox foo`)         → zellij attach --create foo
+#   - Cmd+D split (same  CMUX_TAB_ID)      → zellij action new-pane + attach
+#   - Cmd+T new-surface (new CMUX_TAB_ID)  → zellij action new-tab  + attach
+#   - Bare `cmuxbox` (no staging/marker)   → fall through to plain shell
+#
+# See dot_zshrc.tmpl for the matching Mac-side `cdevbox` function.
+
+if [[ "$OSTYPE" != linux* ]]; then return; fi
+if [[ -z "$CMUX_SOCKET_PATH" || -n "$ZELLIJ" || -n "$CMUX_NO_ZELLIJ" ]]; then return; fi
+[[ -o interactive ]] || return
+
+emulate -L zsh
+zmodload zsh/datetime 2>/dev/null
+
+local stage="$HOME/.cmux/next-zellij-session"
+local marker_dir="$HOME/.cmux/workspace-zellij"
+local marker=""
+[[ -n "$CMUX_WORKSPACE_ID" ]] && marker="$marker_dir/$CMUX_WORKSPACE_ID"
+
+# Housekeeping: purge orphaned workspace markers older than 7 days.
+[[ -d "$marker_dir" ]] && find "$marker_dir" -type f -mtime +7 -delete 2>/dev/null
+
+local zsess="" zaction="attach"
+
+# Path 1: Mac-side `cdevbox` staged the session name → primary pane.
+if [[ -r "$stage" ]]; then
+  local now=${EPOCHSECONDS:-$(date +%s)}
+  local stamp=$(stat -c %Y "$stage" 2>/dev/null || echo 0)
+  if (( now - stamp < 300 )); then
+    zsess=$(<"$stage"); zsess=${zsess//[$'\n\r']/}
+  fi
+  rm -f "$stage"
+fi
+
+# Path 2: Sibling pane (Cmd+D split or Cmd+T new-surface) in an existing
+# cdevbox-tagged workspace. Marker format: "<base_session>:<primary_tab_id>".
+if [[ -z "$zsess" && -n "$marker" && -r "$marker" ]]; then
+  local mc=$(<"$marker"); mc=${mc//[$'\n\r']/}
+  zsess=${mc%%:*}
+  local primary_tab=${mc#*:}
+  if [[ -n "$CMUX_TAB_ID" && -n "$primary_tab" && "$CMUX_TAB_ID" != "$primary_tab" ]]; then
+    zaction="new-tab"
+  else
+    zaction="new-pane"
+  fi
+fi
+
+# Bare cmuxbox (no durability context requested) → plain shell.
+[[ -n "$zsess" ]] || return
+
+# Persist the workspace marker once (only the primary writes it).
+if [[ -n "$marker" && -n "$CMUX_TAB_ID" && ! -f "$marker" ]]; then
+  mkdir -p "$marker_dir" 2>/dev/null
+  print -r -- "${zsess}:${CMUX_TAB_ID}" > "$marker"
+fi
+
+# For sibling panes, ask zellij to create the pane/tab BEFORE we attach so
+# the new attachment lands focused on the freshly-created surface.
+case "$zaction" in
+  new-pane) zellij --session "$zsess" action new-pane --direction right 2>/dev/null ;;
+  new-tab)  zellij --session "$zsess" action new-tab                    2>/dev/null ;;
+esac
+
+exec zellij attach --create "$zsess"
