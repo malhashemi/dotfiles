@@ -1,5 +1,6 @@
 {
-  "default_agent": "researcher",
+  "$schema": "https://opencode.ai/config.json",
+  "default_agent": "ticketsmith",
   "theme": "dynamic",
   "experimental": {
     "disable_paste_summary": true
@@ -7,23 +8,15 @@
   "provider": {
     "anthropic": {
       "models": {
-        "claude-opus-4-5": {
-          "limit": {
-            "context": 200000,
-            "output": 200000
-          },
-          "options": {
-            "thinking": {
-              "type": "enabled",
-              "budgetTokens": 128000
-            }
-          }
-        },
-        "claude-sonnet-4-5": {
-          "options": {
-            "thinking": {
-              "type": "enabled",
-              "budgetTokens": 31999
+        "claude-opus-4-8": {
+          "variants": {
+            "mine": {
+              "thinking": {
+                "type": "adaptive"
+              },
+              "output_config": {
+                "effort": "max"
+              }
             }
           }
         }
@@ -64,7 +57,6 @@
       }
     }
   },
-  "$schema": "https://opencode.ai/config.json",
   "mcp": {
     "playwright": {
       "type": "local",
@@ -106,8 +98,9 @@
   },
   "plugin": [
     "opencode-sessions",
-    "opencode-claude-auth",
-    "opencode-gemini-auth"
+    "opencode-gemini-auth",
+    "{{ .chezmoi.homeDir }}/dev/opencode-dynamic-workflows/packages/plugin",
+    "file://{{ .chezmoi.homeDir }}/opencode-claude-oracle/plugin/claude-oracle.js"
   ],
   "agent": {
     "plan": {
@@ -136,4 +129,3 @@
     }
   }
 }
-
