@@ -9,7 +9,8 @@ set -euo pipefail
 # Configuration
 # ─────────────────────────────────────────────────────────────────────────────────
 SECRETS_FILE="$HOME/.secrets"
-BW_ITEM_NAME="dotfiles-secrets"
+BW_ITEM_NAME="${BW_ITEM_NAME:-dotfiles-secrets}"
+BW_ITEM_ID="${BW_ITEM_ID:-}"
 VERBOSE=false
 
 # ─────────────────────────────────────────────────────────────────────────────────
@@ -87,7 +88,9 @@ spinner_start() {
   local message="$1"
 
   # Hide cursor (output to tty to avoid polluting stdout)
-  tput civis >/dev/tty 2>/dev/null || true
+  if [[ -t 2 ]]; then
+    tput civis >/dev/tty 2>/dev/null || true
+  fi
 
   (
     local i=0
@@ -113,7 +116,9 @@ spinner_stop() {
   fi
 
   # Show cursor (output to tty to avoid polluting stdout)
-  tput cnorm >/dev/tty 2>/dev/null || true
+  if [[ -t 2 ]]; then
+    tput cnorm >/dev/tty 2>/dev/null || true
+  fi
 
   # Clear line and print result
   printf "\r\033[K" >&2
@@ -132,7 +137,9 @@ cleanup() {
   if [[ -n "$SPINNER_PID" ]]; then
     kill "$SPINNER_PID" 2>/dev/null || true
   fi
-  tput cnorm >/dev/tty 2>/dev/null || true
+  if [[ -t 2 ]]; then
+    tput cnorm >/dev/tty 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT
 
@@ -313,15 +320,91 @@ sync_vault() {
   fi
 }
 
+print_item_metadata() {
+  local item_json="$1"
+  local prefix="${2:-  }"
+
+  if ! printf '%s\n' "$item_json" | jq -r --arg prefix "$prefix" '
+    def collection_ids:
+      if ((.collectionIds // []) | length) == 0 then "none"
+      else ((.collectionIds // []) | join(","))
+      end;
+    def field_names:
+      if ((.fields // []) | length) == 0 then "none"
+      else ([(.fields // [])[].name] | join(","))
+      end;
+
+    $prefix + "id: " + (.id // "unknown"),
+    $prefix + "name: " + (.name // "unknown"),
+    $prefix + "organizationId: " + (.organizationId // "personal"),
+    $prefix + "collectionIds: " + collection_ids,
+    $prefix + "revisionDate: " + (.revisionDate // "unknown"),
+    $prefix + "deletedDate: " + (.deletedDate // "active"),
+    $prefix + "fieldCount: " + (((.fields // []) | length) | tostring),
+    $prefix + "fieldNames: " + field_names
+  ' >&2; then
+    echo -e "${prefix}${DIM}(unable to parse item metadata)${RESET}" >&2
+  fi
+}
+
+print_item_matches_metadata() {
+  local matches_json="$1"
+
+  printf '%s\n' "$matches_json" | jq -r '
+    def collection_ids:
+      if ((.collectionIds // []) | length) == 0 then "none"
+      else ((.collectionIds // []) | join(","))
+      end;
+
+    .[] |
+      "    - id: \(.id // "unknown") | org: \(.organizationId // "personal") | collections: \(collection_ids) | revision: \(.revisionDate // "unknown") | fields: \(((.fields // []) | length))"
+  ' >&2
+}
+
+check_unique_item_name() {
+  local matches_json
+  local match_count
+
+  if ! matches_json=$(bw --session "$BW_SESSION" list items --search "$BW_ITEM_NAME" 2>/dev/null |
+    jq --arg item_name "$BW_ITEM_NAME" -c '[.[] | select(.name == $item_name and ((.deletedDate // null) == null))]'); then
+    print_warning "Could not inspect matching Bitwarden items; continuing with name lookup"
+    return 0
+  fi
+
+  match_count=$(printf '%s\n' "$matches_json" | jq -r 'length')
+
+  if ((match_count == 0)); then
+    error_exit "No active Bitwarden item named '${BW_ITEM_NAME}'" \
+      "Create it in Bitwarden or set BW_ITEM_ID to the intended item ID"
+  fi
+
+  if ((match_count > 1)); then
+    echo "" >&2
+    print_warning "Multiple matching Bitwarden items found (metadata only):"
+    print_item_matches_metadata "$matches_json"
+    error_exit "Multiple active Bitwarden items named '${BW_ITEM_NAME}'" \
+      "Rename duplicates or run with BW_ITEM_ID set to the intended item ID"
+  fi
+}
+
 fetch_secrets() {
   local item_json
+  local item_ref="$BW_ITEM_NAME"
+  local item_label="'${BW_ITEM_NAME}'"
 
-  spinner_start "Fetching secrets from '${BW_ITEM_NAME}'..."
+  if [[ -n "$BW_ITEM_ID" ]]; then
+    item_ref="$BW_ITEM_ID"
+    item_label="ID '${BW_ITEM_ID}'"
+  else
+    check_unique_item_name
+  fi
 
-  if ! item_json=$(bw --session "$BW_SESSION" get item "$BW_ITEM_NAME" 2>&1); then
+  spinner_start "Fetching secrets from ${item_label}..."
+
+  if ! item_json=$(bw --session "$BW_SESSION" get item "$item_ref" 2>&1); then
     spinner_stop false ""
-    error_exit "Failed to fetch item '${BW_ITEM_NAME}'" \
-      "Ensure the item exists in your Bitwarden vault with custom fields"
+    error_exit "Failed to fetch Bitwarden item ${item_label}" \
+      "Ensure the item exists in your Bitwarden vault, or set BW_ITEM_ID to the intended item ID"
   fi
 
   # Extract fields as name=value pairs (tab-separated for safety)
@@ -330,11 +413,13 @@ fetch_secrets() {
 
   if [[ -z "$fields" ]]; then
     spinner_stop false ""
-    error_exit "No custom fields found in '${BW_ITEM_NAME}'" \
+    print_warning "Fetched item metadata (no secret values):"
+    print_item_metadata "$item_json" "    "
+    error_exit "No custom fields found in Bitwarden item ${item_label}" \
       "Add custom fields to the Bitwarden item (use 'Hidden field' type for sensitive values)"
   fi
 
-  spinner_stop true "Fetched secrets from '${BW_ITEM_NAME}'"
+  spinner_stop true "Fetched secrets from ${item_label}"
 
   echo "$fields"
 }
@@ -460,6 +545,10 @@ print_usage() {
   echo -e "${WHITE}${BOLD}Options:${RESET}" >&2
   echo -e "  ${CYAN}-v, --verbose${RESET}    Show masked secret values" >&2
   echo -e "  ${CYAN}-h, --help${RESET}       Show this help message" >&2
+  echo "" >&2
+  echo -e "${WHITE}${BOLD}Environment:${RESET}" >&2
+  echo -e "  ${CYAN}BW_ITEM_NAME${RESET}     Bitwarden item name (default: dotfiles-secrets)" >&2
+  echo -e "  ${CYAN}BW_ITEM_ID${RESET}       Optional stable item ID; use when duplicate names exist" >&2
   echo "" >&2
   echo -e "${WHITE}${BOLD}Description:${RESET}" >&2
   echo "  Syncs secrets from Bitwarden to ~/.secrets" >&2
