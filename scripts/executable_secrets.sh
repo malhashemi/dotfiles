@@ -389,6 +389,7 @@ check_unique_item_name() {
 
 fetch_secrets() {
   local item_json
+  local item_err
   local item_ref="$BW_ITEM_NAME"
   local item_label="'${BW_ITEM_NAME}'"
 
@@ -400,12 +401,15 @@ fetch_secrets() {
   fi
 
   spinner_start "Fetching secrets from ${item_label}..."
+  item_err=$(mktemp)
 
-  if ! item_json=$(bw --session "$BW_SESSION" get item "$item_ref" 2>&1); then
+  if ! item_json=$(bw --session "$BW_SESSION" get item "$item_ref" 2>"$item_err"); then
     spinner_stop false ""
+    rm -f "$item_err"
     error_exit "Failed to fetch Bitwarden item ${item_label}" \
       "Ensure the item exists in your Bitwarden vault, or set BW_ITEM_ID to the intended item ID"
   fi
+  rm -f "$item_err"
 
   # Extract fields as name=value pairs (tab-separated for safety)
   local fields
