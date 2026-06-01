@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="command-creator" step="1" title="Discovery and Context">
+
+  <step n="1" title="Discovery and Context">
+    
+    <goal>
+      Understand what command to create, what it should do, and how users will invoke it.
+    </goal>
+
+    <substep n="1a" title="Gather Requirements">
+      <ask>
+        Let's create a new command. Tell me:
+        
+        1. **What should this command do?**
+           (One sentence describing its purpose)
+        
+        2. **What triggers it?**
+           (What user action or need leads to using this command?)
+        
+        3. **Does it take arguments?**
+           (What input might users provide after /command-name?)
+      </ask>
+    </substep>
+
+    <substep n="1b" title="Check for Related Artifacts">
+      <action>
+        Search for any related documentation:
+        - Is there a skill this should wrap?
+        - Are there existing similar commands?
+        - Is there architecture documentation?
+      </action>
+      <check if="related skill exists">
+        <output>
+          Found related skill: {{skill_name}}
+          This command might be a wrapper that delegates to this skill.
+        </output>
+      </check>
+    </substep>
+
+    <substep n="1c" title="Summarize Requirements">
+      <template-output section="Discovery Summary">
+        ## Command Discovery Summary
+        
+        **Purpose:** {{purpose}}
+        **Trigger:** {{trigger}}
+        **Arguments:** {{arguments}}
+        
+        **Related Artifacts:**
+        - {{related_items}}
+        
+        [a] Refine requirements [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Good Command Candidates">
+      <rules>
+        <rule>Frequently repeated actions that need a shortcut</rule>
+        <rule>Operations that benefit from slash-trigger invocation</rule>
+        <rule>Wrappers around complex skills for quick access</rule>
+        <rule>Agent-specific utilities that shouldn't be global</rule>
+      </rules>
+      <example type="good">
+        "/commit" - Frequently needed, benefits from quick access
+        "/pr-review" - Wraps complex skill for easy invocation
+        "/prompter/verify" - Agent-specific utility
+      </example>
+    </section>
+
+    <section title="When NOT to Create a Command">
+      <rules>
+        <rule>If it needs multi-step user interaction → create a skill instead</rule>
+        <rule>If it requires checkpoints and review → create a skill instead</rule>
+        <rule>If it's complex enough to need step files → create a skill instead</rule>
+      </rules>
+      <example type="decision">
+        "Create a PRD" → Skill (needs checkpoints)
+        "Commit my changes" → Command (quick action)
+        "Validate this file" → Could be either (depends on complexity)
+      </example>
+    </section>
+
+  </guidance>
+
+</step-file>

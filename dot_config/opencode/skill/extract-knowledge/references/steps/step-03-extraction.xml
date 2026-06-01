@@ -1,0 +1,279 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="extract-knowledge" step="3" title="Extraction and Structuring">
+
+  <step n="3" title="Extraction and Structuring">
+    
+    <goal>
+      Transform analysis into a structured knowledge document that's
+      reusable, actionable, and consumable by both humans and agents.
+    </goal>
+
+    <substep n="3a" title="Choose Output Structure">
+      <action>
+        Based on knowledge type, select appropriate structure:
+        
+        **patterns** → Pattern Catalog
+        - Pattern name, problem, solution, examples, trade-offs
+        
+        **conventions** → Convention Reference
+        - Rule, rationale, examples (good/bad), exceptions
+        
+        **templates** → Template with Instructions
+        - Template content, placeholder descriptions, usage guide
+        
+        **guidelines** → Decision Guide
+        - When to use, how to decide, examples, anti-patterns
+        
+        **vocabulary** → Glossary
+        - Term, definition, usage, related terms
+
+        **remediation** → Remediation Set
+        - Per item: source file, the defect, the exact change (diff-shaped)
+      </action>
+    </substep>
+
+    <substep n="3b" title="Create Knowledge Document">
+      <action>
+        Generate the knowledge document with this structure:
+        
+        ```markdown
+        # {{knowledge_name}}
+        
+        ## Overview
+        Brief description of what this knowledge covers.
+        
+        ## When to Use
+        Situations where this knowledge applies.
+        
+        ## {{Main Content Section}}
+        (Structure depends on knowledge type)
+        
+        ## Examples
+        Concrete examples showing patterns in action.
+        
+        ## Anti-Patterns
+        What NOT to do and why.
+        
+        ## References
+        Source material this was extracted from.
+        ```
+      </action>
+    </substep>
+
+    <substep n="3c" title="Write Pattern Entries" if="knowledge_type == 'patterns'">
+      <action for-each="pattern in patterns">
+        For each pattern, document:
+        
+        ### {{pattern.name}}
+        
+        **Problem:** What situation triggers this pattern?
+        
+        **Solution:** How the pattern addresses the problem.
+        
+        **Structure:**
+        ```
+        (Show the pattern's skeleton/template)
+        ```
+        
+        **Example:**
+        ```
+        (Concrete implementation from source)
+        ```
+        
+        **Rationale:** Why this approach works.
+        
+        **Trade-offs:** What you gain/lose by using this pattern.
+        
+        **When NOT to Use:** Situations where this pattern is wrong.
+      </action>
+    </substep>
+
+    <substep n="3d" title="Write Convention Entries" if="knowledge_type == 'conventions'">
+      <action for-each="convention in conventions">
+        For each convention, document:
+        
+        ### {{convention.name}}
+        
+        **Rule:** Clear statement of the convention.
+        
+        **Rationale:** Why this convention exists.
+        
+        **Good Example:**
+        ```
+        (Correct usage)
+        ```
+        
+        **Bad Example:**
+        ```
+        (Incorrect usage)
+        ```
+        
+        **Exceptions:** When the rule doesn't apply.
+      </action>
+    </substep>
+
+    <substep n="3e" title="Write Template" if="knowledge_type == 'templates'">
+      <action>
+        Create the template with:
+        
+        ## Template: {{template_name}}
+        
+        ### Usage
+        When and how to use this template.
+        
+        ### Template
+        ```
+        {{template_content_with_placeholders}}
+        ```
+        
+        ### Placeholders
+        | Placeholder | Description | Example |
+        |-------------|-------------|---------|
+        | {{name}} | What goes here | Example value |
+        
+        ### Customization
+        What can/should be modified vs kept as-is.
+      </action>
+    </substep>
+
+    <substep n="3e2" title="Write Remediation Set" if="knowledge_type == 'remediation'">
+      <action for-each="target in remediation_targets">
+        For each localized target produce a diff-shaped entry the user can
+        approve before any write:
+
+        ### {{target.source_file}}
+        **Defect:** what's wrong here.
+        **Change:** the exact edit (old → new) — behavioral, not vague.
+        **Prevention check:** is this eliminating the error class at its source,
+        or just adding a downstream check? Prefer the former (per
+        key-responsibility).
+      </action>
+    </substep>
+
+    <substep n="3f" title="Add Anti-Patterns">
+      <action>
+        Document what NOT to do:
+        
+        ## Anti-Patterns
+        
+        ### {{anti_pattern_name}}
+        **What it looks like:** Description of the mistake.
+        **Why it's wrong:** What problems it causes.
+        **Instead:** What to do instead.
+      </action>
+    </substep>
+
+    <substep n="3g" title="Review Extracted Knowledge">
+      <template-output section="Extracted Knowledge">
+        ## Knowledge Document: {{knowledge_name}}
+        
+        {{generated_document}}
+        
+        ---
+        
+        **Document Stats:**
+        - Patterns/Items: {{item_count}}
+        - Examples: {{example_count}}
+        - Anti-patterns: {{anti_pattern_count}}
+        
+        [a] Edit document [c] Continue to validation [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Knowledge Document Quality">
+      <rules>
+        <rule>Every pattern needs at least one concrete example</rule>
+        <rule>Every rule needs rationale (the "why")</rule>
+        <rule>Include anti-patterns - knowing what NOT to do is valuable</rule>
+        <rule>Keep entries scannable - use headers, bullets, code blocks</rule>
+        <rule>Reference source material for traceability</rule>
+      </rules>
+    </section>
+
+    <section title="LLM-Friendly Formatting">
+      <description>Format knowledge for effective LLM consumption:</description>
+      <rules>
+        <rule>Use XML tags for structure (easy to parse)</rule>
+        <rule>Include examples (enables few-shot learning)</rule>
+        <rule>Use emphasis keywords appropriately (MUST, NEVER, etc.)</rule>
+        <rule>Keep items self-contained (can be loaded independently)</rule>
+      </rules>
+      <example>
+        &lt;pattern name="error-handling"&gt;
+          &lt;problem&gt;API operations can fail&lt;/problem&gt;
+          &lt;solution&gt;Wrap in try/catch, return structured error&lt;/solution&gt;
+          &lt;example&gt;...&lt;/example&gt;
+          &lt;rule&gt;ALWAYS log before returning error&lt;/rule&gt;
+        &lt;/pattern&gt;
+      </example>
+    </section>
+
+    <section title="Actionability Test">
+      <description>Good extracted knowledge passes this test:</description>
+      <test>
+        Could someone unfamiliar with the source material:
+        1. Understand when this applies?
+        2. Follow the pattern/convention correctly?
+        3. Avoid common mistakes?
+        4. Adapt it to their specific situation?
+        
+        If any answer is "no", add more context/examples.
+      </test>
+    </section>
+
+    <section title="Output Formats by Type">
+      
+      <format name="Pattern Catalog">
+        ```markdown
+        # Pattern: Name
+        
+        **Problem:** When you need to...
+        **Solution:** Use this approach...
+        **Structure:**
+        (template)
+        
+        **Example:**
+        (concrete code/content)
+        
+        **Trade-offs:** Gains X, costs Y
+        ```
+      </format>
+      
+      <format name="Convention Reference">
+        ```markdown
+        ## Convention: Name
+        
+        **Rule:** Always/Never do X
+        **Rationale:** Because...
+        
+        Good: (example)
+        Bad: (example)
+        
+        **Exceptions:** Unless...
+        ```
+      </format>
+      
+      <format name="Template">
+        ```markdown
+        ## Template: Name
+        
+        ### Usage
+        Use when...
+        
+        ### Template
+        (content with {{placeholders}})
+        
+        ### Placeholders
+        | Name | Description |
+        ```
+      </format>
+
+    </section>
+
+  </guidance>
+
+</step-file>

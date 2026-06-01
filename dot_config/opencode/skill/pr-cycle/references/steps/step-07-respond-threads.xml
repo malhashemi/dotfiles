@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="pr-cycle" step="7" title="Respond and Resolve Threads">
+
+  <step n="7" title="Respond and Resolve Threads">
+
+    <substep n="7a" title="Iterate Over Assessed Threads">
+      <action>
+        For each thread in {{bundle_dir}}/pr-cycle-assessment-iter-{{iteration_count}}.json:
+      </action>
+    </substep>
+
+    <substep n="7b" title="Address Branch">
+      <check if="thread.recommendation == 'Address'">
+        <action type="script">gh api repos/{{owner}}/{{repo}}/pulls/{{pr_number}}/comments/{{comment_id}}/replies -F body="**Addressed in commit {{fix_commit_sha}}**
+
+{{thread.fix_summary}}"</action>
+        <action type="script">gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "{{thread_id}}"}) { thread { isResolved } } }'</action>
+      </check>
+    </substep>
+
+    <substep n="7c" title="Decline Branch">
+      <check if="thread.recommendation == 'Decline'">
+        <action type="script">gh api repos/{{owner}}/{{repo}}/pulls/{{pr_number}}/comments/{{comment_id}}/replies -F body="**Declined**
+
+{{thread.rationale}}"</action>
+        <action type="script">gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "{{thread_id}}"}) { thread { isResolved } } }'</action>
+      </check>
+    </substep>
+
+    <substep n="7d" title="Defer Branch">
+      <check if="thread.recommendation == 'Defer'">
+        <action type="script">gh issue create --title "Deferred from PR #{{pr_number}}: {{thread.brief}}" --body "## Deferred from PR #{{pr_number}}
+
+**Original thread**: {{thread.file}}:{{thread.line}}
+**Gemini severity**: {{thread.severity}}
+
+### Issue
+{{thread.issue}}
+
+### Why Deferred
+{{thread.deferral_rationale}}
+
+### Proposed Fix
+{{thread.proposed_fix}}
+
+### References
+- PR: #{{pr_number}}
+- Thread: {{thread.comment_url}}" --label "deferred"</action>
+        <action>Parse the issue URL from the gh output; extract {{issue_number}}.</action>
+        <action type="script">gh api repos/{{owner}}/{{repo}}/pulls/{{pr_number}}/comments/{{comment_id}}/replies -F body="**Deferred**: Tracked in #{{issue_number}}
+
+{{thread.deferral_rationale}}"</action>
+        <action type="script">gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "{{thread_id}}"}) { thread { isResolved } } }'</action>
+      </check>
+    </substep>
+
+    <substep n="7e" title="Verify All Threads Resolved">
+      <action type="script">gh api graphql -f query='query { repository(owner:"{{owner}}",name:"{{repo}}") { pullRequest(number:{{pr_number}}) { reviewThreads(first:100) { nodes { isResolved } } } } }'</action>
+      <check if="any isResolved == false">
+        <action>
+          Halt with: "After respond-and-resolve, {{n}} threads remain
+          unresolved. Inspect manually; do NOT proceed to re-review."
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

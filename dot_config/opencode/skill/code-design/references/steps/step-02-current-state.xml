@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-design" step="2" title="Present Current State">
+
+  <step n="2" title="Present Current State">
+
+    <substep n="2a" title="Draft Current State Section">
+      <action>
+        From research file findings, draft the Current state section:
+        - Map the touched-area module/types/seams
+        - Cite specific file:line references
+        - Name patterns and invariants that exist
+        - Stay focused: only the touched area, not the whole codebase
+
+        Apply the tag-specific guidance already in the skeleton (the
+        skeleton's "_Guidance ({{primary_tag}})_" line is the
+        scaffold; you fill the content).
+      </action>
+    </substep>
+
+    <substep n="2b" title="Write to Design File">
+      <action>
+        Edit {{design_path}} — replace the "_(populated by code-design
+        through brain-surgery conversation)_" placeholder under
+        "## Current state" with the drafted content. Preserve the
+        guidance line as a comment or remove it (your call — the
+        section's purpose is now captured in the content itself).
+      </action>
+    </substep>
+
+    <substep n="2c" title="Present and Stress-Test">
+      <ask>
+        Current state drafted (see {{design_path}} → "## Current
+        state" section).
+
+        Summary: {{one-paragraph summary of the section}}
+
+        Critical points to stress-test:
+        - {{point 1}}
+        - {{point 2}}
+        - {{point 3}}
+
+        Your response:
+        - Accept (Recommended): proceed to Desired end state
+        - Push back on a specific point: name the point + your concern
+        - Reframe: the current-state framing is wrong; redirect
+      </ask>
+      <check if="user accepts">
+        <action>Lock the section. Proceed to step 3.</action>
+      </check>
+      <check if="user pushes back">
+        <action>
+          Revise the section. Re-draft. Re-present. Loop within this
+          step until alignment.
+        </action>
+      </check>
+      <check if="user reframes">
+        <action>
+          This is a foundational reversal. Increment {{strike_count}}.
+          See substep 2d.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2d" title="Foundational Reversal Strike Check">
+      <check if="strike_count == 1">
+        <action>
+          Acknowledge the reframe. Note the invalidated work
+          (research turns that no longer apply, design draft now
+          stale). Re-draft current state per the new framing. Proceed.
+        </action>
+      </check>
+      <check if="strike_count == 2">
+        <ask>
+          Second foundational reversal in this D-phase. The accumulated
+          design draft is becoming inconsistent.
+
+          Continue absorbing, or pause to consolidate?
+          - Continue (Recommended for small reframes): I'll revise and proceed
+          - Pause and consolidate: stop here; review what we have on disk; restart D-phase with the new framing
+        </ask>
+      </check>
+      <check if="strike_count == 3">
+        <ask>
+          Third foundational reversal. The original D-phase scoping is
+          increasingly clearly wrong.
+
+          Recommendation: abort current D-phase. Archive the current
+          bundle as research evidence. Restart D-phase with the new
+          understanding.
+
+          - Abort + restart (Recommended)
+          - Continue anyway: I'll revise and proceed (the bundle's
+            coherence is your responsibility from here)
+        </ask>
+        <check if="user picks abort">
+          <action>
+            Halt the skill. The bundle on disk is preserved as
+            evidence. The codesmith primary agent surfaces the abort
+            to the user with a restart recommendation.
+          </action>
+        </check>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

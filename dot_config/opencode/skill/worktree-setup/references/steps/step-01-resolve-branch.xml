@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="worktree-setup" step="1" title="Resolve Branch Name">
+
+  <step n="1" title="Resolve Branch Name">
+
+    <substep n="1a" title="Read Tag Prefix">
+      <action>
+        Read `references/tag-recipes/{primary_tag}.md`. Find the
+        `## Branch prefix` section. Extract the prefix value (everything
+        before the slash in the single-plan format).
+
+        Tag → prefix mapping (canonical, in case the section is missing):
+        - feature        → feat
+        - bug            → fix
+        - exploration    → spike
+        - hotfix         → hotfix
+        - infrastructure → infra
+        - chore          → chore
+
+        Store as {{tag_prefix}}.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Compose Branch Name">
+      <action>
+        Apply the branch-name formula:
+
+        - plan_count == 1                       → `{tag_prefix}/{ticket_slug}`
+        - plan_count > 1 AND parallel_safe      → `{tag_prefix}/{ticket_slug}-plan-{plan_index}`
+        - plan_count > 1 AND NOT parallel_safe  → `{tag_prefix}/{ticket_slug}` (single worktree; plans serialize within)
+
+        Store as {{branch}}.
+      </action>
+    </substep>
+
+    <substep n="1c" title="Sanity-Check Branch Does Not Exist">
+      <action type="script">git branch --list {{branch}} 2>/dev/null</action>
+      <check if="output is non-empty">
+        <action>
+          Branch already exists. Halt with: "Branch {{branch}} already
+          exists. Inspect with `wt list` or `git branch`. If this is a
+          resumption, dispatch to the existing worktree path instead of
+          creating a new one. If it is stale, remove via `wt remove
+          {{branch}}` first."
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

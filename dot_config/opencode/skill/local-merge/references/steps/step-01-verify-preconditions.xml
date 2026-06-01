@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="local-merge" step="1" title="Verify Preconditions">
+
+  <step n="1" title="Verify Preconditions">
+
+    <substep n="1a" title="Confirm Worktree Is Clean">
+      <action type="script">cd {{worktree_path}} &amp;&amp; git status --porcelain</action>
+      <check if="output is non-empty">
+        <action>
+          Halt with: "Worktree {{worktree_path}} has uncommitted changes.
+          local-merge requires a clean state. Commit, stash, or discard
+          the changes first. Output:\n{{git_status_output}}"
+        </action>
+      </check>
+    </substep>
+
+    <substep n="1b" title="Confirm Branch Exists">
+      <action type="script">cd {{worktree_path}} &amp;&amp; git rev-parse --abbrev-ref HEAD</action>
+      <check if="output != {{branch}}">
+        <action>
+          Halt with: "Worktree {{worktree_path}} is on branch
+          '{{actual_branch}}', not the expected '{{branch}}'. Inspect with
+          `wt list` and `git branch -a`."
+        </action>
+      </check>
+    </substep>
+
+    <substep n="1c" title="Confirm Target Branch Exists">
+      <action type="script">git rev-parse --verify {{target_branch}} 2>/dev/null</action>
+      <check if="command failed">
+        <action>
+          Halt with: "Target branch '{{target_branch}}' does not exist
+          locally. Verify with `git branch -a`. If it exists only on the
+          remote, fetch first: `git fetch origin {{target_branch}}`."
+        </action>
+      </check>
+    </substep>
+
+    <substep n="1d" title="Confirm Branch Is Ahead of Target">
+      <action type="script">cd {{worktree_path}} &amp;&amp; git rev-list --count {{target_branch}}..HEAD</action>
+      <check if="output is 0">
+        <action>
+          Halt with: "Branch '{{branch}}' has no commits ahead of
+          '{{target_branch}}'. Nothing to merge. Inspect the
+          implementation log; this likely indicates an I-phase failure
+          that wasn't surfaced earlier."
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

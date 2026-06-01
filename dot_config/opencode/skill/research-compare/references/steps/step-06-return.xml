@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-compare" step="6" title="Return">
+
+  <step n="6" title="Return">
+
+    <check if="AUTONOMOUS">
+      <output-format>
+        Emit to stdout:
+
+        ```
+        SUCCESS
+        Matrix: {absolute path to the persisted comparison document}
+        Compared: {alternatives}
+        Criteria: {the criteria used}
+        Tradeoff shape: {1-2 sentences — what each alternative optimizes
+                        for and at what cost; NO winner}
+        Undetermined: {cells that could not be resolved, or "none"}
+        ```
+      </output-format>
+    </check>
+
+    <check if="INTERACTIVE">
+      <output-format>
+        Present to the user:
+
+        ## Comparison Matrix Complete
+
+        **Document**: {path}
+        **Compared**: {alternatives}
+        **Criteria**: {criteria}
+
+        {the tradeoff shape — what each alternative optimizes for and at
+        what cost, with the key per-criterion leads cited; no winner}
+
+        **Undetermined**: {cells left open, or "none"}
+
+        Then offer next actions:
+        - Deepen research on one alternative (Focused Study)
+        - Investigate the decision more broadly (Comprehensive Investigation)
+      </output-format>
+    </check>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="agent-creator" step="3" title="Scaffold &amp; Configure">
+
+  <step n="3" title="Scaffold &amp; Configure">
+
+    <goal>
+      Create the agent directory and write agent.yaml + frontmatter.md
+      (plus persona.md for both modes; menu.md for primary; instructions.md
+      for subagent — those are filled in Step 4). The vera-cli native
+      format keeps agent.yaml minimal (artifact descriptor only) and puts
+      frontmatter content in frontmatter.md as raw markdown between `---`
+      markers.
+
+      If Step 2 identified missing project infrastructure (shared/*
+      files referenced in agent.yaml that don't exist in the project),
+      this step copies the bundled references from agent-creator's
+      references/shared-fragments/ and references/baselines/ to the
+      project's .vera/shared/ location BEFORE the new agent's files
+      are written.
+    </goal>
+
+    <substep n="3-pre" title="Materialize Missing Project Infrastructure">
+      <action>
+        For each entry in {{missing_infrastructure}} from Step 2:
+
+        1. Resolve source path: the bundled reference inside agent-creator
+           - baselines/* → references/baselines/{filename}
+           - shared-fragments/* → references/shared-fragments/{filename}
+
+        2. Resolve destination path: the project's shared/ location
+           - baselines → .vera/shared/baseline/{filename}
+           - shared-fragments → .vera/shared/{filename}
+
+        3. Ensure destination directory exists:
+           mkdir -p .vera/shared/baseline    (for baselines)
+           mkdir -p .vera/shared              (for shared-fragments)
+
+        4. Copy:
+           cp {agent-creator-path}/references/baselines/X.md .vera/shared/baseline/X.md
+           cp {agent-creator-path}/references/shared-fragments/X.md .vera/shared/X.md
+
+        After copy, verify the file is at its expected path. If a file
+        already exists at the destination, DO NOT overwrite — log a notice
+        and skip. The user's project file is authoritative.
+      </action>
+    </substep>
+
+    <substep n="3a" title="Gather Identity">
+      <ask>
+        Let's define the agent's identity:
+        1. agent_id — lowercase, hyphens (e.g., "code-reviewer"). Used as the directory name and the OpenCode agent ID.
+        2. character_name — human name for personality (e.g., "Percy", "Tessa", "Cole").
+        3. agent_title — formal role (e.g., "Business Analyst", "Web Research Specialist").
+        4. emoji — single emoji representing this agent (e.g., "📐", "🔨", "⚒️").
+      </ask>
+      <note>
+        For subagents: character_name + agent_title + emoji are not surfaced
+        through the agent-activation block (subagents don't include it).
+        Set them anyway for documentation symmetry, but they won't appear
+        in the compiled artifact.
+      </note>
+    </substep>
+
+    <substep n="3b" title="Write Description">
+      <ask>
+        What's the one-paragraph description? (becomes the `description:`
+        field in frontmatter.md)
+        - For primary agents: what appears in the agent picker and steers
+          model attention when this agent is selected
+        - For subagents: how the orchestrator finds and chooses it
+          (include input shape, output shape, scope — be searchable)
+      </ask>
+    </substep>
+
+    <substep n="3c" title="Configure Permission Map">
+      <action>
+        Configure the OpenCode permission map for frontmatter.md. Apply
+        principle of least privilege:
+
+        Primary agents (typical):
+          skill:
+            {each-skill-from-step-1}: allow
+          read: allow
+          edit: allow
+          bash: allow
+          grep: allow
+          glob: allow
+          list: allow
+          lsp: deny
+          question: allow
+          todowrite: allow
+          todoread: allow
+          task: deny    # allow only if the agent dispatches subagents
+          webfetch: deny  # research uses web-search-researcher subagent instead
+
+        Subagents (typical):
+          read: allow
+          grep: allow
+          glob: allow
+          list: allow
+          edit: deny       # subagents observe and report; orchestrator edits
+          write: deny
+          bash: deny       # except where structurally required (e.g., validator
+                           # runs fitness functions)
+          lsp: deny
+          question: deny   # subagents are non-interactive; orchestrator prompts user
+          todowrite: allow # for subagent's own internal tracking
+          todoread: allow
+          task: deny       # subagents don't spawn further subagents (Lock 10 worker
+                           # is the documented exception — opt in explicitly)
+          webfetch: deny
+      </action>
+    </substep>
+
+    <substep n="3d" title="Pick Color">
+      <action>
+        Pick a hex color for OpenCode's UI. Cross-check against existing
+        agents in vera.manifest.yaml to avoid collisions.
+
+        Existing dubstack colors:
+        - Ticketsmith primary: #2E8B57 (green — growth, structure)
+        - Codesmith primary:   #B22222 (red — forge fire, urgency)
+        - Prompter primary:    #A420D0 (purple — precision, craft)
+        - Ticket-reviewer:     #8B4513 (saddle brown — read-only critic)
+        - Codesmith-worker:    #C75B12 (orange-brown — apprentice at the forge)
+        - Codesmith-validator: #8B0000 (dark red — verification gate)
+        - Lead-researcher:     #4682B4 (steel blue — structured executor)
+      </action>
+    </substep>
+
+    <substep n="3e" title="Create Directory and Write agent.yaml">
+      <action>
+        Create the directory: .vera/agents/{agent_id}/
+
+        Write agent.yaml using the new dubstack format (NOT the legacy
+        nested-frontmatter format):
+
+        ```yaml
+        type: agent
+        id: {agent_id}
+        file_name: {agent_id}.md
+        variables:
+          agent_id: {agent_id}
+          character_name: {character_name}
+          agent_title: {agent_title}
+          emoji: "{emoji}"
+        includes:
+          - frontmatter.md
+          - shared/activation.md
+          - shared/baseline/context-md-awareness.md    # if applicable
+          - shared/baseline/thoughts-cli-awareness.md  # if applicable
+          - shared/agent-activation.md
+          - persona.md
+          - menu.md
+          - shared/agent-close.md
+        ```
+
+        For subagents:
+        ```yaml
+        type: agent
+        id: {agent_id}
+        file_name: {agent_id}.md
+        variables:
+          agent_id: {agent_id}
+        includes:
+          - frontmatter.md
+          - shared/baseline/context-md-awareness.md    # if applicable
+          - shared/baseline/thoughts-cli-awareness.md  # if applicable
+          - shared/subagent-open.md
+          - persona.md
+          - instructions.md
+          - shared/subagent-close.md
+        ```
+        The variables block supplies {{agent_id}} for subagent-open.md's
+        `<subagent id="{{agent_id}}">` substitution.
+
+        Reference: references/templates/agent.template.yaml for the
+        canonical structure with explanatory comments.
+      </action>
+    </substep>
+
+    <substep n="3f" title="Write frontmatter.md">
+      <action>
+        Write frontmatter.md as RAW markdown content with the YAML
+        frontmatter between `---` markers. This file is concatenated AS-IS
+        to the top of the compiled artifact, providing the OpenCode YAML
+        frontmatter.
+
+        Primary agent template:
+        ```markdown
+        ---
+        mode: primary
+        color: "{hex_color}"
+        permission:
+          skill:
+            {skill-1}: allow
+            {skill-2}: allow
+          read: allow
+          edit: allow
+          bash: allow
+          grep: allow
+          glob: allow
+          list: allow
+          lsp: deny
+          question: allow
+          todowrite: allow
+          todoread: allow
+          task: deny
+          webfetch: deny
+        description: "{one-paragraph description}"
+        ---
+        ```
+
+        Subagent template:
+        ```markdown
+        ---
+        mode: subagent
+        color: "{hex_color}"
+        permission:
+          read: allow
+          grep: allow
+          glob: allow
+          list: allow
+          edit: deny
+          bash: deny
+          lsp: deny
+          question: deny
+          todowrite: allow
+          todoread: allow
+          task: deny
+          webfetch: deny
+        description: "{one-paragraph description with input/output contract}"
+        ---
+        ```
+
+        Do NOT nest the frontmatter inside agent.yaml — that's the legacy
+        vera-cli format. The dubstack-native format puts frontmatter in
+        frontmatter.md as raw content.
+      </action>
+    </substep>
+
+    <substep n="3g" title="Confirm Scaffold">
+      <template-output section="Scaffold Output">
+        Present the written files for review:
+        - .vera/agents/{agent_id}/agent.yaml
+        - .vera/agents/{agent_id}/frontmatter.md
+        - Any project shared/ files copied from bundled references (if {{missing_infrastructure}} was non-empty in Step 2)
+
+        Key checks:
+        - agent.yaml has top-level type/id/file_name/variables/includes (no nested frontmatter mapping)
+        - agent.yaml includes match the canonical order from Step 2
+        - frontmatter.md starts and ends with `---` markers
+        - Permission map follows least-privilege
+        - Variables block has all four identity fields (primary only — subagents skip)
+        - Project shared/ files exist for every shared/* reference in agent.yaml includes
+
+        Note: persona.md and (for primaries) menu.md and (for subagents)
+        instructions.md are NOT yet created — those are filled in Step 4.
+
+        [a] Adjust [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Permission Patterns">
+      <rules>
+        <rule>Start from deny-all, justify each allow</rule>
+        <rule>webfetch: deny on primary agents — dispatch web-search-researcher subagent instead (preserves the user-approval gate)</rule>
+        <rule>task: deny by default — flip to allow only if the agent dispatches subagents via the Task tool</rule>
+        <rule>Subagents: question: deny (orchestrator handles user interaction); edit/bash typically deny unless structurally required</rule>
+        <rule>Skill permissions: list each skill from Step 1 with value `allow` (deny here would mean the agent can't invoke the skill even if it's in the menu)</rule>
+      </rules>
+    </section>
+
+    <section title="Color Suggestions">
+      <rules>
+        <rule>Blue (#4A90D9 / #4682B4): Data, trust, analysis, structured executors</rule>
+        <rule>Purple (#A420D0): Creativity, precision</rule>
+        <rule>Green (#2E8B57): Growth, structure</rule>
+        <rule>Teal (#0d9488): Strategy, balance</rule>
+        <rule>Red (#B22222 / #DC143C): Forge fire, alerts, security</rule>
+        <rule>Orange (#FF8C00 / #C75B12): Energy, operations, apprentice roles</rule>
+        <rule>Saddle brown (#8B4513): Read-only critic, conservative reviewer</rule>
+        <rule>Dark red (#8B0000): Verification gate, critical halt authority</rule>
+      </rules>
+    </section>
+
+    <section title="agent_id Conventions">
+      <rules>
+        <rule>Lowercase only, hyphens for multi-word</rule>
+        <rule>Short but descriptive: codesmith, ticket-reviewer, codesmith-validator</rule>
+        <rule>Must be unique across all agents in dubstack (check .vera/agents/ tree)</rule>
+        <rule>Becomes the directory name (.vera/agents/{agent_id}/) AND the compiled file basename ({agent_id}.md)</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

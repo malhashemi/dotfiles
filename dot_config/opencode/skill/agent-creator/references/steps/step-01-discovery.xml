@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="agent-creator" step="1" title="Discovery & Context">
+
+  <step n="1" title="Discovery & Context">
+    
+    <goal>
+      Understand what agent the user wants to create, determine its mode
+      (primary vs subagent), and identify the skills it needs.
+    </goal>
+
+    <substep n="1a" title="Gather Requirements">
+      <ask>
+        What agent would you like to create? Please describe:
+        - What is its primary purpose?
+        - Who will use it? (users directly, or spawned by other agents?)
+        - Is there an architecture document or spec I should reference?
+      </ask>
+    </substep>
+
+    <substep n="1b" title="Check for Architecture Input">
+      <check if="architecture document provided">
+        <action>Read the architecture document completely</action>
+        <action>Extract the agent's defined responsibilities</action>
+        <action>Note the skills/capabilities specified</action>
+        <action>Identify integration points with other agents</action>
+      </check>
+      <check if="no architecture document">
+        <action>
+          Conduct lightweight discovery:
+          - Core responsibilities (what problems does it solve?)
+          - Interaction model (primary or subagent?)
+          - Tool needs (file access, web search, bash, MCP tools?)
+          - Skill needs (what workflows or processes?)
+        </action>
+      </check>
+    </substep>
+
+    <substep n="1c" title="Determine Mode">
+      <action>
+        Determine whether this is a primary agent or subagent:
+        
+        Primary (user-facing):
+        - Appears in agent picker, has menu and persona
+        - Users interact with it directly
+        - Can spawn subagents (orchestrator pattern)
+        
+        Subagent (specialist):
+        - Spawned by other agents, stateless between invocations
+        - Focused on single responsibility, returns structured results
+        - No user interaction, no menu
+      </action>
+    </substep>
+
+    <substep n="1d" title="Identify Skills">
+      <action>
+        Identify the skills this agent needs. For each:
+        1. Skill name (kebab-case)
+        2. Brief description
+        3. Whether it needs its own workflow steps, templates, or scripts
+      </action>
+      <note>
+        An agent's value comes from its skills. 3-6 is the sweet spot.
+        Too few (0-2): question if this needs to be an agent.
+        Too many (7+): consider splitting into multiple agents.
+        
+        For subagents: at least one skill is REQUIRED. Agent instructions
+        define identity. Skills define capability (methodology).
+      </note>
+    </substep>
+
+    <substep n="1e" title="Confirm Understanding">
+      <template-output section="Discovery Summary">
+        Summarize:
+        - Agent purpose
+        - Mode: primary / subagent
+        - Target users or calling agents
+        - Skills identified (name + type + purpose table)
+        - Key constraints or requirements
+        
+        Present to user for confirmation.
+        
+        [a] Explore more [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Orchestrator + Specialist Pattern">
+      <description>
+        When an agent does context-heavy operations (web searches, large
+        codebase scans, exhaustive file reading), consider splitting into
+        an orchestrator that delegates to specialist subagents.
+      </description>
+      <signals title="When to recommend subagents">
+        <signal>Agent does extensive web searching (search results burn context)</signal>
+        <signal>Agent scans large codebases (file listings fill context)</signal>
+        <signal>Agent reads many files exhaustively</signal>
+        <signal>Different operations need different permission sets</signal>
+      </signals>
+    </section>
+
+    <section title="Good Discovery Questions">
+      <example type="good">
+        "What's the primary problem this agent solves?"
+        "Who will interact with this agent directly?"
+        "What should this agent NEVER do?"
+        "Does this agent need to delegate heavy work to specialists?"
+      </example>
+    </section>
+
+  </guidance>
+
+</step-file>

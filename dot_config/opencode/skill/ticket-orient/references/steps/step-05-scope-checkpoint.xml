@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-orient" step="5" title="Scope Checkpoint" critical="true">
+
+  <step n="5" title="Scope Checkpoint" critical="true">
+
+    <goal>
+      Present the agent's understanding back to the user and obtain explicit
+      confirmation, redirection, or rejection BEFORE scaffolding the bundle
+      or entering Q↔R. This is the first firm checkpoint of the
+      ticket-writing workflow. Skipping it risks burning research time on
+      the wrong problem.
+    </goal>
+
+    <substep n="5a" title="Present Restatement + Candidate Tag">
+      <ask>
+        Present the user with:
+
+        I understand the request as: {{session.request_restatement}}
+
+        Candidate primary tag: {{session.candidate_tag}}
+        Proposed slug: {{session.slug}}
+
+        Does this match your intent?
+
+        Options:
+        - Confirm: scope is correct, proceed to scaffold and grill
+        - Redirect: scope is wrong; describe how
+        - Adjust tag: scope is right but the candidate tag is wrong; specify the correct tag
+        - Adjust slug: scope and tag are right but the slug should change; specify the new slug
+        - Cancel: stop the workflow
+      </ask>
+    </substep>
+
+    <substep n="5b" title="Handle User Response">
+      <check if="user confirms">
+        <action>
+          Lock {{session.request_restatement}}, {{session.candidate_tag}},
+          {{session.slug}} as authoritative. Proceed to step 6.
+        </action>
+      </check>
+      <check if="user redirects scope">
+        <action>
+          Capture the user's correction verbatim. Update
+          {{session.request_restatement}} to reflect the redirected scope.
+          Re-check the candidate tag against the new scope (it may have
+          changed). Re-derive the slug if the scope shift makes the old
+          slug misleading. Loop back to substep 5a to confirm the corrected
+          version.
+        </action>
+        <goto step="5a"/>
+      </check>
+      <check if="user adjusts tag only">
+        <action>
+          Update {{session.candidate_tag}} to the user-specified value.
+          Validate it is one of the six primary tags (feature, bug,
+          exploration, hotfix, infrastructure, chore). If not, push back
+          and re-ask. Proceed to step 6.
+        </action>
+      </check>
+      <check if="user adjusts slug only">
+        <action>
+          Update {{session.slug}} to the user-specified value. Validate
+          kebab-case format. Proceed to step 6.
+        </action>
+      </check>
+      <check if="user cancels">
+        <action>
+          Halt the workflow. No bundle has been created on disk; no cleanup
+          is needed. Acknowledge the cancellation and return control to the
+          ticketsmith menu.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5c" title="Display Locked Scope">
+      <template-output section="Confirmed Scope">
+        Scope locked for this ticket-writing session:
+
+        - Restatement: {{session.request_restatement}}
+        - Primary tag: {{session.candidate_tag}}
+        - Slug: {{session.slug}}
+        - Bundle directory (planned): {{session.shared_folder}}/tickets/{{session.slug}}/
+        - Owner: {{session.owner}}
+
+        Next: scaffold the bundle on disk.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Why firm, not soft" critical="true">
+      <description>
+        Spec §3.3 lists this as a firm checkpoint. Soft transitions
+        (autonomous proceed) are reserved for situations where the agent
+        cannot meaningfully misread the user's intent. Scope misread at
+        step 5 cascades into wrong Q↔R turns, wrong subagent dispatch,
+        wrong design alignment — recoverable but expensive. Firm checkpoint
+        here saves session-hours later.
+      </description>
+      <rules>
+        <rule>Do not proceed past 5b without a confirm/adjust signal. Silence is not consent.</rule>
+        <rule>If YOLO mode is active, this step still applies — critical="true" overrides YOLO per workflow engine rules.</rule>
+      </rules>
+    </section>
+
+    <section title="Redirect handling">
+      <description>
+        Redirects are normal. The user may have phrased the original request
+        imprecisely; the restatement surfaces the gap. When redirected:
+        - Treat the redirection as authoritative
+        - Do not push back unless the redirect conflicts with the six-tag
+          taxonomy or asks for something out of scope (e.g., "write the plan
+          too")
+        - Loop back to re-present; do not assume the corrected scope is
+          self-evidently right
+      </description>
+    </section>
+
+    <section title="Push-back conditions">
+      <rules>
+        <rule>If user asks for a primary tag not in the six-tag taxonomy: explain the taxonomy and ask which fits</rule>
+        <rule>If user asks to skip Q↔R or jump straight to writing: refuse with reasoning. The Q↔R phase is non-negotiable for tags feature/exploration/infrastructure; bug/hotfix/chore have lighter Q↔R but still mandatory</rule>
+        <rule>If user asks ticket-orient to do plan-writing or implementation: refuse; those are out of scope per spec §13</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

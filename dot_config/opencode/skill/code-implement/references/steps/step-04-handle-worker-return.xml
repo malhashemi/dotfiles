@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-implement" step="4" title="Handle Worker Return">
+
+  <step n="4" title="Handle Worker Return">
+
+    <substep n="4a" title="Branch on Return Signal">
+      <check if="worker returned PHASE_COMPLETE">
+        <action>Proceed to step 5 (verify slice).</action>
+      </check>
+      <check if="worker returned NEEDS_DECOMPOSITION">
+        <action>Proceed to substep 4b (decomposition handling).</action>
+      </check>
+      <check if="worker returned anything else">
+        <action>
+          Halt: "Worker returned an unexpected signal. Expected
+          PHASE_COMPLETE or NEEDS_DECOMPOSITION; got:
+          {{worker_return}}. Inspect worker output manually."
+        </action>
+      </check>
+    </substep>
+
+    <substep n="4b" title="Decomposition Handling (Lock 19)">
+      <action>
+        Increment {{decomposition_strikes[current_slice.id]}} (default 0 → 1).
+
+        Per Lock 17.2 (three-strike abort): if the same slice has
+        triggered NEEDS_DECOMPOSITION three consecutive times:
+      </action>
+      <check if="decomposition_strikes[current_slice.id] >= 3">
+        <ask>
+          Slice {{current_slice.id}} has triggered NEEDS_DECOMPOSITION
+          three consecutive times. Decomposition is not solving the
+          size problem — the underlying approach likely needs rethink.
+
+          Recommendation: abort the workflow. The bundle remains as
+          evidence. Restart planning session with the new
+          understanding from these three decomposition attempts.
+
+          - Abort (Recommended)
+          - Retry once more: I'll try one more decomposition + dispatch
+        </ask>
+        <check if="user picks abort">
+          <action>
+            Halt the skill. Codesmith primary surfaces abort message
+            to user. Bundle on disk preserved as evidence.
+          </action>
+        </check>
+      </check>
+
+      <action>
+        Mini-replan per Lock 19:
+        - Read worker's NEEDS_DECOMPOSITION return:
+          - completed (what was done)
+          - remaining (what's left)
+          - suggested_sub_phases (if identifiable)
+        - YOU own the plan's structural content. Edit
+          {{plan_path}} to:
+          - Mark slice {{current_slice.id}} as decomposed
+          - Replace it with N sub-slices ({{current_slice.id}}.a,
+            {{current_slice.id}}.b, ...) following the suggested
+            sub-phases (or your own decomposition if suggestions are
+            insufficient)
+          - Re-order the slice queue: insert the sub-slices at the
+            head, in dependency order
+
+        Per Lock 19: NEVER re-D. Design is locked. If decomposition
+        reveals a design-level problem, that's the three-strike abort
+        condition above firing.
+      </action>
+
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{plan_path}}" --note "Slice {{current_slice.id}} decomposed into sub-slices after NEEDS_DECOMPOSITION (strike {{decomposition_strikes[current_slice.id]}})"</action>
+
+      <action>Return to step 3 (dispatch worker for the new head of the slice queue).</action>
+      <goto step="3"/>
+    </substep>
+
+    <substep n="4c" title="Capture PHASE_COMPLETE Outputs">
+      <action>
+        Worker returned:
+        - {{commit_sha}}
+        - checks summary (tests/types/lint passes per slice's
+          verification commands)
+        - log subsection appended to plan doc
+
+        Re-read {{plan_path}}: confirm the slice's log subsection is
+        present + the slice's checkboxes are marked. If either is
+        missing, surface to user (worker discipline failure).
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-compare" step="4" title="Build Matrix">
+
+  <step n="4" title="Build Matrix">
+
+    <substep n="4a" title="Assemble the Grid">
+      <action>
+        Build the matrix: alternatives as rows, criteria as columns (or
+        the reverse when there are more criteria than alternatives — pick
+        the orientation that reads on one screen). Each cell states the
+        alternative's standing on that criterion in a few words, with an
+        inline citation (file:line, URL, or thoughts/ alias). A cell with
+        no evidence reads "could not determine", never a guess.
+      </action>
+    </substep>
+
+    <substep n="4b" title="Surface Per-Criterion Tradeoffs">
+      <action>
+        Below the grid, for each criterion, state which alternative(s)
+        lead and on what evidence — factually, one line per criterion
+        ("Performance: A leads on throughput benchmarks [cite]; B leads
+        on tail latency [cite]"). This is where the tradeoff structure
+        becomes legible without collapsing it into a score.
+      </action>
+    </substep>
+
+    <substep n="4c" title="Compose the Document Body">
+      <action>
+        Compose the body per references/research/document-format
+        body-skeleton. Fixed top: the comparison question and a Summary
+        stating the SHAPE of the tradeoff ("A optimizes for X at the cost
+        of Y; B is the inverse; C trails both but is simplest to adopt")
+        — never a winner or a weighted total. Variable middle: the matrix
+        grid, then the per-criterion tradeoff notes, then a short
+        per-alternative narrative. Bottom: Open Questions (criteria left
+        undetermined, alternatives deferred at the web gate).
+
+        The decision is the reader's; the matrix equips it.
+      </action>
+    </substep>
+
+    <substep n="4d" title="Review the Matrix" optional="true">
+      <check if="INTERACTIVE">
+        <template-output section="Comparison Matrix">
+          Present the matrix for review before persistence.
+
+          [a] Revise (re-research a cell, add a criterion)
+          [c] Continue to persistence
+          [y] YOLO
+        </template-output>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

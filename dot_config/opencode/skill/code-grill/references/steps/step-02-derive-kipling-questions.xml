@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-grill" step="2" title="Derive Kipling Questions">
+
+  <step n="2" title="Derive Kipling Questions">
+
+    <substep n="2a" title="Load Kipling Reference">
+      <action>
+        Load references/kipling-implementation-questions.md into
+        working memory. Identify the per-tag emphasis order for
+        {{primary_tag}}.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Inventory the Known">
+      <action>
+        Terse, one-line-per-fact summary of what is currently
+        established from:
+        - Ticket body (scope, AC, decisions inline)
+        - Linked DRs (immutable decisions)
+        - Prior turn findings in {{research_path}} (if any)
+        - CONTEXT.md glossary (project vocabulary already resolved)
+
+        The point: identify what does NOT need re-investigation.
+      </action>
+    </substep>
+
+    <substep n="2c" title="Inventory the Unknown">
+      <action>
+        Enumerate gaps in code-layer categories per the per-tag
+        emphasis order. For each gap, name the Kipling category and
+        the specific question shape (per the reference's
+        "Typical question shapes" column).
+
+        Be honest. Suppressed unknowns become surprises during
+        D-phase or implementation.
+      </action>
+    </substep>
+
+    <substep n="2d" title="Apply Grill-with-Docs Discipline">
+      <action>
+        Cross-reference the ticket's vocabulary against CONTEXT.md.
+        Note any:
+        - Term conflict (ticket says X, CONTEXT.md says Y for same concept)
+        - Fuzzy term (ticket uses an overloaded word; needs precision)
+        - Scenario-bound ambiguity (concrete edge case not covered)
+
+        Note these for step 3 (user-question channel) and step 5
+        (CONTEXT.md inline update).
+      </action>
+    </substep>
+
+    <substep n="2e" title="Pick This Turn's Focus">
+      <action>
+        Select ONE highest-value gap to close this turn. Heuristics:
+        - Closest to scope > deeper detail
+        - Blocks other gaps > stands alone
+        - Single-question shape > multi-pronged
+        - User-answerable now > research-bound
+
+        Store as {{turn_focus}}: one-sentence description.
+
+        Cap the turn's question count at 4 (matches the 4-subagent
+        dispatch cap).
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

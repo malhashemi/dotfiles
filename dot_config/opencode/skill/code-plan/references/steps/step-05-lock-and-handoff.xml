@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-plan" step="5" title="Lock and Handoff">
+
+  <step n="5" title="Lock and Handoff">
+
+    <substep n="5a" title="Flip Plan Status to Locked">
+      <action>
+        Edit each plan doc frontmatter: status: "active" → status:
+        "accepted". Note: the plan-as-living-doc per Lock 10 has the
+        I-phase implementation log embedded — those subsections are
+        appended later (during I-phase) without un-locking the
+        structural plan content.
+      </action>
+    </substep>
+
+    <substep n="5b" title="Link to Structure">
+      <action>
+        Edit {{structure_path}} frontmatter children: add each plan's
+        canonical alias.
+      </action>
+    </substep>
+
+    <substep n="5c" title="Stamp">
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{plan_path}}" --note "P-phase locked; {{slice_count}} slice(s); parallel-safety: {{parallel|sequential|N/A}}"</action>
+      <action>For each plan file, stamp similarly.</action>
+    </substep>
+
+    <substep n="5d" title="Validate">
+      <action type="script">thoughts validate {{plan_paths}} "{{structure_path}}"</action>
+      <check if="validation fails">
+        <action>Halt; surface validation error.</action>
+      </check>
+    </substep>
+
+    <substep n="5e" title="Recommend Compaction (Lock 20)">
+      <output>
+        P-phase locked. Bundle complete for the planning session.
+
+        Per Lock 20, the workflow is designed as a TWO-SESSION split:
+        - Planning session (this one): orient → grill → design →
+          structure → plan
+        - Execution session (next): re-orient on the bundle directory
+          → implement → verify
+
+        Recommend compacting THIS session now. A fresh execution
+        session will load the bundle from disk and resume cleanly.
+
+        - Compact now (Recommended): run /handoff to write a portable
+          handoff, then trigger compact
+        - Continue in this session: proceed directly to worktree-setup
+          + code-implement (lower budget; may need to handoff mid-flow)
+      </output>
+    </substep>
+
+    <substep n="5f" title="Emit Handoff">
+      <template-output section="Plan(s) Locked" critical="true">
+        P-phase complete.
+
+        - Plans: {{plan_count}} ({{plan_paths}})
+        - Slices: {{slice_count}}
+        - Parallel-safety: {{decision}}
+
+        **Next** (in this session or after compact):
+        1. Invoke `worktree-setup` for the first plan to execute
+           (single-plan: invoke once; multi-plan parallel: invoke
+           N times; multi-plan sequential: invoke once per plan in
+           dependency order).
+        2. Invoke `code-implement` with the worktree handoff.
+
+        OR (recommended per Lock 20): compact session; the next
+        codesmith invocation in execution mode (bundle directory as
+        input) will resume from this state.
+      </template-output>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="agent-creator" step="4" title="Fill Content Templates">
+
+  <step n="4" title="Fill Content Templates">
+    
+    <goal>
+      Work through each selected content template, filling every section
+      with quality content through discussion with the user. The templates
+      are self-documenting — each FILL comment teaches what goes there.
+    </goal>
+
+    <note>
+      This is the craft step. Don't rush. Each template section deserves
+      proper attention. The templates contain embedded fill instructions —
+      read them carefully and use them to guide the conversation.
+    </note>
+
+    <substep n="4a" title="Process Each Template">
+      <action>
+        For each per-agent file in the agent's includes list (see Step 2):
+
+        1. READ the matching template from references/templates/{template_name}.md
+        2. IDENTIFY all sections marked with FILL comments
+        3. For each FILL section:
+           a. Read the embedded fill instructions (examples, rules, tips)
+           b. Present what this section needs to the user
+           c. Discuss — ask questions, explore options, iterate
+           d. Fill the section with quality content
+        4. PRESENT the completed file for review
+        5. WRITE the filled file to .vera/agents/{agent_id}/{file_name}
+        6. Move to the next file
+
+        Mapping templates → per-agent files in dubstack:
+          - persona.md template              → .vera/agents/{agent_id}/persona.md       (primary AND subagent)
+          - menu.md template                  → .vera/agents/{agent_id}/menu.md          (primary only)
+          - subagent-instructions.md template → .vera/agents/{agent_id}/instructions.md (subagent only)
+
+        Note: frontmatter.md is filled in Step 3 (it's the OpenCode YAML
+        frontmatter, not a content template).
+      </action>
+    </substep>
+
+    <substep n="4b" title="Quality Standards">
+      <action>
+        Apply these quality standards to every fill operation:
+
+        - Don't accept vague answers — the template shows what quality looks like
+        - Push back on generic content: "Professional and helpful" → ask for metaphors
+        - Push back on rule-list drift in persona principles (see persona.md template's bad-example callout) — principles describe how the agent THINKS, not what it must DO
+        - Check consistency: skills in frontmatter.md permission map should match menu items in menu.md (primary)
+        - For subagents: &lt;input-expectations&gt; must be specific enough for the dispatching agent to pack correctly; &lt;workflow&gt; output format must be parseable by the dispatching agent
+        - For primary agents: menu must cover every skill identified in Step 1
+        - For subagent instructions.md: capability boundaries live in persona &lt;principles&gt; (stance), frontmatter permissions (enforcement), or workflow step content (operational)
+      </action>
+    </substep>
+
+    <substep n="4c" title="Per-Template Checkpoint">
+      <action>
+        After filling each template, present the result and ask:
+        
+        [a] Refine this template [c] Continue to next template [y] YOLO remaining
+      </action>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Reading Template Fill Instructions">
+      <description>
+        Each content template has XML comments with the pattern:
+        &lt;!-- FILL: field_name ... --&gt;
+        
+        These comments contain:
+        - What goes in this field
+        - Format requirements
+        - Good and bad examples
+        - Tips for primary vs subagent variants
+        
+        The instructions are the template's own documentation. Read them
+        carefully — they contain the domain knowledge for each section.
+      </description>
+    </section>
+
+    <section title="Fill Conversation Patterns">
+      <rules>
+        <rule>Start with the template's embedded examples to anchor the conversation</rule>
+        <rule>Ask one section at a time — don't overwhelm with all fields at once</rule>
+        <rule>If the user gives a short answer, show them the template's "Good" examples</rule>
+        <rule>If unsure, propose a draft and ask "Does this capture it?"</rule>
+        <rule>Both primary AND subagent personas: push for real professional archetype priors activation; reject functional labels ("Web Research Specialist") in favor of archetype labels ("Senior Research Analyst + Multi-Source Verification Specialist")</rule>
+        <rule>Both primary AND subagent personas: push for vivid imagery or archetype-anchored disposition in communication_style; reject generic descriptors</rule>
+        <rule>Subagent instructions.md: push for precise &lt;input&gt; attributes (type, required, values) and parseable &lt;workflow&gt; output format</rule>
+      </rules>
+    </section>
+
+    <section title="Writing Filled Templates">
+      <description>
+        When writing the filled template to the agent directory:
+        - REMOVE all FILL instruction comments (they were for creation guidance)
+        - KEEP the XML structure (tags, nesting)
+        - REPLACE comment placeholders with actual content
+        - The result should be a clean, production-ready file
+      </description>
+      <example>
+        Template (in references/templates/):
+          &lt;role&gt;
+            &lt;!-- FILL: role ... --&gt;
+          &lt;/role&gt;
+
+        Filled (in .vera/agents/{agent_id}/persona.md):
+          &lt;role&gt;Strategic Business Analyst + Requirements Expert&lt;/role&gt;
+      </example>
+    </section>
+
+    <section title="Cross-Template Consistency">
+      <rules>
+        <rule>Skills in menu.md items must match skills in frontmatter.md permission.skill map (primary only)</rule>
+        <rule>Subagent &lt;input-expectations&gt; in instructions.md must match what the dispatching agent actually packs into the dispatch prompt</rule>
+        <rule>Subagent &lt;workflow&gt; output format must be parseable by the dispatching agent — strict JSON schemas require strict emission</rule>
+        <rule>Persona &lt;principles&gt; carry capability boundaries as positive stance (subagents); workflow step content carries operational discipline; permission map carries hard prohibitions — verify these three layers don't contradict</rule>
+        <rule>Persona principles for BOTH primary AND subagent must be mental-posture prose, not rule lists — see persona.md template's bad-example callout</rule>
+        <rule>Subagent persona &lt;role&gt; uses the same real-archetype + delimiter rule as primary (e.g., "Senior Code Reviewer + Multi-Angle Verification Specialist")</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

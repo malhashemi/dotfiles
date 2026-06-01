@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-structure" step="2" title="Draft Per-Plan Structure">
+
+  <step n="2" title="Draft Per-Plan Structure">
+
+    <substep n="2a" title="Iterate Over Plans">
+      <action>
+        For each plan in {{plan_count}}:
+        - Determine which slices belong to this plan (from D-phase
+          multi-plan identification, or all slices if single-plan)
+        - Compose the per-plan section per the template below
+      </action>
+    </substep>
+
+    <substep n="2b" title="Per-Plan Section Template">
+      <action>
+        Append to {{structure_path}}:
+
+        ## Plan {{plan_n}}: {{plan_scope_oneline}}
+
+        ### Files to create or modify
+
+        | Path | Purpose | New / Modify |
+        |---|---|---|
+        | src/foo.ts | {one-line purpose} | new |
+        | src/bar.ts | {one-line purpose} | modify |
+        | migrations/NNNN-add-x.ts | {one-line} | new |
+
+        ### Signatures
+
+        ```typescript
+        // src/foo.ts
+        export function fooImplementation(input: FooInput): Promise&lt;FooResult&gt;
+        export interface FooInput { ... }
+        export interface FooResult { ... }
+        ```
+
+        ```typescript
+        // src/bar.ts (additions to existing module)
+        export function newBarMethod(...): ...
+        ```
+
+        ### Test structure
+
+        | Test file | Covers |
+        |---|---|
+        | tests/foo.test.ts | All AC related to foo behavior |
+        | tests/bar-integration.test.ts | foo+bar wiring path |
+
+        ### Vertical slices in this plan
+
+        - Slice 1.1: {description} → files: [src/foo.ts, tests/foo.test.ts]
+        - Slice 1.2: {description} → files: [src/bar.ts, tests/bar-integration.test.ts]
+        - ...
+
+        (Slice numbering: {{plan_n}}.{{slice_within_plan}})
+      </action>
+    </substep>
+
+    <substep n="2c" title="Cross-Check Against Design AC">
+      <action>
+        For each AC in the parent ticket, verify it maps to at least
+        one slice in the structure. If an AC has no slice coverage,
+        either:
+        - Add a slice (and adjust files/signatures accordingly)
+        - Surface the gap: "AC #N is not covered by the structure;
+          this likely means D-phase missed a decision. Consider
+          looping back to code-design."
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

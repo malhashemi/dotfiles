@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-structure" step="1" title="Load Design + Create Structure File">
+
+  <step n="1" title="Load Design + Create Structure File">
+
+    <substep n="1a" title="Read Locked Design">
+      <action>
+        Read {{design_path}} completely. Extract:
+        - "## Current state" (for context)
+        - "## Desired end state" (target structure to compose)
+        - "## Design decisions" → "### Vertical slices" list
+        - "## Design decisions" → "### Multi-plan identification"
+
+        If design.md status != "accepted", halt with: "code-design has
+        not been completed (status={{actual_status}}). Run code-design
+        first; structure consumes a locked design."
+
+        Set {{plan_count}} from multi-plan identification.
+        Set {{slices}} = list of slice descriptions.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Create Structure File">
+      <action>
+        Compose {{structure_path}} = {{bundle_dir}}/structure-{{date}}-{{ticket_slug}}.md.
+
+        Create with frontmatter:
+          kind: structure
+          status: active
+          parent: [[{{ticket_alias}}]]
+          depends_on: [[{{design_alias}}]]
+          aliases: [structure-{{date}}-{{ticket_slug}}]
+          (plus standard thoughts-metadata fields)
+
+        Initial body:
+          # Structure
+
+          **Parent**: [[{{ticket_alias}}]]
+          **Design**: [[{{design_alias}}]]
+          **Plans**: {{plan_count}}
+
+          _Structural skeleton produced by S-phase. Locks files +
+          signatures + test structure. Tactics (TDD step sequencing)
+          are P-phase's job._
+
+          (per-plan sections appended in step 2)
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

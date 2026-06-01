@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="pr-cycle" step="3" title="Wait for Gemini Review">
+
+  <step n="3" title="Wait for Gemini Review">
+
+    <substep n="3a" title="Invoke await_pr_review Tool">
+      <action>
+        Call the `await_pr_review` MCP tool. Block until it returns.
+
+        Parameters:
+        - pr: {{pr_number}}
+        - after: {{last_action_time}}
+        - timeout_minutes: 120
+      </action>
+    </substep>
+
+    <substep n="3b" title="Interpret Tool Status">
+      <check if="status == 'timeout'">
+        <action>Exit pr-cycle with TIMEOUT report (see step 9).</action>
+      </check>
+      <check if="status == 'cancelled'">
+        <action>Exit pr-cycle with ERROR report (see step 9).</action>
+      </check>
+      <check if="status == 'activity_detected'">
+        <action>Proceed to interpret collected data (3c).</action>
+      </check>
+    </substep>
+
+    <substep n="3c" title="Interpret Collected Data">
+      <action>
+        Decision tree on the returned `unresolved_threads`, `reviews`,
+        `issue_comments` arrays:
+
+        - IF unresolved_threads.length > 0:
+            Proceed to step 4 (assess each thread).
+
+        - ELSE IF reviews.length > 0 AND latest review state == 'approved':
+            Proceed to step 9 (escalate to human for merge).
+
+        - ELSE IF reviews.length > 0 (reviewed but no approve state):
+            Proceed to step 9 (reviewed, no threads, ready for human).
+
+        - ELSE IF issue_comments.length > 0:
+            Read the comment content:
+              - If it says "reviewing" or "will post feedback":
+                  Re-invoke await_pr_review (Gemini is still processing).
+              - If it indicates satisfaction ("addressed", "looks good"):
+                  Proceed to step 9.
+              - If ambiguous:
+                  Re-invoke await_pr_review (wait for more signal).
+
+        - ELSE:
+            This shouldn't happen with activity_detected status. Log a
+            warning and re-invoke await_pr_review.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

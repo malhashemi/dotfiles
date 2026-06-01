@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-quick-answer" step="1" title="Orient">
+
+  <step n="1" title="Orient">
+
+    <substep n="1a" title="Detect Mode">
+      <action>
+        Check whether the question tool is available in the current
+        capability set. Available → INTERACTIVE mode. Absent →
+        AUTONOMOUS mode. The remaining substeps branch on this.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Parse and Validate Questions">
+      <check if="AUTONOMOUS">
+        <action>
+          Parse the questions array from the dispatch prompt. Each entry
+          must carry question_text and expected_output_shape. If the
+          array is missing, empty, or any entry lacks a required field,
+          emit this error to stdout and stop:
+
+            ERROR: Missing or malformed dispatch field '{field}'. The
+            dispatching caller failed to supply complete dispatch
+            context. No research performed.
+        </action>
+      </check>
+
+      <check if="INTERACTIVE">
+        <action>
+          Collect the user's question(s) from the conversation. For each
+          question, confirm it is specific enough to compose a focused
+          child prompt — a question needs a clear WHAT and a usable WHERE
+          (scope). If a question is too vague to dispatch, ask the user
+          to sharpen it (one question at a time) using the question tool:
+          name what's ambiguous and offer the most likely interpretations
+          with the recommended one first.
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

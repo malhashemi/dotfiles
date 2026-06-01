@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="pr-cycle" step="9" title="Escalate to Human for Merge">
+
+  <step n="9" title="Escalate to Human for Merge">
+
+    <substep n="9a" title="Compose Escalation Summary">
+      <action>
+        Build the summary to show the human:
+
+        # PR Cycle Complete — Awaiting Merge Decision
+
+        **PR**: #{{pr_number}} — {{pr_url}}
+        **Iterations**: {{iteration_count}}
+        **Final Gemini state**: {{approved | reviewed-no-threads | ambiguous}}
+
+        ## Summary
+        - Threads assessed: {{total_threads}}
+        - Addressed (with commits): {{n_addressed}}
+        - Declined (with rationale): {{n_declined}}
+        - Deferred (to issues): {{n_deferred}}
+
+        ## Commits added during cycle
+        {{list of fix_commit_shas}}
+
+        ## Deferred items (tracked separately)
+        {{list of issue numbers + titles}}
+
+        ## Bundle artifacts
+        - Assessment trail: {{bundle_dir}}/pr-cycle-assessment-iter-*.json
+        - Changes log: {{bundle_dir}}/pr-cycle-changes-iter-*.md
+        - State: {{bundle_dir}}/pr-cycle-state.md
+      </action>
+    </substep>
+
+    <substep n="9b" title="Surface to Human via Question Tool">
+      <ask>
+        PR review cycle complete after {{iteration_count}} iterations.
+        All Gemini feedback addressed, declined, or deferred. The PR is
+        ready for your merge decision.
+
+        Summary: {{escalation_summary}}
+
+        Merge the PR?
+        - Merge with squash (Recommended): I'll run `gh pr merge --squash --delete-branch`, then run `wt remove {{branch}}`.
+        - Merge with rebase: I'll run `gh pr merge --rebase --delete-branch`, then run `wt remove {{branch}}`.
+        - Merge with merge commit: I'll run `gh pr merge --merge --delete-branch`, then run `wt remove {{branch}}`.
+        - Hold: don't merge yet; I want to inspect the PR myself first.
+      </ask>
+      <check if="user picks Hold">
+        <action>
+          Exit pr-cycle with status READY_FOR_MERGE but
+          merge_executed=false. Caller (code-verify) does NOT
+          transition the ticket to verified yet — the user resumes
+          manually.
+        </action>
+      </check>
+      <check if="user picks any merge option">
+        <action type="script">gh pr merge {{pr_number}} {{flag}} --delete-branch</action>
+        <action type="script">wt remove {{branch}}</action>
+        <action>Set merge_executed = true.</action>
+      </check>
+    </substep>
+
+    <substep n="9c" title="Emit JSON Handoff">
+      <template-output section="PR Cycle Handoff" critical="true">
+        {
+          "status": "READY_FOR_MERGE",
+          "merge_executed": {{merge_executed}},
+          "merge_strategy": "{{squash|rebase|merge}}",
+          "pr_number": {{pr_number}},
+          "pr_url": "{{pr_url}}",
+          "iterations": {{iteration_count}},
+          "threads_addressed": {{n_addressed}},
+          "threads_declined": {{n_declined}},
+          "threads_deferred": {{n_deferred}},
+          "commits_added": {{n_fix_commits}}
+        }
+      </template-output>
+    </substep>
+
+  </step>
+
+</step-file>

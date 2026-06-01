@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-investigate" step="2" title="Select Methodology and Decompose">
+
+  <step n="2" title="Select Methodology and Decompose">
+
+    <substep n="2a" title="Select Methodology">
+      <action>
+        Load references/research/investigation-methodologies.md. Match
+        the question shape to one methodology (domain / market /
+        technical / codebase / general) per the selection table. When
+        the question spans shapes, pick the dominant one and fold
+        secondary concerns in as sub-questions.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Instantiate Sub-Questions">
+      <action>
+        The methodology supplies sub-question GENERATORS — templates,
+        not finished questions. Instantiate each generator against the
+        concrete topic. "Industry structure: key players" for a topic of
+        European EV charging becomes "Who are the key players in the
+        European EV charging market and how concentrated is it?"
+
+        Each instantiated sub-question carries: its text, its scope, and
+        the child subagent its shape routes to (per
+        references/research/child-subagent-dispatch.md). Seed sub-questions
+        with what the mentioned sources from step 1c already established —
+        do not re-ask what is already known.
+      </action>
+    </substep>
+
+    <substep n="2c" title="Scope-Too-Large Gate">
+      <action>
+        A single comprehensive investigation produces ONE coherent
+        document. If the instantiated decomposition would need more than
+        one methodology to answer well, or yields so many sub-questions
+        and waves that no single document would cohere (rough guide:
+        beyond ~8-10 sub-questions or ~3 waves), the question is a
+        program of research, not one investigation.
+
+        In that case, emit to stdout and stop:
+
+          SCOPE_TOO_LARGE
+          Reason: <one sentence on why this exceeds one coherent document>
+          Suggested sub-investigations:
+            - <investigation 1: focused question + methodology>
+            - <investigation 2: focused question + methodology>
+            - <...>
+
+        The caller (or user) dispatches these as separate investigations.
+      </action>
+    </substep>
+
+    <substep n="2d" title="Confirm Investigation Plan" optional="true">
+      <check if="INTERACTIVE">
+        <template-output section="Investigation Plan">
+          Present the plan for confirmation before any dispatch:
+          - Selected methodology and why
+          - The instantiated sub-questions, grouped into waves
+          - Which sub-questions route to web research (flag for the
+            approval gate in step 3)
+
+          [a] Adjust the plan  [c] Continue to dispatch  [y] YOLO
+        </template-output>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

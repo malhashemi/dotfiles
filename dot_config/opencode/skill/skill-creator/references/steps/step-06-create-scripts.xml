@@ -1,0 +1,317 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="skill-creator" step="6" title="Create Scripts">
+
+  <step n="6" title="Create Scripts" if="scripts_planned">
+    
+    <goal>
+      Generate script files based on the designs from Step 2.
+      Each script gets PEP 723 header, docstring, and function stubs.
+    </goal>
+
+    <note>
+      Scripts are FUNDAMENTAL to skills. This step creates the actual
+      Python files with proper structure so they can be filled in.
+      
+      Scripts use {base_dir} convention - when the skill runs, it knows
+      its installation location and can reference scripts accordingly.
+    </note>
+
+    <substep n="6a" title="Review Script Designs">
+      <action>
+        Review the script designs from Step 2:
+        
+        For each script, confirm:
+        - name: filename (kebab-case.py)
+        - purpose: what it does
+        - inputs: command-line arguments
+        - outputs: what it returns/creates
+        - dependencies: Python packages
+      </action>
+      <check if="script designs incomplete">
+        <ask>
+          Some script designs are missing details. Let's complete them:
+          - What arguments does {{script_name}} take?
+          - What does it output?
+          - What packages does it need?
+        </ask>
+      </check>
+    </substep>
+
+    <substep n="6b" title="Generate Script Files">
+      <action for-each="script in script_designs">
+        Create: .vera/skills/{{skill_id}}/references/scripts/{{script.name}}
+
+        Generate with:
+        1. PEP 723 metadata block with dependencies
+        2. Docstring with usage and output description
+        3. Import statements
+        4. main() function with argument parsing
+        5. Function stubs based on purpose
+        6. if __name__ == "__main__": main()
+
+        Scripts invoked at runtime via: uv run {base_dir}/references/scripts/{{script.name}}
+
+        For scripts that should be reusable across multiple skills, write
+        them at .vera/shared/scripts/{{script.name}} instead and attach
+        via shared/scripts/ in skill.yaml's attachments list.
+      </action>
+    </substep>
+
+    <substep n="6c" title="Review Generated Scripts">
+      <template-output section="Scripts">
+        Created script files:
+        
+        {{#each scripts}}
+        ### {{name}}
+        
+        **Purpose:** {{purpose}}
+        **Location:** references/scripts/{{name}}
+        
+        ```python
+        # /// script
+        # requires-python = ">=3.11"
+        # dependencies = [{{dependencies}}]
+        # ///
+        """{{purpose}}
+        
+        Usage: uv run {base_dir}/scripts/{{name}} {{usage_args}}
+        Output: {{output_description}}
+        """
+        ```
+        
+        {{/each}}
+        
+        [a] Edit scripts [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="PEP 723 Script Format">
+      <description>All scripts use PEP 723 inline metadata for dependencies.</description>
+      <template>
+        ```python
+        # /// script
+        # requires-python = ">=3.11"
+        # dependencies = [
+        #     "pyyaml>=6.0",
+        #     "requests>=2.28",
+        # ]
+        # ///
+        """
+        Brief description of what this script does.
+        
+        Usage: uv run script.py &lt;required_arg&gt; [optional_arg]
+        Output: Description of what it produces/returns
+        """
+        
+        import sys
+        from pathlib import Path
+        
+        def main() -> None:
+            # Implementation
+            pass
+        
+        if __name__ == "__main__":
+            main()
+        ```
+      </template>
+    </section>
+
+    <section title="Script Execution">
+      <description>Scripts are executed via uv run, which handles dependencies automatically.</description>
+      <rules>
+        <rule>Always use: uv run {base_dir}/scripts/name.py [args]</rule>
+        <rule>The {base_dir} placeholder resolves to skill installation path</rule>
+        <rule>Dependencies are installed automatically on first run</rule>
+      </rules>
+      <example>
+        # In SKILL.md or step files:
+        &lt;action type="script"&gt;uv run {base_dir}/scripts/validate.py {{input_file}}&lt;/action&gt;
+        
+        # Or via workflow engine:
+        &lt;action type="script"&gt;uv run scripts/scaffold.py {{name}}&lt;/action&gt;
+      </example>
+    </section>
+
+    <section title="Common Script Patterns">
+      
+      <pattern name="Scaffold Script">
+        <purpose>Creates directory structure and template files</purpose>
+        <inputs>name, optional path</inputs>
+        <outputs>Directories and files created</outputs>
+        <example>scaffold-agent.py, scaffold-skill.py, init-project.py</example>
+      </pattern>
+
+      <pattern name="Validation Script">
+        <purpose>Checks files for correctness</purpose>
+        <inputs>Path to file or directory</inputs>
+        <outputs>Validation result (pass/fail with details)</outputs>
+        <example>validate-yaml.py, validate-skill.py, check-schema.py</example>
+      </pattern>
+
+      <pattern name="Transformation Script">
+        <purpose>Converts or processes data</purpose>
+        <inputs>Input file/data, format options</inputs>
+        <outputs>Transformed output</outputs>
+        <example>convert-format.py, transform-data.py, parse-input.py</example>
+      </pattern>
+
+    </section>
+
+    <section title="Error Handling">
+      <rules>
+        <rule>Exit code 0 for success, 1 for errors</rule>
+        <rule>Print errors to stderr: print("Error: ...", file=sys.stderr)</rule>
+        <rule>Use sys.exit(1) after error messages</rule>
+        <rule>Validate inputs early, fail fast with clear messages</rule>
+      </rules>
+      <example>
+        if not input_path.exists():
+            print(f"Error: File not found: {input_path}", file=sys.stderr)
+            sys.exit(1)
+      </example>
+    </section>
+
+    <section title="Output Conventions">
+      <rules>
+        <rule>Success messages: print to stdout</rule>
+        <rule>Error messages: print to stderr with "Error:" prefix</rule>
+        <rule>Structured data: Use JSON for machine-readable output</rule>
+        <rule>Status indicators: Use emoji (checkmark, x, warning) for human readability</rule>
+      </rules>
+      <example>
+        # Success
+        print(f"Created: {output_path}")
+        
+        # Validation result
+        print(f"Validation PASSED: {file_path}")
+        print(f"Validation FAILED: {error_count} error(s)")
+        
+        # Structured output
+        import json
+        print(json.dumps({"status": "success", "files_created": [...]})
+      </example>
+    </section>
+
+  </guidance>
+
+  <examples>
+    
+    <example name="Scaffold Script">
+      <context>Creates directory structure for a new agent</context>
+      <config>
+        ```python
+        # /// script
+        # requires-python = ">=3.11"
+        # dependencies = ["pyyaml>=6.0"]
+        # ///
+        """
+        Create directory structure and template files for a new agent.
+        
+        Usage: uv run scaffold-agent.py &lt;agent_id&gt;
+        Output: Directory created with agent-config.yaml template
+        """
+        
+        import sys
+        from pathlib import Path
+        
+        TEMPLATE = """# Agent: {agent_id}
+        agent_id: {agent_id}
+        # TODO: Fill in remaining fields
+        """
+        
+        def scaffold_agent(agent_id: str) -> None:
+            # Validation
+            if not agent_id.islower():
+                print(f"Error: agent_id must be lowercase", file=sys.stderr)
+                sys.exit(1)
+            
+            # Create directory
+            agent_dir = Path(f"vera-source/agents/{agent_id}")
+            agent_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Write template
+            config_file = agent_dir / "agent-config.yaml"
+            config_file.write_text(TEMPLATE.format(agent_id=agent_id))
+            
+            print(f"Created: {config_file}")
+        
+        def main() -> None:
+            if len(sys.argv) != 2:
+                print("Usage: uv run scaffold-agent.py &lt;agent_id&gt;")
+                sys.exit(1)
+            scaffold_agent(sys.argv[1])
+        
+        if __name__ == "__main__":
+            main()
+        ```
+      </config>
+      <rationale>
+        Standard scaffold pattern: validate input, create structure, write template,
+        report success. Uses sys.exit(1) for errors, prints to stderr.
+      </rationale>
+    </example>
+
+    <example name="Validation Script">
+      <context>Validates a skill directory for completeness</context>
+      <config>
+        ```python
+        # /// script
+        # requires-python = ">=3.11"
+        # dependencies = ["pyyaml>=6.0"]
+        # ///
+        """
+        Validate a skill directory for correctness and completeness.
+        
+        Usage: uv run validate-skill.py &lt;skill_dir&gt;
+        Output: Validation result with errors/warnings
+        """
+        
+        import sys
+        from pathlib import Path
+        import yaml
+        
+        def validate_skill(skill_dir: Path) -> list[str]:
+            errors = []
+            
+            # Check required files
+            config = skill_dir / "skill-config.yaml"
+            if not config.exists():
+                errors.append("Missing: skill-config.yaml")
+            
+            # ... more checks
+            
+            return errors
+        
+        def main() -> None:
+            if len(sys.argv) != 2:
+                print("Usage: uv run validate-skill.py &lt;skill_dir&gt;")
+                sys.exit(1)
+            
+            skill_dir = Path(sys.argv[1])
+            errors = validate_skill(skill_dir)
+            
+            if errors:
+                for e in errors:
+                    print(f"  {e}")
+                print(f"Validation FAILED: {len(errors)} error(s)")
+                sys.exit(1)
+            else:
+                print(f"Validation PASSED: {skill_dir}")
+        
+        if __name__ == "__main__":
+            main()
+        ```
+      </config>
+      <rationale>
+        Standard validation pattern: collect errors, report all at once,
+        exit with appropriate code. Clear output format.
+      </rationale>
+    </example>
+
+  </examples>
+
+</step-file>

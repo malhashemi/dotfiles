@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-grill" step="3" title="Formulate Questions">
+
+  <step n="3" title="Formulate Questions">
+
+    <goal>
+      Translate this turn's focus and mode into concrete questions, split
+      across three channels: user-directed (asked immediately), research
+      agenda (dispatched to subagents in step 4), and artifact checks
+      (direct reads of bundle files or thoughts/ artifacts).
+    </goal>
+
+    <substep n="3a" title="Split by Channel">
+      <action>
+        For this turn's focus, identify:
+
+        - **User-directed questions**: questions only the user can answer
+          (scope preferences, business constraints, taste calls, deadlines,
+          decisions between functional alternatives).
+
+        - **Research agenda**: questions answerable by subagent dispatch
+          (codebase facts, prior thoughts/ artifacts, domain/web research).
+
+        - **Artifact checks**: questions answerable by direct reads of files
+          the main agent has access to (bundle files, CONTEXT.md,
+          briefs/specs in thoughts/, the current DRs).
+
+        Most turns will have at most ONE user-directed question (per the
+        per-turn checkpoint rule in spec §3.3). Multiple research items per
+        turn are fine — they dispatch in parallel.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Refine the User Question">
+      <check if="this turn has a user question">
+        <action>
+          Sharpen the question:
+          - State the question in one sentence
+          - Offer the agent's RECOMMENDED answer FIRST (per the calibration
+            note in the ticketsmith persona — "asks one question at a time,
+            recommended answer first")
+          - List 2-4 alternative options with one-line descriptions each
+          - If applicable, name the trade-off behind the recommendation
+
+          The Question tool is the delivery mechanism. The question is
+          asked in substep 4a — but it is COMPOSED here so step 4 is purely
+          dispatch.
+
+          Store as {{session.user_question}}.
+        </action>
+      </check>
+      <check if="no user question this turn">
+        <action>
+          Set {{session.user_question}} = null. The turn is research-only.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3c" title="Refine the Research Agenda">
+      <check if="this turn has a research agenda">
+        <action>
+          For each research item, compose a research question per
+          references/subagent-dispatch.md:
+          - question_text: WHAT to find, stated specifically
+          - scope: WHERE to look (directory globs, file paths, domain)
+          - expected_output_shape: e.g., "markdown table with file:line
+            and one-line purpose"
+          - child_subagent_hint (optional): when the shape clearly maps
+            to one child; researcher infers it otherwise
+
+          Store as {{session.research_agenda}}: a list of these question
+          entries. researcher selects the children and synthesizes; this
+          step only composes the questions.
+
+          Cap at 4 items per turn. If a turn legitimately needs more, that
+          turn's focus was probably too broad — narrow it.
+        </action>
+      </check>
+      <check if="no research agenda this turn">
+        <action>
+          Set {{session.research_agenda}} = []. The turn is user-question-only.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3d" title="Identify Artifact Checks">
+      <action>
+        Some questions are answered by direct reads, not subagents. Enumerate
+        any bundle files, thoughts/ artifacts, or root-level docs the agent
+        should read THIS turn. Store as {{session.artifact_checks}}.
+
+        Examples:
+        - "Does the parent brief mention X?" -> read the parent brief
+        - "What did DR-003 decide?" -> read decision-NNN-* file
+        - "Is there a prior research doc on this?" -> use thoughts-locator
+          (which would actually be a research agenda item with shape
+          "have we discussed X before?") OR direct read if the path is known.
+      </action>
+    </substep>
+
+    <substep n="3e" title="Display Turn Composition">
+      <output>
+        Turn {{turn_number}} composition:
+
+        User question: {{session.user_question.statement or "(none)"}}
+        Research agenda: {{count}} research questions (one researcher dispatch)
+        {{for each item in session.research_agenda:}}
+          - {{item.question_text}}
+        Artifact checks: {{count}} direct reads
+        {{for each item in session.artifact_checks:}}
+          - {{item.path}}
+
+        Proceeding to dispatch and synthesize.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Question quality drives turn quality">
+      <description>
+        A well-shaped user question gets a precise answer in one round; a
+        fuzzy question gets a fuzzy answer that triggers a follow-up,
+        wasting a checkpoint. A well-shaped subagent prompt returns crisp
+        findings; a vague prompt returns generic output. Spend the time
+        in step 3 to formulate well — it saves multiple turns downstream.
+      </description>
+    </section>
+
+    <section title="Recommended-answer-first protocol">
+      <rules>
+        <rule>Every user question presents the agent's recommended answer FIRST in the options list (Question tool option order)</rule>
+        <rule>The recommended answer's label ends with "(Recommended)"</rule>
+        <rule>Alternative answers follow, each with a one-line description that explains the trade-off</rule>
+        <rule>Never present "I don't know, what do you think?" — the agent always has a position</rule>
+        <rule>If the agent's recommendation is wrong, the user redirects. That is normal; the recommendation is a starting point, not an assertion</rule>
+      </rules>
+    </section>
+
+    <section title="Research question anatomy">
+      <description>
+        A good research question names:
+        1. WHAT to find (the question)
+        2. WHERE to look (the directory, the concern, the keyword)
+        3. CONSTRAINTS (e.g., "do not analyze; just locate", "limit to TypeScript files")
+        4. OUTPUT SHAPE (e.g., "markdown table with file:line and one-line purpose")
+        researcher composes the child prompt from these and selects the child.
+      </description>
+      <example type="good">
+        "Analyze how authentication is enforced on the /api/tasks/*
+        routes in src/routes/tasks.ts. Specifically: what middleware is
+        applied, where req.user.id comes from, and where in each handler
+        the scoping happens. Output as a numbered list: one entry per
+        route handler with the middleware chain, the user-extraction
+        step, and the scoping query." (hint: codebase-analyzer)
+      </example>
+      <example type="bad">
+        "Look at the auth code."
+      </example>
+    </section>
+
+    <section title="Cap discipline">
+      <description>
+        4 subagents per turn is the cap. Beyond that, turns become
+        unsynthesizable — too many findings to merge into the research
+        file without losing fidelity. If the turn's focus genuinely
+        requires more dispatches, the focus is too wide; split into two
+        turns.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,0 +1,67 @@
+# =============================================================================
+# dubstack Agent Source: {agent_title} ({character_name})
+# =============================================================================
+#
+# This file is the vera-cli artifact descriptor for a dubstack agent.
+# Run: vera build  (compiles all artifacts in vera.manifest.yaml)
+#
+# Source layout (per-agent, under .vera/agents/{agent_id}/):
+#   agent.yaml         ← THIS file (artifact descriptor: type/id/file_name/variables/includes)
+#   frontmatter.md     ← OpenCode YAML frontmatter (mode, color, description, permissions)
+#                        as RAW markdown content between --- markers
+#   persona.md         ← <persona> XML block (role/identity/communication_style/principles)
+#   menu.md            ← <menu> XML block (primary agents only)
+#   instructions.md    ← subagent body (subagents only; replaces persona.md + menu.md)
+#
+# Shared structural blocks (live under .vera/shared/, referenced via includes):
+#   shared/activation.md                       — primary-agent preamble + outer <agent-activation> fence
+#   shared/baseline/context-md-awareness.md    — CONTEXT.md reader-side awareness (Tier 1)
+#   shared/baseline/thoughts-cli-awareness.md  — thoughts CLI baseline (Tier 1)
+#   shared/agent-activation.md                 — <agent id=... > open tag + complete <activation> block
+#                                                with menu-handlers and rules (single source of truth)
+#   shared/agent-close.md                      — </agent> + closing code fence
+#
+# Vera-cli native format: minimal top-level descriptor + RAW markdown includes.
+# Frontmatter is markdown content in frontmatter.md, NOT a nested YAML mapping here.
+# Variables in agent.yaml are substituted into included files at build time.
+
+type: agent
+id: {agent_id}
+file_name: {agent_id}.md
+
+# Agent-level variables — substituted into included files (frontmatter.md,
+# persona.md, shared/agent-activation.md, etc.) at build time. Project-level
+# variables from .vera/vera.config.yaml and user-level variables from
+# ~/.config/vera/config.yaml flow in through the 4-layer merge — no need to
+# redeclare {{user_name}} or {{communication_language}} here.
+variables:
+  agent_id: {agent_id}
+  character_name: {character_name}
+  agent_title: {agent_title}
+  emoji: "{emoji}"
+
+# Include order: vera-cli concatenates these files into {file_name} in order.
+# Comment lines below show the canonical primary-agent layout; adapt for subagents.
+#
+# Primary agent (8 includes):
+includes:
+  - frontmatter.md                              # YAML frontmatter (mode, color, description, permissions)
+  - shared/activation.md                        # Outer preamble + <agent-activation> fence
+  - shared/baseline/context-md-awareness.md     # Optional — include only if agent reads CONTEXT.md
+  - shared/baseline/thoughts-cli-awareness.md   # Optional — include only if agent uses thoughts CLI
+  - shared/agent-activation.md                  # <agent ...> open tag + full <activation> block (SHARED)
+  - persona.md                                  # <persona> block (agent-specific)
+  - menu.md                                     # <menu> block (agent-specific)
+  - shared/agent-close.md                       # </agent> + closing code fence (SHARED)
+#
+# Subagent (7 includes; no menu, no agent-activation block):
+# variables:
+#   agent_id: {agent_id}
+# includes:
+#   - frontmatter.md
+#   - shared/baseline/context-md-awareness.md    # optional
+#   - shared/baseline/thoughts-cli-awareness.md  # optional
+#   - shared/subagent-open.md                    # <subagent id="..."> open tag + xml fence
+#   - persona.md                                 # 4-tag <persona> block
+#   - instructions.md                            # <input-expectations> + <workflow>
+#   - shared/subagent-close.md                   # </subagent> + close fence

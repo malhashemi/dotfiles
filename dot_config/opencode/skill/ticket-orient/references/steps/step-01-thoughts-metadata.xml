@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-orient" step="1" title="Gather Session Metadata">
+
+  <step n="1" title="Gather Session Metadata">
+
+    <goal>
+      Capture all session metadata from the thoughts CLI before any user
+      interaction. Every downstream step depends on these values, so they must
+      be collected first and stored in a session variable accessible to all
+      subsequent steps.
+    </goal>
+
+    <substep n="1a" title="Run thoughts metadata">
+      <action type="script">thoughts metadata --format yaml</action>
+      <note>
+        The script outputs a YAML document with these keys (at minimum, on a
+        thoughts-mapped repo):
+        - date (full ISO 8601 with timezone)
+        - owner (the username for `owner:` and `researcher:` frontmatter)
+        - git_commit, branch, repository
+        - team
+        - shared_folder (absolute path; bundle directories will be created here)
+        - backlog_folder (NOT used by ticket-orient per spec §4.2)
+
+        On a NON-thoughts-mapped repo the output is a reduced default schema
+        missing shared_folder and team. If that case is detected, surface
+        a Critical error and halt — ticket-writing requires a thoughts context.
+      </note>
+    </substep>
+
+    <substep n="1b" title="Parse and Validate">
+      <action>
+        Parse the YAML output. Store values in session variables:
+        - {{session.date}}
+        - {{session.owner}}
+        - {{session.shared_folder}}
+        - {{session.team}}
+        - {{session.git_commit}}, {{session.branch}}, {{session.repository}}
+
+        Validate that shared_folder is non-empty and that the path exists on
+        disk. If shared_folder is missing, halt with a clear error: the user
+        must run the workflow from inside a thoughts-mapped repo.
+      </action>
+      <check if="shared_folder is missing or empty">
+        <action>
+          Halt the workflow. Display: "ticket-writing requires a thoughts-mapped
+          repository. Run `thoughts init` or navigate to a repo where shared_folder
+          resolves, then retry."
+        </action>
+      </check>
+    </substep>
+
+    <substep n="1c" title="Display Metadata Summary">
+      <output>
+        Session metadata captured:
+        - Owner: {{session.owner}}
+        - Date: {{session.date}}
+        - Team: {{session.team}}
+        - Shared folder: {{session.shared_folder}}
+        - Repository: {{session.repository}} ({{session.branch}} @ {{session.git_commit}})
+
+        Proceeding to CONTEXT.md read.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Why metadata first">
+      <description>
+        Every artifact frontmatter field that ticket-orient and ticket-grill
+        will write — `owner`, `researcher`, `date`, `last_updated`, repo context
+        — comes from this one `thoughts metadata` call. Calling it once and
+        caching the result avoids repeated subprocess invocations and ensures
+        consistency across the bundle (same timestamp on all three files when
+        scaffold-bundle.py is invoked in step 6).
+      </description>
+    </section>
+
+    <section title="No user interaction yet">
+      <rules>
+        <rule>Step 1 runs silently. No Question tool. No user-facing prompts beyond the closing summary.</rule>
+        <rule>The first user touchpoint is step 5 (scope checkpoint). All prior steps are autonomous orient activity.</rule>
+      </rules>
+    </section>
+
+    <section title="Error handling">
+      <rules>
+        <rule>thoughts CLI not on PATH -> halt with: "thoughts CLI not found; install and retry"</rule>
+        <rule>shared_folder missing -> halt as in substep 1b</rule>
+        <rule>Malformed YAML output -> halt and surface the raw stdout for debugging</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

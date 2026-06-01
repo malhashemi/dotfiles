@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-prototype" step="3" title="Scaffold Throwaway Files">
+
+  <step n="3" title="Scaffold Throwaway Files">
+
+    <goal>
+      Create the minimal runnable that will answer the question. Single
+      file when possible; surface state aggressively; one command to run.
+      No build step if avoidable. No polish.
+    </goal>
+
+    <substep n="3a" title="Branch on Type">
+      <check if="session.branch == 'logic'">
+        <action>Proceed to substep 3b for LOGIC scaffolding.</action>
+      </check>
+      <check if="session.branch == 'ui'">
+        <action>Proceed to substep 3c for UI scaffolding.</action>
+      </check>
+    </substep>
+
+    <substep n="3b" title="Scaffold LOGIC Prototype">
+      <action>
+        Create a single runnable file in {{session.prototype_path}}/. The
+        filename matches the prototype name plus a language-appropriate
+        extension:
+
+        - Python: prototype.py with PEP 723 inline metadata header for deps
+        - TypeScript: prototype.ts (runnable via bun) or .js
+        - Rust: main.rs (in a minimal Cargo project — exception to single-file rule)
+        - Go: main.go
+        - Shell: prototype.sh
+
+        Write the code to answer {{session.caller_question}}. Conventions:
+        - LOG / print intermediate state generously — the more state visible, the easier to interpret findings
+        - Include the question as a header comment so future readers know what was being tested
+        - Include the one-command invocation as a comment near the top
+        - No CLI parsing, no error handling beyond what's necessary, no abstractions
+
+        Example LOGIC prototype (Python with PEP 723):
+
+        ```python
+        # /// script
+        # requires-python = ">=3.11"
+        # dependencies = ["sqlalchemy>=2.0", "psycopg[binary]"]
+        # ///
+        """Question: Does SQLAlchemy support nested transactions on Postgres?
+        Run: uv run prototype.py
+        """
+        from sqlalchemy import create_engine, text
+
+        engine = create_engine("postgresql+psycopg://...")
+        with engine.begin() as outer:
+            print("OUTER tx state:", outer.in_transaction())
+            with outer.begin_nested() as inner:
+                print("INNER tx state:", inner.in_transaction())
+                inner.execute(text("INSERT ..."))
+                # Probe state, check savepoints, etc.
+        print("DONE")
+        ```
+
+        Write the file using the Write tool. Path: {{session.prototype_path}}/prototype.{{ext}}
+      </action>
+    </substep>
+
+    <substep n="3c" title="Scaffold UI Prototype">
+      <action>
+        Create 1-3 HTML files in {{session.prototype_path}}/. Conventions:
+
+        - For single-variant questions: index.html
+        - For multi-variant comparisons (per QRDSPIV note): variant-a.html,
+          variant-b.html, variant-c.html with an index.html that links to all
+
+        Each HTML file:
+        - Self-contained (CSS and JS inline OR via a single CDN script if
+          using a framework)
+        - Uses the detected design system from step 2 if any
+        - Includes the question as an HTML comment at the top
+        - Surfaces interaction state visibly (e.g., display the current
+          selection, highlight focused elements, show keyboard hints)
+        - Loads with no build step — open in a browser, done
+
+        For design-system-aware prototypes:
+        - shadcn/ui via CDN: use the official CDN bundle OR write Tailwind
+          utility classes directly (Tailwind via CDN script tag is fine)
+        - Material UI / antd / Chakra: load via CDN scripts; use their
+          component class names
+        - Internal design system: reference its CSS file via relative or
+          absolute path; use its component class names
+
+        Write each file using the Write tool. List all created paths in
+        {{session.scaffolded_files}}.
+      </action>
+    </substep>
+
+    <substep n="3d" title="Write a README in the Prototype Directory">
+      <action>
+        Create {{session.prototype_path}}/README.md with:
+
+        ```md
+        # Prototype: {{session.prototype_name}}
+
+        **Question**: {{session.caller_question}}
+        **Branch**: {{session.branch}}
+        **Created**: {{ISO 8601 datetime}}
+        **For ticket**: {{session.slug}}
+
+        ## How to run
+
+        {{one-command instruction: e.g., "uv run prototype.py" or "open index.html in a browser"}}
+
+        ## What this tests
+
+        {{one-paragraph explanation of what the prototype is exercising and what observation answers the question}}
+
+        ## Status
+
+        Throwaway. Findings absorbed into {{session.bundle_dir}}/research-*.md.
+        This directory may be archived or deleted once findings are recorded.
+        ```
+
+        Write using the Write tool.
+      </action>
+    </substep>
+
+    <substep n="3e" title="Display Scaffold Summary">
+      <output>
+        Prototype scaffolded:
+        - Path: {{session.prototype_path}}/
+        - Files created: {{session.scaffolded_files}}
+        - README: {{session.prototype_path}}/README.md
+
+        Proceeding to run and observe.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Single-file discipline" critical="true">
+      <description>
+        LOGIC prototypes should be ONE file in 90% of cases. Multi-file
+        scaffolding (separate modules, separate test file, separate config)
+        is over-engineering for a throwaway. Exception: Rust requires a
+        Cargo project structure; that's tolerated because the language
+        forces it.
+
+        UI prototypes may need 2-4 files (HTML + optional separate CSS or
+        JS files, or per-variant HTML files). Beyond that, the question
+        is probably too broad — split into multiple narrow prototypes.
+      </description>
+    </section>
+
+    <section title="State surfacing">
+      <description>
+        The point of a prototype is to OBSERVE state. The agent's findings
+        in step 5 come from what was visible during the run. Prototypes
+        that hide state (silent successes, swallowed exceptions, internal
+        booleans never logged) produce thin findings.
+      </description>
+      <rules>
+        <rule>LOGIC: print() or console.log() at every interesting state transition</rule>
+        <rule>LOGIC: print() exceptions with full tracebacks; do not swallow</rule>
+        <rule>UI: render state visibly — current values, focus, hover, active variants</rule>
+        <rule>UI: include a viewport indicator (e.g., a small label showing window width) for layout-dependent questions</rule>
+      </rules>
+    </section>
+
+    <section title="No polish, no production quality">
+      <rules>
+        <rule>No CLI argument parsing unless the prototype genuinely needs parameters</rule>
+        <rule>No tests for the prototype itself</rule>
+        <rule>No logging configuration; print() is fine</rule>
+        <rule>No type annotations beyond what runs without errors</rule>
+        <rule>No README sections beyond what's in substep 3d</rule>
+        <rule>If the prototype works on the first run and answers the question, do not iterate to "improve" it</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-design" step="3" title="Present and Align" critical="true">
+
+  <step n="3" title="Present and Align" critical="true">
+
+    <goal>
+      Present the design proposal to the user as a brain-surgery
+      conversation. Capture the user's response (confirm / redirect /
+      reverse / abort) and pass it to step 4 for classification and
+      strike-counter handling. This step is critical="true" — cannot
+      be skipped, even in YOLO mode. Per QRDSPIV §D: "D is a
+      conversation, not a document."
+    </goal>
+
+    <substep n="3a" title="Present the Proposal">
+      <ask>
+        Present the user with the full Design Summary draft. Format the
+        ask as:
+
+        Here's how I understand the work:
+
+        {{session.design_summary_draft}}
+
+        Brain-surgery question: does this look right?
+
+        Options:
+        - Confirm (Recommended if it looks right): the design is correct; lock and move to ticket-structure
+        - Redirect scope: scope is wrong; describe what's off
+        - Adjust the chain: scope is right but the artifact chain is wrong; describe the correction
+        - Adjust risk: scope and chain are right but a risk is mis-stated; describe
+        - Reverse a previous decision: I want to revisit something previously locked (DR or Q↔R outcome); name what
+        - Abort: stop the workflow
+
+        Capture the user's response verbatim where possible. Classify in
+        step 4.
+
+        Store as {{session.user_response}}: {classification_hint, verbatim,
+        details}.
+      </ask>
+    </substep>
+
+    <substep n="3b" title="Capture Verbatim">
+      <action>
+        Record the user's exact words in {{session.strike_log}} as a
+        timestamped entry (whether or not this turns into a strike, the
+        verbatim record helps step 4 classify correctly).
+
+        Entry format:
+        {
+          timestamp: ISO 8601,
+          ticket_design_iteration: N,
+          user_response_classification_hint: "confirm" | "redirect" | "adjust_chain" | "adjust_risk" | "reverse" | "abort",
+          verbatim: <user's text>,
+          notes: <agent's initial assessment, refined in step 4>
+        }
+      </action>
+    </substep>
+
+    <substep n="3c" title="Display Response Summary">
+      <output>
+        User response captured:
+        - Classification hint: {{session.user_response.classification_hint}}
+        - Length: {{verbatim_word_count}} words
+
+        Proceeding to redirect/strike handling.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Why this is a single conversational ask">
+      <description>
+        D-phase is brain-surgery — one big presentation, one big
+        response. The proposal is dense; the user needs to take it in
+        as a whole and react. Breaking it into per-section asks
+        ("does the artifact chain look right? does the risk look right?
+        does the decision-points list look right?") fragments the
+        alignment conversation and loses the "do these pieces work as
+        a WHOLE" signal that brain-surgery alignment is meant to
+        produce.
+      </description>
+    </section>
+
+    <section title="Recommended-first protocol">
+      <rules>
+        <rule>"Confirm" is always offered FIRST in the options list with "(Recommended)" when the draft looks defensible</rule>
+        <rule>If the draft has known weaknesses (e.g., a risk area was speculatively included), surface that in the ask text: "I'm less sure about the second risk — wanted to flag for review"</rule>
+        <rule>Do not present the design as a fait accompli; the user CAN redirect or reverse</rule>
+      </rules>
+    </section>
+
+    <section title="The verbatim record matters">
+      <description>
+        Subtle word choice in the user's response shapes step 4's
+        classification. "I'd like to revisit Option A vs Option B" is
+        a REVERSE (it's questioning a locked alternative selection).
+        "I think the artifact chain should also include a UX spec
+        update" is an ADJUST_CHAIN (additive, not a reversal). The
+        verbatim record preserves the signal for step 4 to read.
+      </description>
+    </section>
+
+    <section title="Critical step, no YOLO skip">
+      <description>
+        critical="true" on this step is per the workflow engine's
+        critical-rules. YOLO mode auto-completes everything else, but
+        D-phase alignment is the single point where the user gates the
+        downstream phases — bypassing it produces ticket-structure on
+        an unconfirmed design.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

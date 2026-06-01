@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-scout-extern" step="4" title="Synthesize and Persist">
+
+  <step n="4" title="Synthesize and Persist">
+
+    <substep n="4a" title="Compose the Research Document">
+      <action>
+        Synthesize the children's findings into the extern research
+        document per references/extern-catalog.md research-document schema:
+        Research Question, Key Findings (with clone-relative file:line
+        references and code examples), Applicable Patterns, References.
+
+        Applicable Patterns is a FACTUAL transfer assessment — what
+        matches our work, what differs — not a recommendation to adopt.
+        If the studied pattern was not present in the repo, say so
+        plainly; a negative finding is still a study result.
+      </action>
+    </substep>
+
+    <substep n="4b" title="Review the Findings" optional="true">
+      <check if="INTERACTIVE">
+        <template-output section="Scout Findings">
+          Present the drafted findings for review before persistence.
+
+          [a] Revise (study another component, sharpen a finding)
+          [c] Continue to persistence
+          [y] YOLO
+        </template-output>
+      </check>
+    </substep>
+
+    <substep n="4c" title="Persist to the Global Store">
+      <action>
+        Resolve the global extern store path (catalog.py resolves it from
+        thoughts config). Write the document to
+        repos/{org-repo}/{YYYY-MM-DD}_{topic-slug}.md in the global store.
+      </action>
+    </substep>
+
+    <substep n="4d" title="Record the Study in the Catalog">
+      <action>
+        Update the catalog through the script — never hand-edit it:
+
+          uv run {base_dir}/scripts/catalog.py add-study \
+            --repo "{org/repo}" \
+            --url "{url}" \
+            --topic "{topic}" \
+            --document "repos/{org-repo}/{file}.md" \
+            --context "{why this was studied}"
+
+        Then run `thoughts sync` so the global store is indexed.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

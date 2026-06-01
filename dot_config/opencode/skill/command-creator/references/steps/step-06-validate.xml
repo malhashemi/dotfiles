@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="command-creator" step="6" title="Validate and Complete">
+
+  <step n="6" title="Validate and Complete">
+
+    <goal>
+      Run validation on the completed command files and present next steps.
+    </goal>
+
+    <substep n="6a" title="Run Validation">
+      <action type="script">
+        uv run {base_dir}/references/scripts/validate-command.py {{command_location}}
+      </action>
+      <note>
+        This is a quick author-side pre-check. The build-authoritative validator
+        is `vera validate` (collisions, duplicate ids, template syntax, manifest).
+        Run it too.
+      </note>
+      <check if="validation errors">
+        <action>
+          Address each error:
+          - Missing required config fields → Add them
+          - Invalid id format → Fix format
+          - Missing description in instructions.md frontmatter → Add it
+        </action>
+        <ask>
+          Validation found issues. Would you like to:
+          [f] Fix issues and re-validate
+          [i] Ignore and continue (not recommended)
+        </ask>
+      </check>
+    </substep>
+
+    <substep n="6b" title="Review Complete Command">
+      <action>
+        Display the final command files:
+      </action>
+      <template-output section="Final Command">
+        ## Command Complete: /{{command_name}}
+
+        ### command-config.yaml
+        ```yaml
+        {{command_config_content}}
+        ```
+
+        ### instructions.md
+        ```md
+        {{instructions_content}}
+        ```
+
+        ### Validation: {{validation_status}}
+
+        [a] Edit command [c] Continue to next steps
+      </template-output>
+    </substep>
+
+    <substep n="6c" title="Present Next Steps">
+      <output>
+        ## Next Steps
+
+        1. **Register it in the manifest** so it builds:
+           add the command-config.yaml path to a build group in
+           .vera/vera.manifest.yaml (global commands can live in a `commands` group).
+
+        2. **Build the command:**
+           ```bash
+           vera build {{build_group}}
+           ```
+
+        3. **Output location:**
+           {{#if agent_specific}}
+           ~/.config/opencode/command/{{owner_agent}}/{{command_name}}.md
+           {{/if}}
+           {{#unless agent_specific}}
+           ~/.config/opencode/command/{{command_name}}.md
+           {{/unless}}
+
+        4. **Test the command:**
+           ```
+           /{{command_name}} [test arguments]
+           ```
+
+        5. **Iterate:**
+           - If behavior isn't right, edit instructions.md
+           - Rebuild and retest (remove the compiled artifact first if a plain
+             rebuild doesn't pick up attachment changes)
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Validation Checks">
+      <description>The validation script checks for common issues.</description>
+      <checks>
+        <check name="Config (build descriptor) fields">
+          - type: must equal "command"
+          - id: must exist, lowercase-hyphen format
+          - file_name: must exist, end with .md
+          - destination: must exist ("." for global, or an agent name)
+          - includes: must exist; every included file must exist
+        </check>
+        <check name="Identity (instructions.md frontmatter)">
+          - description: must exist, non-empty, not a TODO placeholder
+        </check>
+        <check name="Body (optional XML form)">
+          - If the body uses &lt;command&gt;, it should contain an &lt;instructions&gt; block
+        </check>
+      </checks>
+    </section>
+
+    <section title="Common Issues">
+      <issue name="id format error">
+        <symptom>id contains invalid characters</symptom>
+        <fix>Use only lowercase letters, numbers, hyphens</fix>
+      </issue>
+      <issue name="Missing description">
+        <symptom>instructions.md frontmatter has no description (or still TODO)</symptom>
+        <fix>Add a clear, actionable description starting with a verb</fix>
+      </issue>
+      <issue name="Legacy fields in config">
+        <symptom>name/description present in command-config.yaml</symptom>
+        <fix>Move them — identity lives in the instructions.md frontmatter</fix>
+      </issue>
+      <issue name="Include not found">
+        <symptom>Referenced file doesn't exist</symptom>
+        <fix>Create the file or fix the path in includes</fix>
+      </issue>
+    </section>
+
+    <section title="Build Process">
+      <description>
+        The build tool compiles source files into the final command:
+      </description>
+      <process>
+        Source:
+          command-config.yaml   (build descriptor)
+          instructions.md       (frontmatter + body)
+
+        ↓ Build: vera build {{build_group}}   (the group it's registered under)
+
+        Output:
+          {{command_name}}.md
+          - YAML frontmatter (from instructions.md frontmatter)
+          - Body (from instructions.md body, variables swapped)
+      </process>
+    </section>
+
+  </guidance>
+
+</step-file>

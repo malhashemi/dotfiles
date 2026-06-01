@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-risk" step="6" title="Return">
+
+  <step n="6" title="Return">
+
+    <check if="AUTONOMOUS">
+      <output-format>
+        Emit to stdout:
+
+        ```
+        SUCCESS
+        Register: {absolute path to the persisted risk register}
+        Approach: {what was assessed}
+        Categories scanned: {the risk lenses applied}
+        Risks: {N} ({count} High/High, {count} High-impact, {count} other)
+        Top risks:
+          - {risk} — likelihood/impact — mitigated by {standard mitigation} [cite]
+          - {risk} — likelihood/impact — mitigated by {standard mitigation} [cite]
+        Assessed internal-only: {categories without web research, or "none"}
+        ```
+      </output-format>
+    </check>
+
+    <check if="INTERACTIVE">
+      <output-format>
+        Present to the user:
+
+        ## Risk Reconnaissance Complete
+
+        **Register**: {path}
+        **Approach**: {what was assessed}
+        **Categories scanned**: {lenses}
+
+        **Top risks** (by likelihood × impact):
+        - {risk} — {likelihood}/{impact} — mitigated by {mitigation} [cite]
+        - {risk} — {likelihood}/{impact} — mitigated by {mitigation} [cite]
+
+        {note any category assessed from internal evidence only}
+
+        Then offer next actions:
+        - Deepen a top risk (Focused Study)
+        - Compare mitigation approaches (Comparative Matrix)
+      </output-format>
+    </check>
+
+  </step>
+
+</step-file>

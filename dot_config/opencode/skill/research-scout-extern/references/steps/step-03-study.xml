@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-scout-extern" step="3" title="Study the Clone">
+
+  <step n="3" title="Study the Clone">
+
+    <substep n="3a" title="Dispatch Codebase Children Against the Clone">
+      <action>
+        Decompose the study topic into focused questions and dispatch the
+        read-only codebase children against the clone path
+        (.extern/{org-repo}/), per references/research/child-subagent-dispatch.md:
+        - codebase-pattern-finder — find the implementation(s) of the
+          pattern under study, with concrete code examples
+        - codebase-analyzer — deep dive on how a specific component works
+        - codebase-locator — find where relevant files live
+
+        Dispatch independent questions in one parallel message. Each
+        prompt scopes the child to the clone path and carries the study
+        question alone — never the parent task's intent. Instruct each
+        child to cite clone-relative file:line (e.g.,
+        .extern/{org-repo}/src/foo.ts:42).
+      </action>
+    </substep>
+
+    <substep n="3b" title="Validate Returns and Sharpen-Redispatch">
+      <action>
+        Redispatch any vague return with a sharper prompt before
+        synthesis. A "pattern not present in this repo" return is a
+        genuine finding — the repo may not implement what we hoped; keep
+        it and report it honestly in step 4.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

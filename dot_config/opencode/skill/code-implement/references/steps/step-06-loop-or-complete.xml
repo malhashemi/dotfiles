@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-implement" step="6" title="Loop or Complete">
+
+  <step n="6" title="Loop or Complete">
+
+    <substep n="6a" title="Check Queue">
+      <check if="slice_queue is non-empty">
+        <action>Return to step 3 (dispatch worker for next slice).</action>
+        <goto step="3"/>
+      </check>
+      <check if="slice_queue is empty">
+        <action>All slices implemented + verified. Proceed to step 7 (final integration).</action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

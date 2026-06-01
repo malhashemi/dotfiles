@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-grill" step="1" title="Load Bundle">
+
+  <step n="1" title="Load Bundle">
+
+    <goal>
+      Read the entire bundle into working memory before any grilling begins.
+      This step runs ONCE per session — subsequent steps may loop, but the
+      bundle load is a one-time orientation activity.
+    </goal>
+
+    <substep n="1a" title="Locate the Bundle">
+      <ask>
+        Which ticket bundle should I grill?
+
+        If you just completed ticket-orient, paste the bundle directory path
+        it produced (under {shared_folder}/tickets/{slug}/).
+
+        If you are resuming an existing draft, provide the bundle directory
+        path or the ticket file path.
+      </ask>
+      <action>
+        Validate the path:
+        - Directory exists
+        - Contains a ticket file (ticket-YYYY-MM-DD-{slug}.md)
+        - Contains a research file (research-YYYY-MM-DD-{slug}.md)
+        - Contains a questions file (questions-YYYY-MM-DD-{slug}.md)
+        - Contains a worklog file (worklog-YYYY-MM-DD-{slug}.md)
+        - All files parse with valid YAML frontmatter
+
+        Store the bundle paths in session:
+        - {{session.ticket_path}}
+        - {{session.research_path}}
+        - {{session.questions_path}}
+        - {{session.worklog_path}}
+        - {{session.bundle_dir}}
+
+        If any file is missing or malformed, halt and report — the user must
+        re-run ticket-orient or fix the bundle.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Read Bundle Files">
+      <action>
+        Read ALL three files completely. No skimming, no offset/limit.
+        Extract from the ticket file:
+        - Frontmatter: kind, status, aliases, tags (primary tag is tags[0]),
+          owner, researcher, date, last_updated, parent, children, depends_on
+        - Body: user-request restatement (written by ticket-orient)
+
+        Extract from the research file:
+        - Frontmatter: parent ticket alias
+        - Body: any prior research findings (empty on a fresh bundle)
+
+        Extract from the questions file:
+        - Frontmatter: parent ticket alias
+        - Body: any prior Q↔R entries (empty on a fresh bundle)
+
+        Extract from the worklog file:
+        - Body: the Orient Summary + Open Threads (written by ticket-orient at handoff)
+
+        Store in session:
+        - {{session.primary_tag}}
+        - {{session.slug}}
+        - {{session.shared_folder}} (derived from the bundle path)
+        - {{session.orient_summary}} (the full Orient Summary block)
+        - {{session.prior_questions}} (list of resolved questions from prior turns, if resuming)
+      </action>
+    </substep>
+
+    <substep n="1c" title="Read CONTEXT.md (if exists)">
+      <action>
+        Re-read CONTEXT.md or CONTEXT-MAP.md to refresh the glossary in working
+        memory. ticket-orient already read it once, but a resumption session
+        may have lost that state, and the glossary may have evolved between
+        sessions.
+
+        If neither exists, set {{session.glossary}} = "none" — lazy-create
+        will trigger on the first resolved term during this skill.
+      </action>
+    </substep>
+
+    <substep n="1d" title="Read Linked Decision Records (if any)">
+      <action>
+        If the ticket frontmatter `children:` array references any
+        `decision-YYYY-MM-DD-*` aliases, resolve and read each one. These
+        are decisions already locked in prior turns. They constrain what
+        ticket-grill is allowed to revisit — a DR's decision is immutable.
+      </action>
+    </substep>
+
+    <substep n="1e" title="Display Bundle Summary">
+      <output>
+        Bundle loaded:
+        - Slug: {{session.slug}}
+        - Primary tag: {{session.primary_tag}}
+        - Status: {{session.ticket_status}}
+        - Owner: {{session.owner}}
+        - Glossary: {{session.glossary_summary}}
+        - Prior Q&A entries: {{count}}
+        - Linked DRs: {{count}} ({{aliases_if_any}})
+
+        Orient Summary present: yes
+
+        Entering Q↔R loop. First turn begins with current-state orientation.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Single-load discipline">
+      <description>
+        This step runs ONCE. Subsequent steps may loop (step 2 -> step 6 ->
+        loop back to step 2), but the bundle is read once into session
+        state. Re-reading on every loop iteration wastes context and risks
+        drift (a step 5 edit changes the file; re-reading it in step 2 of
+        the next iteration would mix turn-N writes with turn-(N+1) reads).
+        Instead, the agent maintains session state and edits files
+        purposefully in step 5.
+      </description>
+    </section>
+
+    <section title="Resumption is normal">
+      <description>
+        ticket-grill is designed to resume cleanly. A session may have run
+        through three turns previously, hit context pressure, compacted,
+        and now restart at step 1 of ticket-grill with the same bundle
+        path. The Orient Summary + prior Q&A entries + research findings on
+        disk are sufficient to pick up exactly where the previous session
+        left off — no separate handoff document is required.
+      </description>
+    </section>
+
+    <section title="Failure modes at load">
+      <rules>
+        <rule>Missing bundle file -> halt and direct user to re-run ticket-orient or fix the bundle</rule>
+        <rule>Malformed frontmatter -> halt and surface the validation error</rule>
+        <rule>Frontmatter status not in {draft, ready, active} -> halt; the bundle is not in a grillable state</rule>
+        <rule>No Orient Summary section in the questions file AND no prior Q&A -> warn; the user may have skipped ticket-orient. Offer to proceed anyway (degraded — first turn must re-do orient work in-skill) or to abort and run ticket-orient first</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

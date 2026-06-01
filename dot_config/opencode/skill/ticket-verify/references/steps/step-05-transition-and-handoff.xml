@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-verify" step="5" title="Transition and Handoff" critical="true">
+
+  <step n="5" title="Transition and Handoff" critical="true">
+
+    <goal>
+      Re-evaluate the verdict after fix application. Present the
+      draft→ready gate. On user confirm, transition status; on
+      decline, leave at draft.
+    </goal>
+
+    <substep n="5a" title="Re-Tally Findings">
+      <action>
+        After step 4, the merged finding list has been processed.
+        Each finding is now resolved, waived, or loop-back-deferred
+        (in which case step 4 already exited the skill).
+
+        Re-tally:
+        - Critical resolved: {{count}} — these should all be 0 if
+          we're at substep 5a (Critical findings can't be waived)
+        - High resolved: {{count}}
+        - High waived (with acknowledgment): {{count}}
+        - Medium resolved: {{count}}
+        - Medium waived: {{count}}
+        - Low resolved / waived: {{count}}
+
+        Re-derive the FINAL verdict:
+        - **PASS**: all Critical and High resolved (none waived). Medium / Low
+          can be a mix of resolved and waived.
+        - **CONDITIONAL_PASS**: all Critical resolved; some High waived with
+          user acknowledgment; rest as in PASS.
+        - **BLOCK**: should not reach this state at substep 5a;
+          if it does, step 4 has a bug.
+
+        Store as {{final_verdict}}.
+      </action>
+    </substep>
+
+    <substep n="5b" title="Append Verify Log to Worklog">
+      <action>
+        Append a Verify Session section to {{worklog_path}}:
+
+        ## Verify Session {{ISO 8601 datetime}}
+
+        - Verdict: {{final_verdict}}
+        - Findings produced: {{total_count}}
+          - Self-review: {{self_count}}
+          - Subagent: {{subagent_count or "(skipped)"}}
+        - Resolutions:
+          - Self-evident: {{count}}
+          - Ambiguous (user-approved): {{count}}
+          - Ambiguous (custom fix): {{count}}
+          - Waived: {{count}}
+          - Structural (looped back): {{count if any, else 0}}
+
+        Use the Edit tool to append. Preserve all prior worklog
+        content.
+      </action>
+    </substep>
+
+    <substep n="5b2" title="Assert Ticket Is Deliverable-Only">
+      <action>
+        Before presenting the gate, confirm the ticket body contains NO
+        process preamble or phase summaries — no "Status:" line, and none of
+        the "Q↔R Readiness Summary / Design Summary / Structure Outline /
+        Writing Plan" headings (those live in the worklog). If any are
+        present, surface as a finding and strip them before the draft → ready
+        flip — the ticket ships as deliverable-only.
+      </action>
+    </substep>
+
+    <substep n="5c" title="Present draft → ready Gate">
+      <ask>
+        Verify phase complete.
+
+        **Final verdict**: {{final_verdict}}
+
+        **Resolution summary**:
+        {{summary table from substep 5b}}
+
+        Transition ticket status from `draft` to `ready`?
+
+        Ready status means: the ticket is in the backlog, available
+        for the next downstream pickup (implementation-QRDSPIV).
+
+        Options:
+        - Transition to ready (Recommended on PASS): update frontmatter
+          status: ready
+        - Stay at draft: leave at draft; the user can re-iterate
+          (additional verify sessions, re-write, re-design, etc.)
+          before transitioning later
+        - Loop back: I see something I want to revisit; specify which
+          phase
+      </ask>
+    </substep>
+
+    <substep n="5d" title="Apply Status Transition">
+      <check if="user confirms transition">
+        <action>
+          Edit the ticket frontmatter: change status from "draft" to
+          "ready".
+
+          Stamp last_updated:
+          uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{ticket_path}}" --note "V-phase complete; draft → ready. Verdict: {{final_verdict}}. Findings: {{total}} ({{resolved}} resolved, {{waived}} waived)."
+
+          Re-validate. Halt if validation fails.
+        </action>
+      </check>
+      <check if="user stays at draft">
+        <action>
+          Keep status: draft. Stamp last_updated with note:
+          "V-phase complete; verdict {{final_verdict}}; status kept at
+          draft per user choice. {{open_concerns_summary}}."
+        </action>
+      </check>
+      <check if="user loops back">
+        <action>
+          Append a note to the worklog: "Verify-phase loop-back at
+          gate: {{user_specified_target}}." Stamp last_updated. Exit
+          skill. User invokes target phase via menu; re-runs
+          ticket-verify after.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5e" title="Present Final Handoff">
+      <template-output section="V-Phase Complete" critical="true">
+        Verify phase complete.
+
+        **Bundle**: {{bundle_dir}}
+        **Ticket**: {{ticket_path}}
+        **Final status**: {{ticket_status}}
+        **Verdict**: {{final_verdict}}
+
+        **Verify log**: see the worklog's Verify Session entry.
+
+        {{if status == 'ready':}}
+        🎉 Ticket is now in the backlog at `status: ready`. The
+        autonomous implementation agent (or whoever picks up the
+        backlog next) can consume this ticket via its downstream
+        QRDSPIV. The ticket-writing workflow for this slug is
+        complete.
+
+        {{if status == 'draft':}}
+        Ticket remains at `status: draft`. Open concerns:
+        {{open_concerns_summary}}
+
+        Re-iterate by invoking the appropriate phase skill from the
+        ticketsmith menu, then re-run ticket-verify when ready.
+        {{end}}
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="The draft → ready gate is the last firm checkpoint" critical="true">
+      <description>
+        Spec §10.3: "After approved fixes are applied, the agent
+        asks the user: 'Transition to ready?' User confirms →
+        frontmatter status: ready. The ticket is now in the backlog,
+        available for implementation-QRDSPIV pickup."
+
+        This gate is critical="true" — cannot be auto-skipped, even
+        in YOLO mode. Status transition affects downstream backlog
+        visibility (thoughts backlog next will surface ready tickets
+        but not drafts). Wrong transition has real cost.
+      </description>
+    </section>
+
+    <section title="When the user stays at draft">
+      <description>
+        Staying at draft is a valid choice — the user may want to
+        iterate further (e.g., the verdict was CONDITIONAL_PASS but
+        the user wants to resolve a Medium-waived issue before
+        transitioning). Don't push back; record the choice in
+        last_updated_note and exit cleanly. The user re-invokes
+        ticket-verify after addressing concerns.
+      </description>
+    </section>
+
+    <section title="Pi runtime mapping reminder">
+      <description>
+        Per QRDSPIV §Pi Runtime Mapping, the draft → ready gate maps
+        to `request_decision` (or `show_outcome` in some flows). At
+        the OpenCode harness layer, the Question tool serves the same
+        role. The semantic is identical: a human-gated transition with
+        an explicit yes/no/loop-back outcome.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

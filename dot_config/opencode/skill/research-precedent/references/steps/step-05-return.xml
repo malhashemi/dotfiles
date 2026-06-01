@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-precedent" step="5" title="Return">
+
+  <step n="5" title="Return">
+
+    <check if="AUTONOMOUS">
+      <output-format>
+        Emit to stdout:
+
+        ```
+        SUCCESS
+        Register: {absolute path to the persisted precedent register}
+        Sought precedent for: {subject}
+        Precedents found: {N} ({count} directly-reusable, {count} adaptable, {count} informative, {count} cautionary)
+        Headline: {1-2 sentences — the most applicable precedent, or "no prior art found; greenfield"}
+        Recommended Scout follow-ups: {external repos worth deep study, or "none"}
+        ```
+      </output-format>
+    </check>
+
+    <check if="INTERACTIVE">
+      <output-format>
+        Present to the user:
+
+        ## Precedent Register Complete
+
+        **Register**: {path}
+        **Sought precedent for**: {subject}
+
+        {summary: how many precedents by class, and the headline —
+        the most applicable precedent with its citation, or the
+        greenfield finding}
+
+        **Recommended Scout follow-ups**: {external repos worth deep
+        study, or "none"}
+
+        Then offer next actions:
+        - Scout a recommended external project for deep pattern study
+        - Investigate an adaptable precedent in more depth
+      </output-format>
+    </check>
+
+  </step>
+
+</step-file>

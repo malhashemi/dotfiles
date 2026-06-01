@@ -1,0 +1,328 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="command-creator" step="5" title="Create Instructions">
+
+  <step n="5" title="Create Instructions">
+    
+    <goal>
+      Write the command body - the actual instructions that execute when
+      the command is invoked - into instructions.md beneath the frontmatter
+      from step 4. Complexity depends on command type.
+    </goal>
+
+    <substep n="5a" title="Determine Structure">
+      <check if="command_type == 'standalone'">
+        <action>
+          Plan the instruction structure:
+          
+          1. **Main instructions** - Core behavior description
+          2. **Argument handling** - How to process $ARGUMENTS
+          3. **Workflow** (optional) - Numbered steps if complex
+          4. **Rules** - Hard constraints on behavior
+        </action>
+      </check>
+      <check if="command_type == 'wrapper'">
+        <action>
+          Keep it minimal:
+          
+          1. **Invoke skill** - Single action to delegate
+          2. **Pass arguments** - How $ARGUMENTS flows to skill
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5b" title="Handle Arguments">
+      <action>
+        Define how $ARGUMENTS are processed:
+        
+        $ARGUMENTS is OpenCode's runtime variable containing whatever
+        the user typed after /command-name.
+        
+        Common patterns:
+        - Check if $ARGUMENTS looks like X, then do Y
+        - If no $ARGUMENTS, ask or use defaults
+        - Parse $ARGUMENTS for specific patterns
+      </action>
+      <ask>
+        How should this command handle arguments?
+        
+        Examples:
+        - "If $ARGUMENTS looks like a commit message, use it"
+        - "If $ARGUMENTS specifies a file path, process that file"
+        - "If no $ARGUMENTS, ask the user for input"
+      </ask>
+    </substep>
+
+    <substep n="5c" title="Write Instructions" if="command_type == 'standalone'">
+      <action>
+        Write the main instruction block:
+        
+        ```xml
+        &lt;command name="{{command_name}}"&gt;
+          &lt;instructions&gt;
+            Main behavior description.
+            
+            &lt;check if="$ARGUMENTS condition"&gt;
+              &lt;action&gt;Handle this case&lt;/action&gt;
+            &lt;/check&gt;
+            
+            &lt;check if="no $ARGUMENTS"&gt;
+              &lt;action&gt;Default behavior&lt;/action&gt;
+            &lt;/check&gt;
+          &lt;/instructions&gt;
+        &lt;/command&gt;
+        ```
+      </action>
+    </substep>
+
+    <substep n="5d" title="Add Workflow" if="needs_workflow" optional="true">
+      <action>
+        Add numbered workflow steps if the command has distinct phases:
+        
+        ```xml
+        &lt;workflow&gt;
+          &lt;step n="1" title="Analyze"&gt;
+            &lt;action&gt;First action&lt;/action&gt;
+          &lt;/step&gt;
+          
+          &lt;step n="2" title="Execute"&gt;
+            &lt;action type="script"&gt;command to run&lt;/action&gt;
+          &lt;/step&gt;
+        &lt;/workflow&gt;
+        ```
+      </action>
+      <ask>
+        What workflow steps does this command need?
+        
+        Keep it simple - commands typically have 2-4 steps max.
+        If you need more, consider a skill instead.
+      </ask>
+    </substep>
+
+    <substep n="5e" title="Define Rules">
+      <action>
+        Add rules that constrain behavior:
+        
+        ```xml
+        &lt;rules&gt;
+          &lt;rule&gt;NEVER do X&lt;/rule&gt;
+          &lt;rule&gt;ALWAYS do Y&lt;/rule&gt;
+          &lt;rule&gt;Specific constraint&lt;/rule&gt;
+        &lt;/rules&gt;
+        ```
+      </action>
+      <ask>
+        What rules should govern this command's behavior?
+        
+        Examples:
+        - "NEVER add co-author information"
+        - "ALWAYS confirm before destructive actions"
+        - "Use conventional commit format"
+      </ask>
+    </substep>
+
+    <substep n="5f" title="Write Wrapper" if="command_type == 'wrapper'">
+      <action>
+        Write a minimal wrapper:
+        
+        ```xml
+        &lt;command name="{{command_name}}"&gt;
+          &lt;instructions&gt;
+            &lt;action&gt;Use the {{target_skill}} skill to {{action_description}}&lt;/action&gt;
+            &lt;action&gt;Pass $ARGUMENTS as {{argument_usage}}&lt;/action&gt;
+          &lt;/instructions&gt;
+        &lt;/command&gt;
+        ```
+      </action>
+    </substep>
+
+    <substep n="5g" title="Save Instructions">
+      <template-output section="Command Instructions">
+        Wrote instructions.md (body sits beneath the step-4 frontmatter):
+        
+        ```xml
+        {{generated_instructions}}
+        ```
+        
+        [a] Edit instructions [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Instruction Block Structure">
+      <description>
+        The &lt;instructions&gt; block is the heart of the command.
+        It tells the agent what to do when the command is invoked.
+      </description>
+      <template>
+        &lt;command name="command-name"&gt;
+          
+          &lt;instructions&gt;
+            Main behavior description for {{user_context}}.
+            
+            &lt;check if="$ARGUMENTS condition"&gt;
+              &lt;action&gt;Handle specific case&lt;/action&gt;
+            &lt;/check&gt;
+          &lt;/instructions&gt;
+          
+          &lt;workflow&gt;
+            &lt;step n="1" title="..."&gt;...&lt;/step&gt;
+          &lt;/workflow&gt;
+          
+          &lt;rules&gt;
+            &lt;rule&gt;Constraint&lt;/rule&gt;
+          &lt;/rules&gt;
+          
+        &lt;/command&gt;
+      </template>
+    </section>
+
+    <section title="$ARGUMENTS Patterns">
+      <description>
+        $ARGUMENTS contains user input after the command name.
+        Common patterns for handling it:
+      </description>
+      <patterns>
+        <pattern name="Interpret as message">
+          &lt;check if="$ARGUMENTS looks like a message"&gt;
+            &lt;action&gt;Use as the message or starting point&lt;/action&gt;
+          &lt;/check&gt;
+        </pattern>
+        <pattern name="Interpret as file path">
+          &lt;check if="$ARGUMENTS specifies files or paths"&gt;
+            &lt;action&gt;Focus on those files&lt;/action&gt;
+          &lt;/check&gt;
+        </pattern>
+        <pattern name="Interpret as instructions">
+          &lt;check if="$ARGUMENTS contains instructions"&gt;
+            &lt;action&gt;Follow those instructions&lt;/action&gt;
+          &lt;/check&gt;
+        </pattern>
+        <pattern name="No arguments">
+          &lt;check if="no $ARGUMENTS provided"&gt;
+            &lt;action&gt;Use default behavior or ask user&lt;/action&gt;
+          &lt;/check&gt;
+        </pattern>
+      </patterns>
+    </section>
+
+    <section title="Workflow Steps">
+      <description>
+        Optional numbered steps for commands with distinct phases.
+        Keep simple - 2-4 steps max for commands.
+      </description>
+      <rules>
+        <rule>Each step should have clear purpose</rule>
+        <rule>Use &lt;action type="script"&gt; for shell commands</rule>
+        <rule>Use &lt;ask&gt; sparingly - commands should be quick</rule>
+      </rules>
+      <example>
+        &lt;workflow&gt;
+          &lt;step n="1" title="Analyze"&gt;
+            &lt;action type="script"&gt;git status&lt;/action&gt;
+            &lt;action&gt;Review changes&lt;/action&gt;
+          &lt;/step&gt;
+          &lt;step n="2" title="Commit"&gt;
+            &lt;action type="script"&gt;git commit -m "message"&lt;/action&gt;
+          &lt;/step&gt;
+        &lt;/workflow&gt;
+      </example>
+    </section>
+
+    <section title="Rules Block">
+      <description>
+        Hard constraints on command behavior.
+        Use emphasis keywords for priority.
+      </description>
+      <rules>
+        <rule>NEVER, ALWAYS for absolute constraints</rule>
+        <rule>MUST, SHOULD for strong preferences</rule>
+        <rule>Keep rules specific and actionable</rule>
+      </rules>
+      <example>
+        &lt;rules&gt;
+          &lt;rule&gt;NEVER add co-author information&lt;/rule&gt;
+          &lt;rule&gt;ALWAYS confirm before force push&lt;/rule&gt;
+          &lt;rule&gt;Use conventional commit format&lt;/rule&gt;
+        &lt;/rules&gt;
+      </example>
+    </section>
+
+    <section title="Wrapper Commands">
+      <description>Minimal structure that delegates to a skill.</description>
+      <template>
+        &lt;command name="pr-review"&gt;
+          &lt;instructions&gt;
+            &lt;action&gt;Use the pr-review skill to address review feedback&lt;/action&gt;
+            &lt;action&gt;Pass $ARGUMENTS as the PR number context&lt;/action&gt;
+          &lt;/instructions&gt;
+        &lt;/command&gt;
+      </template>
+    </section>
+
+  </guidance>
+
+  <examples>
+    
+    <example name="Standalone: /commit">
+      <config>
+        ```xml
+        &lt;command name="commit"&gt;
+          &lt;instructions&gt;
+            Create git commits following conventional commit style.
+            
+            &lt;check if="$ARGUMENTS looks like a commit message"&gt;
+              &lt;action&gt;Use it as the commit message&lt;/action&gt;
+            &lt;/check&gt;
+            
+            &lt;check if="$ARGUMENTS specifies files"&gt;
+              &lt;action&gt;Focus on those files only&lt;/action&gt;
+            &lt;/check&gt;
+            
+            &lt;check if="no $ARGUMENTS"&gt;
+              &lt;action&gt;Analyze all changes and organize appropriately&lt;/action&gt;
+            &lt;/check&gt;
+          &lt;/instructions&gt;
+          
+          &lt;workflow&gt;
+            &lt;step n="1" title="Analyze"&gt;
+              &lt;action type="script"&gt;git status&lt;/action&gt;
+              &lt;action type="script"&gt;git diff&lt;/action&gt;
+            &lt;/step&gt;
+            &lt;step n="2" title="Plan"&gt;
+              &lt;action&gt;Group related changes&lt;/action&gt;
+              &lt;ask&gt;Create [N] commit(s)?&lt;/ask&gt;
+            &lt;/step&gt;
+            &lt;step n="3" title="Execute"&gt;
+              &lt;action type="script"&gt;git add [files]&lt;/action&gt;
+              &lt;action type="script"&gt;git commit -m "[msg]"&lt;/action&gt;
+            &lt;/step&gt;
+          &lt;/workflow&gt;
+          
+          &lt;rules&gt;
+            &lt;rule&gt;NEVER add co-author information&lt;/rule&gt;
+            &lt;rule&gt;NEVER use git add -A or git add .&lt;/rule&gt;
+          &lt;/rules&gt;
+        &lt;/command&gt;
+        ```
+      </config>
+    </example>
+
+    <example name="Wrapper: /pr-review">
+      <config>
+        ```xml
+        &lt;command name="pr-review"&gt;
+          &lt;instructions&gt;
+            &lt;action&gt;Use the pr-review skill to address PR review feedback&lt;/action&gt;
+            &lt;action&gt;Pass $ARGUMENTS as the PR number context&lt;/action&gt;
+          &lt;/instructions&gt;
+        &lt;/command&gt;
+        ```
+      </config>
+    </example>
+
+  </examples>
+
+</step-file>

@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="skill-creator" step="7" title="Workflow Design">
+
+  <step n="7" title="Workflow Design" if="skill_type == 'workflow'">
+    
+    <goal>
+      Design the workflow steps. Define the user journey through the skill:
+      what happens at each step, what output is produced, where are the checkpoints.
+    </goal>
+
+    <note>
+      This step only applies to workflow-type skills.
+      Exec and data skills skip to step 8.
+    </note>
+
+    <substep n="7a" title="Define Step Sequence">
+      <ask>
+        Let's design the workflow steps. For each step, define:
+        1. Step number and title
+        2. Goal (what this step accomplishes)
+        3. Key actions or questions
+        4. Output (what gets saved via template-output)
+        
+        Guidelines:
+        - 3-8 steps total (4-6 is sweet spot)
+        - Each step should have a clear deliverable
+        - Put critical decisions early
+        - Validation/completion always last
+      </ask>
+    </substep>
+
+    <substep n="7b" title="Identify Checkpoints">
+      <action>
+        For each step, determine:
+        - Does it have a template-output? (checkpoint where user reviews)
+        - Is it critical="true"? (cannot be skipped even in YOLO)
+        - Is it optional="true"? (can be skipped)
+        - Does it have conditions? if="condition"
+      </action>
+    </substep>
+
+    <substep n="7c" title="Map Dependencies">
+      <action>
+        Identify dependencies between steps:
+        - What variables does each step need from previous steps?
+        - Are there conditional paths? (if type == X, do Y)
+        - Which steps must complete before others can start?
+      </action>
+    </substep>
+
+    <substep n="7d" title="Confirm Workflow Design">
+      <template-output section="Workflow Design">
+        Present the workflow design:
+
+        Table of steps with: step number, title, goal, checkpoint (yes/no).
+        Identify any conditional steps (those gated by if="" conditions).
+        Identify any critical="true" steps (cannot be skipped in YOLO mode).
+
+        [a] Redesign [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Step Design Principles">
+      <rules>
+        <rule>Each step should have ONE clear goal</rule>
+        <rule>Put user decisions at checkpoints (template-output)</rule>
+        <rule>Discovery/context gathering first</rule>
+        <rule>Critical decisions early (easier to course-correct)</rule>
+        <rule>Validation and completion last</rule>
+      </rules>
+    </section>
+
+    <section title="Common Workflow Patterns">
+      
+      <pattern name="Create Document">
+        <description>Guided creation of a structured document.</description>
+        <steps>
+          1. Discovery and Context (gather requirements)
+          2. Structure Decision (outline/type selection) [critical]
+          3. Scaffold (create file from template)
+          4-N. Fill Sections (one per major section)
+          N+1. Validate and Complete
+        </steps>
+        <example>agent-creator, create-product-brief, create-prd</example>
+      </pattern>
+
+      <pattern name="Analysis Workflow">
+        <description>Structured analysis producing findings.</description>
+        <steps>
+          1. Scope Definition (what to analyze)
+          2. Data Gathering (collect inputs)
+          3. Analysis (apply methodology)
+          4. Synthesis (combine findings)
+          5. Report Generation
+        </steps>
+        <example>deep-research, competitive-analysis</example>
+      </pattern>
+
+      <pattern name="Review Workflow">
+        <description>Systematic review with checklist.</description>
+        <steps>
+          1. Load Subject (what to review)
+          2. Apply Checklist (systematic checks)
+          3. Findings Summary
+          4. Recommendations
+        </steps>
+        <example>code-review, architecture-review</example>
+      </pattern>
+
+    </section>
+
+    <section title="Checkpoint Placement">
+      <rules>
+        <rule>After any significant output that user should review</rule>
+        <rule>Before irreversible actions</rule>
+        <rule>After critical decisions</rule>
+        <rule>NOT after trivial actions (loading a file)</rule>
+      </rules>
+      <example type="good">
+        Template-output after: discovery summary, section content, final validation
+      </example>
+      <example type="bad">
+        Template-output after: loading config file (trivial, no review needed)
+      </example>
+    </section>
+
+    <section title="Skills Invoked by Autonomous Callers">
+      <description>
+        When a skill is invoked by a subagent (autonomous, no user
+        interaction), the step files should NOT use &lt;ask&gt; tags or
+        interactive checkpoints. The engine cannot pause for user input
+        when the caller is autonomous.
+      </description>
+      <differences>
+        <rule>template-output tags structure return output sections (not save-and-ask)</rule>
+        <rule>No &lt;ask&gt; tags — autonomous callers cannot answer</rule>
+        <rule>No [a] [c] [y] checkpoints — caller doesn't pause for review</rule>
+        <rule>Steps may route by input parameter rather than always being linear</rule>
+      </differences>
+    </section>
+
+    <section title="Return-Signal Multiplicity for Autonomous Skills">
+      <description>
+        Skills invoked by subagents or other skills often need to emit
+        different return shapes for different runtime conditions
+        (success vs missing-input vs runtime-condition-X). Express each
+        return signal as its own &lt;check if=""&gt; block in the final
+        step, with an &lt;output-format&gt; nested inside the matching
+        condition.
+      </description>
+      <signal-classes>
+        <signal>ERROR — input contract violated; caller bug. Names the missing/malformed field.</signal>
+        <signal>Success signal — work completed; structured payload.</signal>
+        <signal>Domain signals — runtime conditions the caller must route on (e.g., NEEDS_DECOMPOSITION, PLAN_DRIFT in code-implement's worker dispatch).</signal>
+      </signal-classes>
+      <rules>
+        <rule>Validate inputs in step 1; emit ERROR and stop if missing/malformed.</rule>
+        <rule>Each signal carries enough context for the caller to route without re-running the skill.</rule>
+        <rule>Distinguish ERROR (caller's fault) from domain signals (runtime condition).</rule>
+      </rules>
+      <example>
+        Final step uses branched output:
+          &lt;check if="work completed"&gt;
+            &lt;output-format&gt;SUCCESS_SIGNAL ...&lt;/output-format&gt;
+          &lt;/check&gt;
+          &lt;check if="domain condition X"&gt;
+            &lt;output-format&gt;DOMAIN_SIGNAL_X ...&lt;/output-format&gt;
+          &lt;/check&gt;
+      </example>
+    </section>
+
+    <section title="Critical vs Optional Steps">
+      <rules>
+        <rule>critical="true": Cannot be skipped, even in YOLO mode</rule>
+        <rule>optional="true": Can be skipped (ask user unless YOLO)</rule>
+        <rule>Default: Required, but can be YOLO'd through</rule>
+      </rules>
+      <example>
+        Step 2 "Skill Architecture" → critical (wrong choice = wrong skill)
+        Step 6 "Advanced Options" → optional (nice to have, not essential)
+      </example>
+    </section>
+
+  </guidance>
+
+  <examples>
+    <example name="agent-creator Workflow (5 steps)">
+      <config>
+        | Step | Title | Goal | Checkpoint? |
+        |------|-------|------|-------------|
+        | 1 | Discovery and Context | Gather requirements | Yes |
+        | 2 | Template Selection | Select includes by mode | Yes |
+        | 3 | Scaffold and Configure | Create files + frontmatter | Yes |
+        | 4 | Fill Content Templates | Walk through each template | Yes (critical) |
+        | 5 | Validate and Complete | Run validation | Yes |
+      </config>
+      <rationale>
+        5 steps: Discovery → Template Selection → Scaffold → Fill (critical) → Validate.
+        Step 4 is critical because it produces the actual content.
+        Each step produces reviewable output.
+      </rationale>
+    </example>
+
+    <example name="Minimal Workflow">
+      <config>
+        | Step | Title | Goal | Checkpoint? |
+        |------|-------|------|-------------|
+        | 1 | Gather Input | Get user requirements | Yes |
+        | 2 | Process | Apply transformation | No |
+        | 3 | Present Output | Show and confirm result | Yes |
+      </config>
+      <rationale>
+        Minimal 3-step pattern: Input → Process → Output.
+        Good for simple transformations that need user confirmation.
+      </rationale>
+    </example>
+  </examples>
+
+</step-file>

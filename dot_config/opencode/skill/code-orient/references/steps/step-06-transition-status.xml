@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-orient" step="6" title="Transition Ticket Status (planning mode)" if="mode == 'planning'">
+
+  <step n="6" title="Transition Ticket Status">
+
+    <substep n="6a" title="Invoke transition-ticket-status.py">
+      <action type="script">uv run {base_dir}/scripts/transition-ticket-status.py --ticket-file "{{ticket_path}}" --new-status active</action>
+      <check if="exit code != 0">
+        <action>Surface the script's stderr verbatim. Halt.</action>
+      </check>
+    </substep>
+
+    <substep n="6b" title="Confirm Transition">
+      <action>
+        Re-read the ticket frontmatter. Verify status == "active".
+        If not, halt with: "Status transition failed silently. Ticket
+        is at status={{actual_status}}, expected active. Inspect
+        thoughts CLI state."
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

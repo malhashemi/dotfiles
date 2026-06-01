@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="worktree-setup" step="2" title="Create Worktree">
+
+  <step n="2" title="Create Worktree">
+
+    <substep n="2a" title="Verify Working Tree Is Clean">
+      <action type="script">git status --porcelain</action>
+      <check if="output is non-empty">
+        <action>
+          Working tree is dirty. Halt with: "Working tree has uncommitted
+          changes. Stash, commit, or discard before invoking
+          worktree-setup. Output:\n{{git_status_output}}"
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2b" title="Determine Base Branch">
+      <action type="script">thoughts metadata | grep -E "^base_branch:" | head -1 | cut -d: -f2- | tr -d ' '</action>
+      <check if="empty">
+        <action type="script">git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@'</action>
+      </check>
+      <check if="still empty">
+        <action>Fall back to "main".</action>
+      </check>
+      <action>Store as {{base_branch}}.</action>
+    </substep>
+
+    <substep n="2c" title="Invoke wt switch -c">
+      <action type="script">wt switch -c {{branch}} --base {{base_branch}}</action>
+      <check if="command failed">
+        <action>
+          Surface the wt error to the user verbatim. Common failures:
+          - `wt` not installed (install via `brew install worktrunk`)
+          - shell integration not active (`wt config shell install`)
+          - base branch does not exist (verify with `git branch -a`)
+
+          Halt and do not proceed.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2d" title="Capture Worktree Path">
+      <action type="script">wt list --format=json | jq -r '.[] | select(.branch == "{{branch}}") | .path'</action>
+      <check if="empty">
+        <action>
+          Halt with: "wt switch -c reported success but the worktree is
+          not visible in `wt list`. This indicates a worktrunk state
+          inconsistency. Inspect with `wt list` and `git worktree list`."
+        </action>
+      </check>
+      <action>Store as {{worktree_path}}.</action>
+    </substep>
+
+  </step>
+
+</step-file>

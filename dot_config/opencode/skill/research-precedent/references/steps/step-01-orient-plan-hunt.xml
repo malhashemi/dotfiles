@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-precedent" step="1" title="Orient and Plan the Hunt">
+
+  <step n="1" title="Orient and Plan the Hunt">
+
+    <substep n="1a" title="Detect Mode">
+      <action>
+        Check whether the question tool is available. Available →
+        INTERACTIVE. Absent → AUTONOMOUS. Later substeps branch on this.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Validate the Subject">
+      <check if="AUTONOMOUS">
+        <action>
+          Confirm precedent_for is present. If absent, emit to stdout and
+          stop:
+
+            ERROR: Missing required field 'precedent_for'. The dispatching
+            caller failed to supply what we are seeking precedent for. No
+            hunt performed.
+        </action>
+      </check>
+      <check if="INTERACTIVE">
+        <action>
+          Confirm what we are seeking precedent FOR — the problem,
+          pattern, or capability. If genuinely ambiguous, ask one
+          clarifying question via the question tool, recommended
+          interpretation first.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="1c" title="Read Mentioned Sources First">
+      <action>
+        If the subject names specific files or artifacts, read them FULLY
+        now (no offset/limit). Knowing what WE are doing sharpens the
+        match/differ assessment against any precedent found.
+      </action>
+    </substep>
+
+    <substep n="1d" title="Plan the Source Hunts">
+      <action>
+        Decompose into precedent hunts across the three sources, each a
+        focused question routed per references/research/child-subagent-dispatch.md:
+        - Internal code precedent: "is there an existing implementation
+          of {pattern} we could model after?" → codebase-pattern-finder
+        - Prior-decision precedent: "have we planned or decided something
+          like {subject} before?" → thoughts-locator (then thoughts-analyzer)
+        - External precedent: "what open-source projects or documented
+          patterns solve {subject}?" → web-search-researcher
+
+        Drop a source only when it cannot apply (e.g., no thoughts/ archive
+        in this project). Most hunts run all three.
+      </action>
+    </substep>
+
+    <substep n="1e" title="Scope Gate">
+      <action>
+        A precedent hunt targets one problem or pattern. If precedent_for
+        is so broad it would survey many unrelated problems ("find all
+        precedent for our architecture"), emit to stdout and stop:
+
+          SCOPE_TOO_LARGE
+          Reason: subject spans many unrelated problems
+          Suggested narrower hunts:
+            - <focused precedent subject 1>
+            - <focused precedent subject 2>
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

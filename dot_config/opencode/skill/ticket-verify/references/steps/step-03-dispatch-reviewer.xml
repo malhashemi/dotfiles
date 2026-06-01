@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-verify" step="3" title="Dispatch Reviewer Subagent (Conditional)">
+
+  <step n="3" title="Dispatch Reviewer Subagent (Conditional)">
+
+    <goal>
+      For high-stakes primary tags (feature, exploration,
+      infrastructure), dispatch the ticket-reviewer subagent for
+      fresh-context review. Merge its findings with the self-review
+      report.
+    </goal>
+
+    <substep n="3a" title="Decide Whether to Dispatch">
+      <action>
+        Per spec §10.1:
+        - feature / exploration / infrastructure → DISPATCH
+        - bug / hotfix / chore → SKIP (self-review suffices)
+
+        Store as {{dispatch_reviewer}}: true | false.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Dispatch the Subagent">
+      <check if="dispatch_reviewer is true">
+        <action>
+          Invoke ticket-reviewer via the Task tool with a prompt
+          containing:
+          - Ticket file path
+          - Research file path
+          - Questions file path
+          - Primary tag
+          - Optional context: any specific concerns the agent wants
+            the reviewer to focus on (e.g., "the AC section came in
+            shorter than estimated; check for completeness")
+
+          The subagent operates in fresh context — it does NOT see the
+          self-review findings. This is deliberate; the subagent's
+          value is a second-opinion diagnostic from an audience that
+          hasn't lived through the Q↔R loop.
+
+          Wait for the subagent to return its finding report.
+        </action>
+        <invoke-agent name="ticket-reviewer" prompt="{{composed_prompt}}"/>
+      </check>
+      <check if="dispatch_reviewer is false">
+        <action>
+          Skip. Note in session: "Reviewer subagent skipped (primary
+          tag is {{primary_tag}}; self-review only per spec §10.1)."
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3c" title="Merge Findings">
+      <check if="dispatch_reviewer is true and subagent returned findings">
+        <action>
+          Merge the subagent's findings into the self-review report.
+          Process:
+
+          1. Parse the subagent's finding report (which uses the same
+             severity-ladder output format)
+          2. For each subagent finding, check if a self-review finding
+             flagged the same issue (compare location and topic). If
+             yes, deduplicate (keep one; note "flagged by both" in
+             the merged entry). If no, add as a new finding.
+          3. Re-tally counts and re-derive the verdict per the ladder.
+
+          Store as {{merged_findings_report}}: the final consolidated
+          report ready for step 4.
+        </action>
+      </check>
+      <check if="dispatch_reviewer is false">
+        <action>
+          Use {{self_review_report}} as-is. Store as
+          {{merged_findings_report}}.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3d" title="Display Merged Report">
+      <output>
+        Verify reports merged:
+        - Self-review findings: {{count}}
+        - Subagent findings: {{count or "(skipped)"}}
+        - Merged findings: {{count after dedup}}
+        - Verdict: {{BLOCK / CONDITIONAL / PASS}}
+
+        Proceeding to finding resolution.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="The ticket-reviewer subagent is read-only">
+      <description>
+        Per Lock 29 + spec §10.1, ticket-reviewer's edit permission
+        is denied. It reports; ticketsmith (this skill) applies fixes.
+        Do NOT expect the subagent to edit the ticket. Do NOT try to
+        delegate fix application to it.
+      </description>
+    </section>
+
+    <section title="Dedup discipline">
+      <description>
+        Two reviews finding the same defect is a STRONG signal — keep
+        the entry, note "flagged by both reviews", and treat with the
+        higher of the two severities. Avoid presenting the user with
+        duplicate findings; they'll lose patience and dismiss the
+        whole report.
+      </description>
+    </section>
+
+    <section title="Why no subagent for bug/hotfix/chore">
+      <description>
+        Per spec: these tags carry lower stakes; self-review provides
+        sufficient quality assurance. Dispatching a subagent for a
+        2-line chore ticket is overhead. Stick to the spec; if a user
+        explicitly asks for fresh-context review on a chore, accommodate
+        — but don't default to it.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-implement" step="2" title="Setup Worktree(s)">
+
+  <step n="2" title="Setup Worktree(s)">
+
+    <substep n="2a" title="Invoke worktree-setup">
+      <check if="plan_count == 1 OR parallel_safety == 'sequential'">
+        <action>
+          Single worktree. Invoke the worktree-setup skill once with:
+          - ticket_slug = {{ticket_slug}}
+          - primary_tag = {{primary_tag}}
+          - plan_count = 1 (collapse multi-plan-sequential into one
+            worktree per Lock 27 downstream effect)
+          - parallel_safe = false
+          - plan_index = (not used)
+
+          Capture returned: {{branch}}, {{worktree_path}}.
+        </action>
+        <invoke-skill name="worktree-setup"/>
+      </check>
+      <check if="plan_count > 1 AND parallel_safety == 'parallel'">
+        <action>
+          Multi-worktree. Invoke worktree-setup N times, ONCE PER PLAN:
+          for each plan_n in 1..{{plan_count}}:
+            - ticket_slug = {{ticket_slug}}
+            - primary_tag = {{primary_tag}}
+            - plan_count = {{plan_count}}
+            - parallel_safe = true
+            - plan_index = plan_n
+
+            Capture {{plan_n.branch}}, {{plan_n.worktree_path}}.
+        </action>
+        <invoke-skill name="worktree-setup"/>
+      </check>
+    </substep>
+
+    <substep n="2b" title="Update Plan Frontmatter With Worktree Info">
+      <action>
+        For each plan doc, edit frontmatter (or body) to record:
+        - branch: {{branch_for_this_plan}}
+        - worktree_path: {{path_for_this_plan}}
+
+        This persists the worktree association across sessions; a
+        resumption knows where to dispatch workers.
+      </action>
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{plan_path}}" --note "Worktree ready: {{branch}} @ {{worktree_path}}"</action>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-verify" step="3" title="Handle Medium Findings (User Waivers)">
+
+  <step n="3" title="Handle Medium Findings">
+
+    <substep n="3a" title="Inventory Medium Findings">
+      <action>
+        From {{findings.angles}} extract all findings where
+        severity == "Medium". Store as {{medium_findings}}.
+
+        If empty, skip to step 4.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Prompt User Per Finding">
+      <action>
+        For each Medium finding (one at a time, via Question tool):
+      </action>
+      <ask>
+        Verify gate {{gate}} surfaced this Medium finding:
+
+        **{{finding.title}}** ({{finding.angle}}, {{finding.location}})
+
+        Finding: {{finding.finding}}
+        Recommended fix: {{finding.fix}}
+        Impact if not fixed: {{finding.impact}}
+
+        Action:
+        - Fix now (Recommended): mark as BLOCKED until addressed
+        - Waive: not a problem in this context; record decision and proceed
+      </ask>
+      <check if="user picks Fix now">
+        <action>Keep severity as Medium. Verdict stays BLOCKED.</action>
+      </check>
+      <check if="user picks Waive">
+        <action>
+          Set finding.user_waived = true. The finding still appears
+          in the verification doc but does NOT block.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3c" title="Re-Compute Verdict">
+      <action>
+        Re-aggregate findings per the verdict rules:
+        - Any Critical or High → BLOCKED
+        - Any Medium without user_waived == true → BLOCKED
+        - Otherwise → PROCEED
+
+        Update {{findings.verdict}}. If verdict changed from BLOCKED
+        to PROCEED via waivers, also set {{findings.loop_back_target}} = null.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

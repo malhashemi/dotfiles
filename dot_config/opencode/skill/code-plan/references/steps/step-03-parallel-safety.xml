@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-plan" step="3" title="Parallel-Safety Evaluation" if="plan_count > 1">
+
+  <step n="3" title="Parallel-Safety Evaluation">
+
+    <substep n="3a" title="Load Criteria">
+      <action>
+        Load references/codesmith/parallel-safety-criteria.md. Four
+        criteria: file-overlap, logical-dependency, module-boundary,
+        shared-infra. Default = sequential unless ALL four clear as
+        parallel-safe.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Evaluate Each Pairing">
+      <action>
+        For each pair of plans (plan_i, plan_j) where i &lt; j:
+
+        - file-overlap: compare the Files tables in their plan docs.
+          Any overlap → fail.
+
+        - logical-dependency: plan_j's slices depend on any output
+          (types, schemas, APIs) of plan_i's slices? → fail.
+
+        - module-boundary: both plans confined to a single module per
+          ADRs? If yes → fail (they share boundary). Plans should
+          live in distinct modules.
+
+        - shared-infra: do they both touch migrations / package.json
+          / Cargo.toml / build configs? Any shared infra file → fail.
+
+        Record evidence per criterion + pairing.
+      </action>
+    </substep>
+
+    <substep n="3c" title="Determine Verdict">
+      <action>
+        Verdict = parallel iff ALL pairings clear ALL four criteria.
+        Otherwise = sequential.
+      </action>
+    </substep>
+
+    <substep n="3d" title="Document in Plan-1 Doc">
+      <action>
+        Append to plan-{{date}}-{{ticket_slug}}-plan-1.md (or the
+        single plan doc if collapsed to one):
+
+        ## Parallel-Safety
+
+        **Plans evaluated**: plan-1, plan-2, ..., plan-{{N}}
+        **Decision**: {{parallel | sequential}}
+
+        **Evidence per criterion**:
+        - file-overlap: {{pass | fail with file list}}
+        - logical-dependency: {{pass | fail with dependency arrows}}
+        - module-boundary: {{pass | fail with module names}}
+        - shared-infra: {{pass | fail with infra file list}}
+
+        **Downstream effect**:
+        - {{parallel: separate worktrees per plan: each with suffix `-plan-N`}}
+        - {{sequential: single worktree; plans execute in dependency order: 1 → 2 → ... → N}}
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

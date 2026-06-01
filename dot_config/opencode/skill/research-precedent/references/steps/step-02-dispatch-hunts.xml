@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-precedent" step="2" title="Dispatch Hunts">
+
+  <step n="2" title="Dispatch Hunts">
+
+    <substep n="2a" title="Web-Research Approval Gate">
+      <check if="external hunt is planned AND INTERACTIVE">
+        <ask>
+          The external-precedent hunt needs web research. Ask the user to
+          approve dispatching web-search-researcher, recommended option
+          first. If declined, drop the external hunt and note it as a
+          deferred source in the register.
+        </ask>
+      </check>
+      <check if="external hunt is planned AND AUTONOMOUS">
+        <action>
+          If web_search_approved is true, keep the external hunt. If false
+          or absent, emit to stdout and stop:
+
+            CLARIFICATION_NEEDED: External-precedent hunt requires web
+            research, but web_search_approved was not set. Re-dispatch
+            with web_search_approved=true, or limit the hunt to internal
+            sources.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2b" title="Dispatch the Hunts">
+      <action>
+        Dispatch the internal-code and external hunts in one parallel
+        wave via the Task tool in a SINGLE message. The prior-decision
+        hunt is two-stage: thoughts-locator in this wave; thoughts-analyzer
+        in a second wave against the artifacts the locator surfaces.
+        Compose each prompt per child-subagent-dispatch prompt-anatomy —
+        the hunt question alone, never the parent task's intent.
+      </action>
+    </substep>
+
+    <substep n="2c" title="Validate Returns and Sharpen-Redispatch">
+      <action>
+        Redispatch any vague return with a sharper prompt before
+        assessment. A "no matches" return is the most important kind of
+        negative finding here — it is direct evidence of no precedent in
+        that source. Keep it; it shapes the register in step 3. Collect
+        raw candidate precedents per source.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

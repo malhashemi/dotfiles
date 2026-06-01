@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-plan" step="3" title="Align with User">
+
+  <step n="3" title="Align with User">
+
+    <goal>
+      Present the Writing Plan to the user. Lighter checkpoint than
+      D or S phases (P is tactical), but still get explicit
+      confirmation before ticket-write begins.
+    </goal>
+
+    <substep n="3a" title="Present Plan">
+      <ask>
+        Writing plan proposal:
+
+        {{plan_draft}}
+
+        Approve to proceed to ticket-write?
+
+        - Confirm (Recommended if it looks right): lock the plan and proceed
+        - Adjust writing order: change section sequence
+        - Adjust subagent plan: change which sections dispatch subagents
+        - Adjust checkpoints: add, remove, or move review pauses
+        - Adjust length estimates: change my expectations on section length
+        - Loop back to ticket-structure: this exposes a structural issue
+      </ask>
+    </substep>
+
+    <substep n="3b" title="Handle Response">
+      <check if="user confirms">
+        <action>
+          Lock {{plan_draft}} as {{plan_final}}. Proceed to step 4.
+        </action>
+      </check>
+
+      <check if="user adjusts">
+        <action>
+          Apply the adjustment. Re-loop to substep 3a. Iteration cap
+          of 3 (P is tactical; deeper churn signals a structural
+          issue better solved by loop-back).
+        </action>
+        <goto step="3"/>
+      </check>
+
+      <check if="user loops back to ticket-structure">
+        <action>
+          Note in questions file: "Plan-phase loop-back: structural
+          issue surfaced — {{specifics}}." Stamp last_updated. Exit
+          cleanly. User invokes ticket-structure via menu (TS).
+
+          As with ticket-structure→ticket-design loop-back, this does
+          NOT increment ticket-design's strike counter — tactical
+          loop-back is not a foundational reversal.
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="P is tactical, not foundational">
+      <description>
+        Adjustments at this phase are normal and cheap. The plan can
+        change without invalidating the Design Summary or the
+        Structure Outline. Strike counter does not apply here — even
+        big reorderings are still tactical.
+      </description>
+    </section>
+
+    <section title="When to loop back vs adjust">
+      <rules>
+        <rule>Adjust: the section list is right, but the order or dispatch plan is off</rule>
+        <rule>Adjust: a length estimate is wildly wrong</rule>
+        <rule>Loop back to ticket-structure: a section in the outline doesn't actually need to exist (or one's missing)</rule>
+        <rule>Loop back to ticket-design: a section's existence reveals a design gap (rare; usually surfaces in ticket-structure)</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

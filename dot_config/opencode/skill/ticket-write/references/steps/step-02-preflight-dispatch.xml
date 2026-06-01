@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-write" step="2" title="Pre-Flight Subagent Dispatch">
+
+  <step n="2" title="Pre-Flight Subagent Dispatch">
+
+    <goal>
+      Dispatch all subagents flagged in the Writing Plan in PARALLEL
+      before writing begins. Collect findings into session memory
+      keyed by section name. This batches the I/O so step 3 can write
+      sections without per-section blocking.
+    </goal>
+
+    <substep n="2a" title="Collect Dispatch List">
+      <action>
+        Walk the Writing Plan's dispatch_plan. Collect every section
+        that has needs_dispatch: true into a single dispatch list.
+        Each entry: {section_name, subagent, prompt_hint}.
+
+        If no section needs dispatch, this step is a no-op; skip to
+        substep 2e.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Web Search Approval Gate">
+      <check if="any dispatch uses web-search-researcher">
+        <ask>
+          One or more sections require web research at write-time
+          (subagent: web-search-researcher). The plan documented these
+          but per QRDSPIV §3.1, web research requires user approval.
+
+          Sections requiring web research:
+          {{list of section names + prompt hints}}
+
+          Approve dispatching web search for these?
+          - Approve (Recommended if the plan was reasonable): proceed
+          - Decline: skip web research; mark affected sections for
+            inline note ("evidence not gathered; consider verifying
+            during implementation")
+        </ask>
+      </check>
+    </substep>
+
+    <substep n="2c" title="Compose Subagent Prompts">
+      <action>
+        For each dispatch entry, expand the prompt_hint from the plan
+        into a full subagent prompt. Each prompt:
+        1. Names the question to answer (derived from the section's
+           scope note)
+        2. Lists the constraint (e.g., "return file paths only; do
+           not analyze")
+        3. Specifies output shape (e.g., "markdown table with
+           file:line and one-line purpose")
+
+        Store the expanded prompts in {{dispatch_prompts}}.
+      </action>
+    </substep>
+
+    <substep n="2d" title="Dispatch in Parallel">
+      <action>
+        Dispatch ALL prompts in a single message via the Task tool.
+        Multiple Task calls in ONE message = parallel execution.
+        Wait for ALL to return before proceeding.
+
+        For each return, synthesize the finding into a brief markdown
+        block tagged with the section_name. Store as
+        {{section_findings[section_name]}}.
+      </action>
+    </substep>
+
+    <substep n="2e" title="Display Dispatch Summary">
+      <output>
+        Pre-flight dispatch complete:
+        - Dispatches performed: {{count}}
+        - Findings collected per section: {{count of sections with findings}}
+        - Web research: {{performed or declined or "not requested"}}
+
+        Proceeding to section writing.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Parallel dispatch is mandatory" critical="true">
+      <description>
+        Like ticket-grill's step 4, dispatch happens in a SINGLE
+        message with multiple Task calls. This is what makes them
+        parallel. Serial dispatch defeats the efficiency win of
+        pre-flighting.
+      </description>
+    </section>
+
+    <section title="When no dispatches are planned">
+      <description>
+        Some tickets need zero write-time research — all needed
+        evidence was gathered during ticket-grill. That's normal.
+        Step 2 becomes a no-op; section writing proceeds directly to
+        step 3.
+      </description>
+    </section>
+
+    <section title="Findings synthesis discipline">
+      <description>
+        Subagent returns are SYNTHESIZED into per-section findings.
+        Each finding is one short markdown block that names the
+        evidence (file paths, URLs, prior thoughts) without pasting
+        raw subagent output. The synthesis is what step 3 writes
+        into the ticket body.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

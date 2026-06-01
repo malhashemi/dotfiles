@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-verify" step="1" title="Compose Angle Set">
+
+  <step n="1" title="Compose Angle Set">
+
+    <substep n="1a" title="Load Angle Table">
+      <action>
+        Load references/codesmith/verification-angle-table.md. The
+        "Mandatory angles × gate matrix" + "Conditional angles" tables
+        define which angles apply per gate.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Pick Mandatory Angles">
+      <action>
+        From the mandatory × gate matrix, select the columns marked ✓
+        for {{gate}}:
+
+        - D-review:           architecture, sizing
+        - P-review:           plan-adherence, sizing, completeness-vs-ac
+        - I-per-slice:        plan-adherence, code-quality, test-quality
+        - final-integration:  plan-adherence, code-quality, test-quality,
+                              architecture, completeness-vs-ac
+
+        Store as {{mandatory_angles}}.
+      </action>
+    </substep>
+
+    <substep n="1c" title="Evaluate Conditional Triggers">
+      <action>
+        For each conditional angle, check its trigger condition
+        against this gate's context:
+
+        - security: if primary_tag IN ('feature', 'hotfix') OR
+          'security' IN tags OR I-phase signaled an auth/credential/
+          data-exposure code path → add
+        - performance: if 'performance' IN tags OR I-phase signaled a
+          hot-path → add
+        - compliance: if 'compliance' IN tags OR touched code is in a
+          regulated module per ADR → add
+        - operational: if primary_tag == 'infrastructure' OR I-phase
+          touched logging/monitoring/error paths → add
+        - documentation: if gate IN ('I-per-slice') AND CONTEXT.md
+          was touched → add; OR if gate == 'final-integration' →
+          always add
+        - dependency: if package.json / Cargo.toml / pyproject.toml /
+          equivalent was modified in the slice or plan → add
+
+        Store added angles as {{conditional_angles}}.
+
+        Combined: {{angle_set}} = mandatory_angles + conditional_angles.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

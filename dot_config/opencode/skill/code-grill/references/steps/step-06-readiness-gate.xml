@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-grill" step="6" title="Readiness Gate">
+
+  <step n="6" title="Readiness Gate">
+
+    <substep n="6a" title="Evaluate Five Criteria">
+      <action>
+        Check each criterion against accumulated bundle state:
+
+        1. **Problem clearly scoped** — restatement matches grilled
+           scope; in-scope AND out-of-scope explicit
+        2. **Current state factually mapped** — research findings
+           cover every relevant code area; no "we don't know if X
+           exists" on critical questions
+        3. **Impact understood** — downstream artifacts implied are
+           identified at high level; risk areas surfaced
+        4. **Edge cases identified** — relevant per primary tag
+           (deletion, error states, permissions, concurrency)
+        5. **Agent can articulate unprompted** — can walk through
+           scope + current state + design implications + risks +
+           edge cases from the bundle alone
+
+        Record PASS/NOT YET + one-line evidence per criterion.
+      </action>
+    </substep>
+
+    <substep n="6b" title="Decide Loop or Exit">
+      <check if="all five PASS">
+        <action>Proceed to step 6c (confirm exit with user).</action>
+      </check>
+      <check if="any NOT YET">
+        <action>Proceed to step 6d (surface gap and loop).</action>
+      </check>
+    </substep>
+
+    <substep n="6c" title="Confirm Exit With User">
+      <ask>
+        Readiness check ({{turn_count}} turns elapsed):
+        1. Problem scoped: PASS — {{evidence}}
+        2. Current state mapped: PASS — {{evidence}}
+        3. Impact understood: PASS — {{evidence}}
+        4. Edge cases identified: PASS — {{evidence}}
+        5. Agent can articulate unprompted: PASS — {{summary}}
+
+        Bundle:
+        - Research: {{research_path}} ({{turn_count}} turn entries)
+        - DRs spawned: {{count}} ({{aliases}})
+        - CONTEXT.md updates: {{terms}}
+
+        Ready for D-phase (code-design)?
+        - Confirm (Recommended): exit Q↔R; recommend code-design
+        - One more turn: gap remains — describe it
+        - Pause: stop here; bundle on disk for later resumption
+      </ask>
+      <check if="user confirms">
+        <action>Proceed to substep 6e (handoff).</action>
+      </check>
+      <check if="user requests one more turn">
+        <action>Capture gap as next turn's focus. Loop back to step 2.</action>
+        <goto step="2"/>
+      </check>
+      <check if="user pauses">
+        <action>Exit. Bundle on disk is the handoff state.</action>
+      </check>
+    </substep>
+
+    <substep n="6d" title="Surface Gap and Loop">
+      <ask>
+        Readiness not yet met:
+        {{for each failing criterion: criterion N — NOT YET — what's missing}}
+
+        Proposed next turn focus: {{proposed_focus}}.
+
+        - Accept (Recommended): proceed with proposed focus
+        - Redirect: focus on a different gap; describe
+        - Force-exit: skip readiness and exit (NOT RECOMMENDED — gaps will surface in code-design or code-verify at higher cost)
+        - Pause: stop here
+      </ask>
+      <check if="user accepts or redirects">
+        <action>Capture next turn focus. Loop back to step 2.</action>
+        <goto step="2"/>
+      </check>
+      <check if="user force-exits">
+        <action>Note force-exit in research file (which criteria unmet). Proceed to substep 6e.</action>
+      </check>
+      <check if="user pauses">
+        <action>Exit. Bundle on disk is the handoff state.</action>
+      </check>
+    </substep>
+
+    <substep n="6e" title="Handoff to code-design">
+      <template-output section="Q↔R Complete" critical="true">
+        Grilling complete. Bundle ready for D-phase.
+
+        - Bundle: {{bundle_dir}}
+        - Turns elapsed: {{turn_count}}
+        - DRs spawned: {{count}}
+        - Research file: {{research_path}}
+
+        **Next**: invoke `code-design` skill. The skill will load this
+        bundle (including the research file's accumulated findings)
+        and run the always-interactive D-phase brain-surgery
+        conversation.
+      </template-output>
+    </substep>
+
+  </step>
+
+</step-file>

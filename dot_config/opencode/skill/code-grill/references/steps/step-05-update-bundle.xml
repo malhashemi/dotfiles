@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-grill" step="5" title="Update Bundle Files">
+
+  <step n="5" title="Update Bundle Files">
+
+    <substep n="5a" title="Create/Append to Research File">
+      <check if="{{research_path}} does not exist">
+        <action>
+          Create the research file at
+          {{bundle_dir}}/research-{{date}}-{{ticket_slug}}-impl.md with frontmatter:
+            kind: research
+            status: active
+            parent: [[{{ticket_alias}}]]
+            aliases: [research-{{date}}-{{ticket_slug}}-impl]
+            (plus standard thoughts-metadata fields)
+          Initial body: "# Research\n\n_Findings from R-phase of code-grill turns._\n\n"
+        </action>
+      </check>
+      <action>
+        Append a turn section:
+
+        ## Turn {{turn_number}}: {{turn_focus}} ({{ISO 8601 datetime}})
+
+        {{turn_synthesis}}
+
+        ### Sources
+
+        {{citations}}
+
+        Use Edit (not Write) — preserve frontmatter + prior turns.
+      </action>
+    </substep>
+
+    <substep n="5b" title="Update CONTEXT.md (if terms resolved)">
+      <check if="glossary_updates is non-empty">
+        <invoke-skill name="context-md-format"/>
+        <action>
+          The context-md-format skill handles lazy-create and inline
+          update. Pass the term list + repo root path.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5c" title="Scaffold Decision Record (if DR candidate + user-approved)">
+      <check if="dr_candidate is not null">
+        <ask>
+          Hard-to-reverse decision surfaced this turn matching the
+          three-condition gate:
+          - Title: {{dr_candidate.title}}
+          - Hard to reverse: yes
+          - Surprising without context: yes
+          - Real trade-off: yes ({{considered_options summary}})
+
+          Record as DR?
+          - Yes (Recommended): scaffold the DR file now
+          - No: capture in turn notes only; do not create separate artifact
+        </ask>
+        <check if="user approves">
+          <invoke-skill name="decision-record-format"/>
+          <action type="script">uv run {base_dir}/scripts/scaffold-decision-record.py --slug "{{dr_slug}}" --title "{{dr_candidate.title}}" --parent-ticket-alias "{{ticket_alias}}"</action>
+          <action>Parse the returned DR path + DR-NNN. Write DR body using the format from decision-record-format skill. Edit ticket frontmatter children to add the DR alias.</action>
+        </check>
+      </check>
+    </substep>
+
+    <substep n="5d" title="Stamp Frontmatter on Modified Files">
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{research_path}}" --note "Turn {{turn_number}}: {{turn_focus_short}}"</action>
+      <check if="ticket children was modified (DR scaffolded)">
+        <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{ticket_path}}" --note "Turn {{turn_number}}: added DR-{{dr_number}} reference"</action>
+      </check>
+    </substep>
+
+    <substep n="5e" title="Validate">
+      <action type="script">thoughts validate {{research_path}} {{ticket_path}}</action>
+      <check if="validation fails">
+        <action>Halt. Surface the validation error. Inspect frontmatter manually.</action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

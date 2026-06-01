@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-precedent" step="3" title="Assess Applicability and Synthesize Register">
+
+  <step n="3" title="Assess Applicability and Synthesize Register">
+
+    <substep n="3a" title="Assess Each Precedent">
+      <action>
+        For each candidate precedent surfaced in step 2, assess transfer
+        to OUR situation (grounded in what step 1c established). Record:
+        - Source: file:line / thoughts/ alias / URL
+        - What it is: one line on what the precedent does
+        - What matches: the dimensions on which it resembles our subject
+        - What differs: the dimensions on which our context diverges
+        - Transfer-fit class (factual classification, not a recommendation):
+          - directly-reusable — matches closely; could be lifted or
+            imported with minimal change
+          - adaptable — solves the same problem in a differing context;
+            transferable with the identified changes
+          - informative — does not transfer directly but reveals a useful
+            approach, consideration, or pitfall
+          - cautionary — a precedent of what NOT to do; what went wrong
+            and why
+
+        State match/differ with evidence. Do NOT say "we should adopt
+        this" — whether to adopt is the orchestrator's decision; the
+        class grades the evidence, it does not prescribe an action.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Note Scout Follow-Ups">
+      <action>
+        For any external precedent whose value would require reading its
+        code in depth (not just its docs), note a recommended Scout
+        follow-up: the repo and what to study. This is a recommendation
+        embedded in the deliverable, not a dispatch — PR hunts, Scout
+        External Codebase clones.
+      </action>
+    </substep>
+
+    <substep n="3c" title="Compose the Register">
+      <action>
+        Compose the register per references/research/document-format
+        body-skeleton. Fixed top (what we sought precedent for, Summary)
+        and bottom (Open Questions); the variable middle is the precedent
+        entries grouped by transfer-fit class (directly-reusable first,
+        then adaptable, informative, cautionary), followed by a
+        Recommended Scout Follow-Ups subsection.
+
+        When no precedent was found in any source, the register says so
+        plainly and cites the negative evidence ("codebase-pattern-finder:
+        no similar implementation; thoughts-locator: no prior artifact;
+        web: no documented pattern") — the greenfield finding.
+      </action>
+    </substep>
+
+    <substep n="3d" title="Review the Register" optional="true">
+      <check if="INTERACTIVE">
+        <template-output section="Precedent Register">
+          Present the register for review before persistence.
+
+          [a] Revise (re-hunt a source, sharpen an assessment)
+          [c] Continue to persistence
+          [y] YOLO
+        </template-output>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

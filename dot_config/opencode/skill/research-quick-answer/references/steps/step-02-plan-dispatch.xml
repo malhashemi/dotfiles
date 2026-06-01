@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-quick-answer" step="2" title="Plan Dispatch">
+
+  <step n="2" title="Plan Dispatch">
+
+    <substep n="2a" title="Infer Child Subagent per Question">
+      <action>
+        Load references/research/child-subagent-dispatch.md.
+
+        For each question, determine the child subagent from its shape
+        per the table. If the question carries a child_subagent_hint,
+        use it; otherwise infer from the question shape. A question that
+        spans multiple shapes splits into one child per shape.
+
+        Compose each child's prompt per the table's prompt-anatomy: the
+        question text, the scope, any constraints, and the expected
+        output shape — the question alone, never the parent task's intent.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Web-Research Approval Gate">
+      <check if="any question routes to web-search-researcher AND INTERACTIVE">
+        <ask>
+          Name the question(s) that need external/web research. Ask the
+          user to approve dispatching web-search-researcher. Recommended
+          option first (approve). If declined, drop the web question from
+          the dispatch set and record it as a deferred gap for step 4.
+        </ask>
+      </check>
+
+      <check if="any question routes to web-search-researcher AND AUTONOMOUS">
+        <action>
+          Web research requires caller pre-approval. If web_search_approved
+          is true, keep the web question in the dispatch set. If false or
+          absent, emit CLARIFICATION_NEEDED to stdout and stop:
+
+            CLARIFICATION_NEEDED: Question '{question_text}' requires web
+            research, but web_search_approved was not set. Re-dispatch
+            with web_search_approved=true to proceed, or drop the question.
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

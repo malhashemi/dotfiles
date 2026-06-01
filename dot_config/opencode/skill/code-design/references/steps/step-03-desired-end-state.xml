@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-design" step="3" title="Present Desired End State">
+
+  <step n="3" title="Present Desired End State">
+
+    <substep n="3a" title="Draft Desired End State Section">
+      <action>
+        Describe the system after this implementation ships. Cover:
+        - Behavioral end-state per ticket AC (each AC mapped to a
+          behavior in the desired state)
+        - Structural end-state (new types, new module boundaries,
+          API contract additions, removed/replaced code)
+
+        Reader should be able to picture the new code shape without
+        seeing the code.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Write to Design File">
+      <action>Edit {{design_path}} → "## Desired end state" section. Replace placeholder with content.</action>
+    </substep>
+
+    <substep n="3c" title="Present and Stress-Test">
+      <ask>
+        Desired end state drafted (see {{design_path}} → "## Desired
+        end state" section).
+
+        Summary: {{one-paragraph summary}}
+
+        Cross-checks vs ticket AC:
+        - AC #1: {{maps to → desired state element}}
+        - AC #2: {{maps to → desired state element}}
+        - ...
+
+        Your response:
+        - Accept (Recommended): proceed to Design decisions
+        - Push back: name the AC or end-state element + your concern
+        - Reframe: the desired state framing is wrong
+      </ask>
+      <check if="user accepts">
+        <action>Lock the section. Proceed to step 4.</action>
+      </check>
+      <check if="user pushes back">
+        <action>Revise. Re-draft. Re-present. Loop within step.</action>
+      </check>
+      <check if="user reframes">
+        <action>Increment {{strike_count}}. Apply substep 2d strike logic.</action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

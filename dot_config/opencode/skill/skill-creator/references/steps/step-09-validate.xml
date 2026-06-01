@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="skill-creator" step="9" title="Validate and Complete">
+
+  <step n="9" title="Validate and Complete">
+    
+    <goal>
+      Run validation on the completed skill files and present next steps.
+    </goal>
+
+    <substep n="9a" title="Run Validation">
+      <action type="script">uv run {base_dir}/references/scripts/validate-skill.py .vera/skills/{{skill_id}}</action>
+      <check if="validation fails">
+        <action>Review the validation errors</action>
+        <action>Fix each issue identified</action>
+        <action>Re-run validation until it passes</action>
+      </check>
+    </substep>
+
+    <substep n="9b" title="Update Manifest">
+      <action>
+        Add the new skill to .vera/vera.manifest.yaml under the appropriate
+        build group. If no build group fits, add a new one or use the
+        catch-all group.
+      </action>
+    </substep>
+
+    <substep n="9c" title="Present Summary">
+      <template-output section="Completion Summary" critical="true">
+        ## Skill Created Successfully
+
+        **Location:** `.vera/skills/{{skill_id}}/`
+
+        **Type:** {{skill_type}}
+
+        **Files Created:**
+        - skill.yaml
+        - head.md (workflow/exec) OR SKILL.md (data)
+        - skill-overview.md (workflow/exec)
+        - references/steps/ ({{step_count}} step files, workflow type)
+        - references/scripts/ ({{script_count}} scripts, if any)
+
+        **Next Steps:**
+        1. Build: `vera build`
+        2. Add to invoking agent's frontmatter.md permission.skill map (if a primary agent invokes via menu)
+        3. Add menu item to invoking agent's menu.md (if user-invokable)
+        4. Test by invoking from the agent
+
+        **Note:** Primary agents need this skill in their permission.skill
+        map AND in their menu (if user-invokable) before it can be triggered.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    <section title="Validation Checks">
+      <rules>
+        <rule>skill-config.yaml has required fields (name, description)</rule>
+        <rule>Name matches directory name</rule>
+        <rule>Instructions file exists (instructions.xml or .md)</rule>
+        <rule>Referenced files exist (includes, references, scripts)</rule>
+        <rule>For workflow: step files exist and are valid XML</rule>
+        <rule>For workflow: instructions.xml references all step files</rule>
+        <rule>Valid YAML/XML syntax throughout</rule>
+      </rules>
+    </section>
+
+    <section title="Common Validation Errors">
+      <rules>
+        <rule>Missing required field → Add the missing field</rule>
+        <rule>Name mismatch → Rename directory or update config</rule>
+        <rule>Missing step file → Create the file or remove reference</rule>
+        <rule>Invalid XML → Check tag closing, special characters</rule>
+        <rule>Invalid YAML → Check indentation, quotes, colons</rule>
+      </rules>
+    </section>
+
+    <section title="Integration Steps">
+      <description>After creating the skill, it needs to be integrated:</description>
+      <rules>
+        <rule>Add skill to agent's permission.skill section</rule>
+        <rule>Add menu item if users invoke it directly</rule>
+        <rule>Build the skill to generate SKILL.md</rule>
+        <rule>Test by activating the agent and invoking the skill</rule>
+      </rules>
+      <example>
+        In agent-config.yaml:
+        ```yaml
+        frontmatter:
+          permission:
+            skill:
+              new-skill-name: allow
+        
+        menu:
+          - cmd: "*NS or fuzzy match on new-skill"
+            shortcode: NS
+            label: "Description of new skill"
+            skill: new-skill-name
+        ```
+      </example>
+    </section>
+  </guidance>
+
+</step-file>

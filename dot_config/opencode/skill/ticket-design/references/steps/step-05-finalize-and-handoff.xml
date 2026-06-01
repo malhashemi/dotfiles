@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-design" step="5" title="Finalize and Handoff">
+
+  <step n="5" title="Finalize and Handoff">
+
+    <goal>
+      Write the locked Design Summary into the ticket body, stamp
+      last_updated, re-validate the bundle, and present the handoff
+      to ticket-structure.
+    </goal>
+
+    <substep n="5a" title="Write Design Summary to Worklog">
+      <action>
+        Append {{session.design_summary_final}} to the worklog file.
+        Use the Edit tool. The section's heading is "## Design Summary"
+        (level 2; the worklog uses level-2 headings for each phase-gate
+        summary like Readiness Summary, Design Summary, etc.).
+
+        Placement: after the Q↔R Readiness Summary section in the worklog
+        (which ticket-grill wrote in its step 6e). The worklog journal reads:
+
+        - Orient Summary (written by ticket-orient)
+        - Q↔R Readiness Summary (written by ticket-grill)
+        - Design Summary (written here)
+        - (later: Structure Outline, Writing Plan, Verify Session —
+          written by downstream skills)
+      </action>
+    </substep>
+
+    <substep n="5b" title="Update Frontmatter If Children Changed">
+      <action>
+        If any new DRs were spawned during D-phase (rare; usually DR
+        creation happens in ticket-grill, but possible if a foundational
+        reversal cascaded into a new DR), update the ticket's
+        frontmatter `children:` array to include the new DR's alias.
+
+        If D-phase did not spawn new DRs, this substep is a no-op.
+      </action>
+    </substep>
+
+    <substep n="5c" title="Stamp last_updated">
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{session.worklog_path}}" --note "D-phase complete; Design Summary written; ready for ticket-structure. Strikes: {{session.foundational_strikes}}/3."</action>
+      <note>
+        Per Lock 27, stamp-frontmatter.py REPLACES last_updated_note.
+        The strike count is captured in the note for audit trail —
+        ticket-verify will read this and surface if strikes > 0.
+      </note>
+    </substep>
+
+    <substep n="5d" title="Re-Validate Bundle">
+      <action type="script">thoughts validate {{session.ticket_path}} {{session.research_path}} {{session.questions_path}} {{session.worklog_path}}</action>
+      <check if="validation fails">
+        <action>
+          Halt. Surface validation errors. Do NOT auto-fix; investigate
+          which write step in this skill produced malformed output.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5e" title="Present Final Handoff">
+      <template-output section="D-Phase Complete" critical="true">
+        Design phase complete. Bundle ready for Structure.
+
+        **Bundle location**: {{session.bundle_dir}}
+
+        **Design Summary** (now in ticket body):
+
+        {{session.design_summary_final}}
+
+        **Strike counter status**: {{session.foundational_strikes}}/3
+        {{if strikes > 0:}}
+        ⚠️ This session had {{session.foundational_strikes}} foundational
+        reversal(s). The questions file logs each strike. ticket-verify
+        will surface these for review during the Verify phase.
+
+        **Next action**: invoke `ticket-structure` from the ticketsmith
+        menu (cmd: TS) to define the ticket's section/Parts shape and
+        the tag-driven content recipe. ticket-structure will load this
+        bundle, read the Design Summary, and propose the ticket's
+        internal structure.
+
+        If a scope or design concern surfaces during ticket-structure,
+        that skill can loop back here (ticket-design) — bring fresh
+        eyes; the strike counter resets per ticket-design invocation.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="The Design Summary is a contract">
+      <description>
+        Once written into the ticket body, the Design Summary becomes the
+        contract for the downstream phases. ticket-structure refers to
+        the artifact chain to choose ticket sections. ticket-plan refers
+        to the decision points to schedule subagent batches.
+        ticket-write expands risk areas into concrete acceptance
+        criteria. ticket-verify checks that the final ticket honors the
+        Design Summary's promises.
+
+        Drift from the Design Summary in downstream phases is a verify
+        finding (severity: High typically, Critical if the drift
+        invalidates a locked DR).
+      </description>
+    </section>
+
+    <section title="Strike count visibility">
+      <description>
+        The strike count is captured in last_updated_note (per Lock 27,
+        which replaces on each stamp). ticket-verify reads the latest
+        last_updated_note and surfaces if strikes > 0. This is the
+        durable audit trail; the strike_log session variable itself
+        does NOT persist to disk (per the earlier-locked design
+        decision that strikes live in session state only).
+      </description>
+    </section>
+
+    <section title="Bundle status remains 'draft'">
+      <description>
+        D-phase does NOT transition the ticket to 'ready'. That
+        transition happens at the end of ticket-verify's final step,
+        gated by the user. ticket-design leaves status=draft.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-verify" step="4" title="Resolve Findings">
+
+  <step n="4" title="Resolve Findings" for-each="finding in merged_findings_report (priority order)">
+
+    <goal>
+      Walk the merged finding list in priority order (Critical first,
+      then High, Medium, Low). For each finding, decide resolution
+      path: self-evident → Edit directly; ambiguous → Question tool;
+      structural → loop back. Track waivers.
+    </goal>
+
+    <substep n="4a" title="Classify the Finding">
+      <action>
+        For {{current_finding}}, decide its resolution path:
+
+        - **Self-evident**: fix is mechanical and unambiguous. Examples:
+          wikilink format fix; heading level fix; AC missing a verb;
+          obvious typo in a section title.
+
+        - **Ambiguous**: fix has multiple plausible options OR carries
+          design implications. Examples: vague AC needs sharpening
+          (multiple ways to sharpen); risk-area citation is mismatched
+          (which file is right?); section content overlaps another
+          section (which to trim?).
+
+        - **Structural**: fix requires re-doing earlier-phase work.
+          Examples: foundational contradiction needs re-grilling;
+          missing AC because behavior was never grilled; drift from
+          Design Summary requires re-aligning with the user.
+
+        Store as {{current_finding.resolution_path}}.
+      </action>
+    </substep>
+
+    <substep n="4b" title="Self-Evident: Apply Directly">
+      <check if="current_finding.resolution_path == 'self_evident'">
+        <action>
+          Apply the fix via Edit tool. Update the ticket body
+          per the finding's fix_recommendation.
+
+          Note in {{verify_log}} that the fix was applied without
+          user consultation (self-evident class).
+
+          Continue to next finding.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="4c" title="Ambiguous: Per-Finding Question">
+      <check if="current_finding.resolution_path == 'ambiguous'">
+        <ask>
+          Finding {{current_finding.id}} ({{current_finding.severity}}):
+
+          - Location: {{current_finding.location}}
+          - Finding: {{current_finding.text}}
+          - Fix recommendation: {{current_finding.fix_recommendation}}
+
+          Resolution options:
+          - Apply recommended fix (Recommended): apply as proposed
+          - Custom fix: I'll describe a different fix
+          - Waive: leave as-is; accept the degradation (only valid
+            for Medium / Low; Critical findings cannot be waived;
+            High findings require explicit acknowledgment)
+          - Loop back: this is actually a structural finding;
+            reclassify
+        </ask>
+        <check if="user applies recommended">
+          <action>
+            Apply via Edit per fix_recommendation. Note in
+            {{verify_log}}: "Applied per recommendation."
+          </action>
+        </check>
+        <check if="user provides custom fix">
+          <action>
+            Apply the user's described fix via Edit. Note in
+            {{verify_log}}: "Custom fix per user input: {{description}}."
+          </action>
+        </check>
+        <check if="user waives">
+          <action>
+            For Medium / Low: note in {{verify_log}}: "Waived."
+            For High: surface a confirmation — "Waiving a High finding
+            means the ticket is degraded; the implementation agent
+            may surface this. Confirm waiver?" — and only proceed on
+            explicit confirmation.
+            For Critical: refuse the waiver. "Critical findings cannot
+            be waived; either resolve or loop back. Choose: Apply / Custom / Loop back."
+          </action>
+        </check>
+        <check if="user reclassifies as structural">
+          <action>
+            Update {{current_finding.resolution_path}} = "structural".
+            Proceed to substep 4d.
+          </action>
+        </check>
+      </check>
+    </substep>
+
+    <substep n="4d" title="Structural: Loop Back">
+      <check if="current_finding.resolution_path == 'structural'">
+        <action>
+          Identify the loop-back target based on the finding's nature:
+          - Foundational contradiction / un-grilled gap → ticket-grill
+          - Drift from Design Summary / decision needs re-alignment → ticket-design
+          - Missing required section / outline mismatch → ticket-structure
+          - Writing-order or checkpoint issues → ticket-plan
+          - Section content needs re-drafting → ticket-write (often
+            possible to resolve inline as ambiguous; loop only if
+            multiple sections need re-write)
+
+          Surface the loop-back recommendation:
+
+          "Finding {{current_finding.id}} requires looping back to
+          {{target_skill}}. The structural fix exceeds inline editing.
+
+          Options:
+          - Loop back (Recommended): exit ticket-verify; invoke
+            {{target_skill}} via menu; re-run ticket-verify after
+            the loop resolves the gap
+          - Override: I'll attempt an inline fix even though it's
+            structural (NOT RECOMMENDED — accept risk that the fix
+            will be incomplete)"
+
+          On loop-back: note in {{verify_log}} which target was
+          loop-recommended; append a section to the questions file
+          documenting the loop-back; stamp last_updated; exit step 4
+          (and the skill — re-entry happens after the loop-back
+          resolves).
+
+          On override: classify as ambiguous and re-enter substep 4c.
+
+          Note: loop-back from V-phase does NOT increment
+          ticket-design's strike counter (the strike counter is for
+          USER-DRIVEN foundational reversals, not verify-driven gap
+          surfacing).
+        </action>
+      </check>
+    </substep>
+
+    <substep n="4e" title="Re-Validate After Edit">
+      <action type="script">thoughts validate {{ticket_path}}</action>
+      <check if="validation fails">
+        <action>
+          The fix introduced a frontmatter or schema issue. Halt the
+          for-each loop. Surface the error. Manually correct or revert
+          the offending edit before continuing.
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Priority order matters" critical="true">
+      <description>
+        Resolve Critical findings first. They may invalidate downstream
+        Medium/Low findings (e.g., a Critical "missing AC section"
+        might subsume a Medium "AC heading level off" — fixing the
+        Critical drops the Medium). Walking in priority order saves
+        rework.
+      </description>
+    </section>
+
+    <section title="Loop-back is a clean exit, not a continuation">
+      <description>
+        When a structural finding triggers loop-back, this skill
+        EXITS. It does not stay open waiting for the loop to complete.
+        The user invokes the target skill, that skill runs, the user
+        re-invokes ticket-verify. Each ticket-verify invocation runs
+        fresh self-review + dispatch + resolution — so the prior
+        verify session's resolved findings are NOT preserved as state.
+        The questions file's verify log is the durable record.
+      </description>
+    </section>
+
+    <section title="Critical findings cannot be waived">
+      <rules>
+        <rule>Refuse Critical waivers. Force resolution or loop-back</rule>
+        <rule>High waivers require explicit acknowledgment of degraded ticket</rule>
+        <rule>Medium / Low waivers are casual; log and continue</rule>
+        <rule>Multi-waiver tickets are flagged in step 5 — too many Low waivers can collectively degrade quality</rule>
+      </rules>
+    </section>
+
+    <section title="Inline editing discipline">
+      <rules>
+        <rule>Edit tool, not Write — always append/modify existing content; never overwrite the ticket file</rule>
+        <rule>Preserve frontmatter integrity — never edit frontmatter inadvertently while fixing body content</rule>
+        <rule>If a fix requires touching multiple sections, do them as separate Edit calls for clarity in version control diff</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

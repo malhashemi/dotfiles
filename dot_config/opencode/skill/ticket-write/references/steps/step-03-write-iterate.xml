@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-write" step="3" title="Write Sections (Iterate)">
+
+  <step n="3" title="Write Sections (Iterate)" for-each="section in writing_plan.writing_order">
+
+    <goal>
+      Walk through every section in writing_order. For each: draft the
+      section per its scope note, the Design Summary, and AGENT-BRIEF
+      principles. Apply the section-quality checklist. Pause at planned
+      checkpoints for user review.
+    </goal>
+
+    <substep n="3a" title="Draft This Section">
+      <action>
+        Identify the current section: {{current_section}}.
+        Pull its scope note from the Structure Outline.
+        Pull any findings for this section from {{section_findings}}.
+
+        Draft the section body. Apply discipline from
+        references/agent-brief-principles.md:
+        - Durability over precision (no file paths in section body
+          unless this is Risk Areas where evidence cites are bound)
+        - Behavioral, not procedural (WHAT, not HOW)
+        - Complete acceptance criteria where applicable (every AC
+          independently testable)
+        - Explicit scope boundaries where applicable
+        - Reference linked DRs as wiki-links when the section content
+          relates to a DR's decision
+        - Cross-reference prior bundle artifacts (research file findings,
+          Q&A entries) when content draws from them
+
+        Section structure:
+        - Level-2 heading: "## {{current_section.name}}"
+        - Body content per AGENT-BRIEF principles
+        - If section has subsections (per scope note), use level-3
+          headings
+
+        Length target: aim for the estimate from the Writing Plan,
+        but treat it as a target not a hard limit. 50% under or 50%
+        over surfaces a quality concern (ticket-verify will catch).
+      </action>
+    </substep>
+
+    <substep n="3b" title="Apply Section-Quality Checklist">
+      <action>
+        Run the section-quality checklist from
+        agent-brief-principles.md against the drafted content:
+
+        - [ ] Content within the section's stated scope?
+        - [ ] Durable identifiers, not file paths (Risk exception aside)?
+        - [ ] Behavior, not implementation?
+        - [ ] Testable claims actually testable as written?
+        - [ ] Wiki-links work (DR aliases resolve)?
+        - [ ] Consistent with Design Summary's promises?
+
+        If any answer is NO, re-draft this section before moving on.
+        Do NOT advance to substep 3c with a NO outstanding.
+      </action>
+    </substep>
+
+    <substep n="3c" title="Write Section to Ticket Body">
+      <action>
+        Append the drafted section to the ticket file body using the
+        Edit tool. The section appends AFTER all prior content (which
+        includes prior-phase summaries and any sections already
+        written in this iteration).
+
+        If the Writing Plan uses Parts, the first section of each Part
+        is preceded by a "# Part N: {{part_title}}" level-1 heading
+        before its level-2 section heading.
+
+        After writing, log to session: {{written_sections}}.append(current_section).
+      </action>
+    </substep>
+
+    <substep n="3d" title="Checkpoint Pause">
+      <check if="current_section ends a checkpoint per writing_plan.review_checkpoints">
+        <action>
+          Stamp last_updated on the ticket file. Use:
+          uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{ticket_path}}" --note "ticket-write checkpoint after section {{current_section.name}}; {{count}} of {{total}} sections complete."
+        </action>
+        <ask>
+          Checkpoint reached after section "{{current_section.name}}"
+          ({{count}} of {{total}} sections written, {{actual_lines_so_far}}
+          of {{total_estimate}} lines estimated total).
+
+          Review the section(s) written since the last checkpoint:
+          {{list of section names in this batch}}
+
+          - Continue (Recommended): proceed to next section
+          - Adjust: I need to revise something; describe what
+          - Pause: stop here; bundle on disk is the handoff state; resume later
+        </ask>
+        <check if="user adjusts">
+          <action>
+            Capture the adjustment. Apply via Edit. Re-run the section
+            quality checklist on the adjusted content. Continue with
+            the next section once the user reconfirms.
+          </action>
+        </check>
+        <check if="user pauses">
+          <action>
+            Exit step 3 cleanly. The bundle on disk reflects the
+            sections written so far. Resumption: re-invoke ticket-write;
+            its step 1 will re-load the bundle, and the for-each
+            iterator should skip already-written sections (compare
+            section names in the ticket body to the writing_order
+            list).
+          </action>
+        </check>
+      </check>
+      <check if="no checkpoint after this section">
+        <action>
+          Proceed to next iteration of step 3 (next section in
+          writing_order).
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Iteration is the engine of this step">
+      <description>
+        Step 3 is a for-each over the writing_order list from the
+        Writing Plan. The workflow engine processes each iteration
+        with substeps 3a-3d. Within a single invocation of step 3,
+        all sections get drafted (modulo checkpoint pauses where the
+        user may pause).
+      </description>
+    </section>
+
+    <section title="Resumption after pause">
+      <description>
+        If the user pauses at a checkpoint, the skill exits. Re-invoking
+        ticket-write loads the bundle and starts at step 1 again.
+        Step 3's for-each iterator needs to skip sections that are
+        already in the ticket body — implement this by comparing
+        section names (from writing_order) to level-2 headings in
+        the existing ticket body. Skip any section whose heading
+        already exists; start from the first not-yet-written section.
+      </description>
+    </section>
+
+    <section title="Length-checkpoint discipline">
+      <description>
+        Per the Writing Plan, mandatory checkpoints fire at Part
+        boundaries and before Acceptance Criteria. Optional checkpoints
+        fire mid-Part for Parts >400 lines. The skill HONORS the plan
+        — does not add or skip checkpoints unilaterally. If a
+        checkpoint feels excessive at run-time, that's a verify
+        finding for review, not a write-time decision.
+      </description>
+    </section>
+
+    <section title="The Acceptance Criteria section is special">
+      <description>
+        AC is the contract. Per the Writing Plan, AC is checkpointed
+        BEFORE it's drafted (so the user approves the foundation
+        first) — meaning the checkpoint fires AFTER the section
+        immediately preceding AC. Then AC is drafted; then another
+        checkpoint fires after AC for explicit AC review. This is the
+        single most heavily-reviewed section.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

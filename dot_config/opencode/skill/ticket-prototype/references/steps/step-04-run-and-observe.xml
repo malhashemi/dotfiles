@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-prototype" step="4" title="Run and Observe">
+
+  <step n="4" title="Run and Observe">
+
+    <goal>
+      Execute the prototype (for LOGIC) or present it to the user (for UI),
+      capture observations, and decide whether the question is answered.
+      Iterate at most 2-3 times; beyond that, escalate.
+    </goal>
+
+    <substep n="4a" title="Branch on Type">
+      <check if="session.branch == 'logic'">
+        <action>Proceed to substep 4b for LOGIC execution.</action>
+      </check>
+      <check if="session.branch == 'ui'">
+        <action>Proceed to substep 4c for UI presentation.</action>
+      </check>
+    </substep>
+
+    <substep n="4b" title="Run LOGIC Prototype">
+      <action type="script">{{session.run_command}}</action>
+      <action>
+        Capture stdout, stderr, and the exit code. Store as
+        {{session.run_output}}.
+
+        Examples of run_command by language:
+        - Python (PEP 723): cd {{session.prototype_path}} &amp;&amp; uv run prototype.py
+        - TypeScript (bun): cd {{session.prototype_path}} &amp;&amp; bun prototype.ts
+        - Rust: cd {{session.prototype_path}} &amp;&amp; cargo run
+        - Shell: bash {{session.prototype_path}}/prototype.sh
+      </action>
+    </substep>
+
+    <substep n="4c" title="Present UI Prototype to User">
+      <ask>
+        UI prototype is ready at:
+        {{session.prototype_path}}/index.html (or per-variant files)
+
+        To view: open the file(s) in a browser. Suggested:
+          file://{{session.prototype_path}}/index.html
+
+        Once viewed, describe your observations:
+        - What did you see?
+        - Did this answer the question {{session.caller_question}}?
+        - For multi-variant: which variant did you prefer and why?
+
+        Or:
+        - Iterate: I need to adjust the prototype (describe what to change)
+        - Cancel: this approach is not working; abort
+
+        Capture user's observations as {{session.run_output}}.
+      </ask>
+    </substep>
+
+    <substep n="4d" title="Evaluate Whether the Question Is Answered">
+      <action>
+        Read {{session.run_output}}. Determine:
+        - Did the prototype produce evidence relevant to {{session.caller_question}}?
+        - Is the evidence factual (observable state) or ambiguous (depends on interpretation)?
+        - Is the question fully answered, partially answered, or unanswered?
+
+        Three outcomes:
+        1. **Answered**: the prototype produced clear evidence. Proceed to step 5.
+        2. **Partially answered**: more evidence is needed. Iterate (substep 4e).
+        3. **Unanswered**: the prototype did not work or revealed the question is unprototype-able. Decide whether to iterate or abort.
+      </action>
+    </substep>
+
+    <substep n="4e" title="Iterate if Needed">
+      <check if="iteration is needed AND session.iteration_count < 3">
+        <ask>
+          The first run did not fully answer the question. Iterate?
+
+          - Iterate (Recommended if iteration_count &lt; 2): adjust the prototype and re-run
+          - Accept partial findings: record what was learned even though incomplete; move to step 5
+          - Abort: prototyping isn't working; recommend escalation to a spike ticket
+        </ask>
+        <check if="user chooses iterate">
+          <action>
+            Increment {{session.iteration_count}}.
+            Ask the user (or decide from the run output) what to adjust.
+            Apply the adjustment via Edit to the prototype files.
+            Loop back to substep 4b/4c.
+          </action>
+          <goto step="4b"/>
+        </check>
+        <check if="user accepts partial">
+          <action>Proceed to step 5; record partial answer.</action>
+        </check>
+        <check if="user aborts">
+          <action>
+            Return to caller with findings: { status: "aborted", note: "prototyping did not answer this question; consider spike ticket", prototype_path: {{session.prototype_path}} }.
+            ticket-grill will record the abort in its Q&A entry.
+          </action>
+        </check>
+      </check>
+      <check if="iteration_count >= 3">
+        <action>
+          Cap reached. Surface to user:
+          "Three iterations did not produce a conclusive answer. This question
+          may not be answerable by prototyping alone. Recommendation: convert
+          to a spike ticket (tag: exploration) for time-boxed investigation."
+          Return to caller with status: "escalate_to_spike".
+        </action>
+      </check>
+    </substep>
+
+    <substep n="4f" title="Display Run Summary">
+      <output>
+        Prototype run complete:
+        - Iterations: {{session.iteration_count + 1}}
+        - Status: {{answered | partially_answered | aborted | escalate_to_spike}}
+        - Output captured: {{summary of session.run_output, truncated to 200 chars}}
+
+        Proceeding to extract findings.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Iteration discipline">
+      <description>
+        Iterating on a prototype is fine, but capped at 3 attempts. Each
+        iteration that doesn't converge is a signal the question is too
+        broad, the branch was wrong, or the question requires more than
+        a throwaway can give. Beyond 3 attempts, escalate to a spike
+        ticket — that's what spike tickets exist for.
+      </description>
+      <rules>
+        <rule>Iteration 1: first attempt. Common to need a small adjustment</rule>
+        <rule>Iteration 2: refinement based on run 1's surprises. Acceptable</rule>
+        <rule>Iteration 3: last chance. If this doesn't converge, escalate</rule>
+        <rule>Iteration 4+: forbidden; escalate to spike</rule>
+      </rules>
+    </section>
+
+    <section title="UI prototype delivery">
+      <description>
+        UI prototypes can only be evaluated by the USER looking at them in
+        a browser. The agent cannot screenshot or visually inspect a UI
+        prototype directly. Substep 4c hands off to the user; the agent
+        does NOT pretend to have visual access. If the user describes what
+        they saw, that's the evidence.
+      </description>
+    </section>
+
+    <section title="When the prototype crashes">
+      <description>
+        A crashed LOGIC prototype is informative — it reveals what does
+        NOT work. Capture the stack trace in session.run_output and treat
+        it as evidence. If the crash is in the test code itself (a typo,
+        a missing import), iterate to fix. If the crash is in the
+        underlying behavior being tested, that's the answer to the
+        question.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

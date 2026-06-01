@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-design" step="4" title="Present Design Decisions">
+
+  <step n="4" title="Present Design Decisions">
+
+    <substep n="4a" title="Draft Decisions">
+      <action>
+        For each load-bearing decision, capture:
+        - Title (one short line)
+        - Rationale (one sentence — the WHY)
+        - Alternatives considered (when non-obvious)
+        - Trade-off accepted
+
+        Categories per primary tag:
+        - feature: type/interface shape, data-flow direction,
+          ownership of cross-cutting concerns, extension points
+        - bug: where the fix lives, symptom-vs-root-cause choice,
+          regression test seam
+        - infrastructure: vendor choice, architecture pattern,
+          technology choice, boundary decisions
+        - exploration: time-box, decision points, prototype strategy
+        - hotfix: minimal-change scope, rollback plan, verification
+          signal
+        - chore: usually 0-1 decisions; if surfacing more, re-tag
+
+        Cross-reference DRs spawned during code-grill. Decisions
+        already in DRs don't need re-statement here — point to them.
+      </action>
+    </substep>
+
+    <substep n="4b" title="Identify Vertical Slices">
+      <action>
+        Each slice MUST be independently committable + testable. List
+        slices in dependency order. Format under "### Vertical slices"
+        in the design doc:
+
+        - Slice 1: {brief description; AC coverage}
+        - Slice 2: {brief description; AC coverage}
+        - ...
+
+        This list becomes the input to code-structure's structural
+        skeleton.
+      </action>
+    </substep>
+
+    <substep n="4c" title="Identify Risk Areas">
+      <action>
+        Where friction is most likely during I-phase. Evidence-bound:
+        cite research findings or code references.
+
+        Format under "### Risk areas":
+        - Risk 1: {description; affected files; mitigation if any}
+        - Risk 2: ...
+      </action>
+    </substep>
+
+    <substep n="4d" title="Write to Design File">
+      <action>Edit {{design_path}} → "## Design decisions" section. Replace placeholder with content + sub-sections (vertical slices, risk areas). Multi-plan identification handled in step 5.</action>
+    </substep>
+
+    <substep n="4e" title="Spot New DR Candidates">
+      <action>
+        During the design conversation, new hard-to-reverse decisions
+        may surface (D-phase often discovers them when alternatives
+        are weighed). Apply the three-condition gate. If a candidate
+        fires, scaffold via:
+      </action>
+      <check if="DR candidate identified">
+        <invoke-skill name="decision-record-format"/>
+        <action type="script">uv run {base_dir}/scripts/scaffold-decision-record.py --slug "{{dr_slug}}" --title "{{dr_title}}" --parent-ticket-alias "{{ticket_alias}}"</action>
+        <action>Edit ticket frontmatter children to add DR alias.</action>
+      </check>
+    </substep>
+
+    <substep n="4f" title="Present and Stress-Test">
+      <ask>
+        Design decisions drafted (see {{design_path}} → "## Design
+        decisions" section).
+
+        Decisions summary:
+        - {{decision 1}}
+        - {{decision 2}}
+        - {{decision N}}
+
+        Vertical slices: {{count}} ({{brief list}})
+        Risk areas: {{count}}
+        New DRs spawned: {{count}}
+
+        Your response:
+        - Accept (Recommended): proceed to multi-plan identification
+        - Push back on a specific decision: name it + concern
+        - Reframe: a foundational decision is wrong
+      </ask>
+      <check if="user accepts">
+        <action>Lock the section. Proceed to step 5.</action>
+      </check>
+      <check if="user pushes back">
+        <action>Revise. Re-draft. Re-present. Loop within step.</action>
+      </check>
+      <check if="user reframes">
+        <action>Increment {{strike_count}}. Apply strike logic.</action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="skill-creator" step="4" title="Skill Identity">
+
+  <step n="4" title="Skill Identity">
+    
+    <goal>
+      Define the two identity fields: name and description. The description
+      is critical for discoverability - it helps agents know when to use this skill.
+    </goal>
+
+    <substep n="4a" title="Confirm Identifier">
+      <action>
+        The skill id was set during scaffolding: {{skill_id}}
+
+        Verify it follows conventions:
+        - kebab-case
+        - Starts with action verb (for workflow/exec)
+        - Noun-based (for data)
+        - Specific and descriptive
+      </action>
+      <check if="id needs adjustment">
+        <ask>Would you like to rename the skill? Current: {{skill_id}}</ask>
+        <note>Renaming requires moving the directory</note>
+      </check>
+    </substep>
+
+    <substep n="4b" title="Write Description">
+      <ask>
+        Write a compelling description (max 1024 chars):
+        
+        The description should answer:
+        - What does this skill do?
+        - When should an agent use it?
+        - What keywords help identify relevant tasks?
+        
+        Good descriptions are specific and include searchable keywords.
+      </ask>
+    </substep>
+
+    <substep n="4c" title="Write head.md">
+      <action>
+        Write .vera/skills/{{skill_id}}/head.md with the OpenCode skill
+        frontmatter:
+
+        ```markdown
+        ---
+        name: {{skill_id}}
+        description: "{{description}}"
+        ---
+        ```
+
+        head.md is the FIRST include in skill.yaml (its content sits at
+        the top of the compiled SKILL.md). OpenCode reads the
+        --- name/description --- block to surface the skill in its picker
+        and feed the description to invoking agents.
+      </action>
+    </substep>
+
+    <substep n="4d" title="Confirm Identity">
+      <template-output section="Identity">
+        Present head.md for review:
+
+        ```markdown
+        ---
+        name: {{skill_id}}
+        description: "{{description}}"
+        ---
+        ```
+
+        [a] Adjust [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="name">
+      <description>
+        The technical identifier used in file paths and skill invocations.
+        This is how agents and the build system reference this skill.
+      </description>
+      <rules>
+        <rule>Lowercase only, hyphens for word separation</rule>
+        <rule>Start with action verb for workflow/exec types</rule>
+        <rule>Be specific: deep-research not research</rule>
+        <rule>Must match the directory name</rule>
+        <rule>Max 64 characters</rule>
+      </rules>
+      <example type="good">
+        create-product-brief, validate-architecture, extract-knowledge, deep-research
+      </example>
+      <example type="bad">
+        Brief (uppercase), createBrief (camelCase), product_brief (underscores)
+      </example>
+    </section>
+
+    <section title="description">
+      <description>
+        The human-readable explanation of what this skill does.
+        Critical for discoverability - agents use this to decide when to invoke the skill.
+      </description>
+      <rules>
+        <rule>Max 1024 characters</rule>
+        <rule>Start with what the skill DOES (active voice)</rule>
+        <rule>Include keywords that match user requests</rule>
+        <rule>Mention what it produces (output)</rule>
+        <rule>Include "Use when..." guidance</rule>
+      </rules>
+      <example type="good">
+        "Guides creation of VERA agent source files (agent-config.yaml) through 
+        discovery, skill architecture decisions, and section-by-section filling.
+        Use when creating a new agent from requirements or architecture spec."
+      </example>
+      <example type="bad">
+        "A skill for agents." (too vague, no keywords)
+        "Does stuff with files." (meaningless)
+      </example>
+      <tip>
+        Include the key nouns a user might mention: "product brief", "architecture",
+        "requirements", "validation", etc.
+      </tip>
+    </section>
+
+  </guidance>
+
+  <examples>
+    <example name="Workflow Skill">
+      <config>
+        name: create-product-brief
+        description: >
+          Guides creation of a Product Brief through collaborative discovery
+          with the user. Covers problem statement, target users, success metrics,
+          and competitive landscape. Use when starting a new product or feature.
+          Produces a structured brief document ready for PRD creation.
+      </config>
+      <rationale>
+        Mentions: what it does (guides creation), what it produces (Product Brief),
+        what topics it covers, when to use it, and what comes next.
+      </rationale>
+    </example>
+
+    <example name="Exec Skill">
+      <config>
+        name: validate-yaml
+        description: >
+          Validates YAML files for syntax correctness and schema compliance.
+          Returns detailed error messages with line numbers for any issues found.
+          Use when you need to verify configuration files before deployment.
+      </config>
+      <rationale>
+        Clear input (YAML files), clear output (validation result with errors),
+        clear use case (before deployment).
+      </rationale>
+    </example>
+
+    <example name="Data Skill">
+      <config>
+        name: coding-standards
+        description: >
+          Reference material for code style and best practices. Covers naming
+          conventions, file organization, error handling patterns, and testing
+          requirements. Load when writing or reviewing code to ensure consistency.
+      </config>
+      <rationale>
+        Describes content (style, practices), lists topics covered, explains
+        when to load it.
+      </rationale>
+    </example>
+  </examples>
+
+</step-file>

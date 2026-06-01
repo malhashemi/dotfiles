@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-orient" step="7" title="Handoff to ticket-grill">
+
+  <step n="7" title="Handoff to ticket-grill">
+
+    <goal>
+      Close the orient phase cleanly. Summarize the orient outcome for the
+      user, leave a brief breadcrumb in the bundle's questions file so
+      ticket-grill can resume in a fresh context, and recommend the
+      ticket-grill skill as the next step.
+    </goal>
+
+    <substep n="7a" title="Write Orient Summary into Worklog">
+      <action>
+        Append a section to {{session.worklog_path}} capturing the orient
+        outcome. This is the first entry in the QRDSPIV journal; it lets
+        ticket-grill (which may run in a fresh context, e.g., after
+        compaction) pick up exactly where this skill left off. The section:
+
+        ## Orient Summary
+
+        - **Restatement**: {{session.request_restatement}}
+        - **Primary tag**: {{session.candidate_tag}}
+        - **Slug**: {{session.slug}}
+        - **Owner**: {{session.owner}}
+        - **Glossary status**: {{single | multi | none}} ({{count of terms}} terms)
+        - **Tier-1 orientation**:
+          - Language: {{languages}}
+          - Framework: {{frameworks_or_"none-detected"}}
+          - Source layout: {{layout_one_line}}
+          - Files sampled: {{file_paths_listed}}
+
+        ## Open Threads (for ticket-grill to address)
+
+        - {{any ambiguity flagged during request parsing}}
+        - {{any term mismatch between user phrasing and CONTEXT.md}}
+        - {{any tier-1 finding that suggests a specific research direction}}
+
+        Use the Edit tool to append this section. Do not overwrite the file's
+        frontmatter or existing content.
+      </action>
+    </substep>
+
+    <substep n="7b" title="Update questions File last_updated">
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{session.worklog_path}}" --note "Orient phase complete; bundle scaffolded with primary tag {{session.candidate_tag}}. Ready for ticket-grill."</action>
+      <note>
+        stamp-frontmatter.py updates `last_updated`, `last_updated_by`, and
+        REPLACES `last_updated_note` (git holds history per Lock 27 contract).
+      </note>
+    </substep>
+
+    <substep n="7c" title="Verify Bundle Still Valid">
+      <action type="script">thoughts validate {{session.ticket_path}} {{session.research_path}} {{session.questions_path}} {{session.worklog_path}}</action>
+      <check if="validation fails">
+        <action>
+          Surface the failure. Do not auto-fix. Halt the workflow.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="7d" title="Present Final Handoff">
+      <template-output section="Orient Complete" critical="true">
+        Orient phase complete. Bundle ready for grilling.
+
+        **Bundle location**: {{session.bundle_dir}}
+
+        **Files**:
+        - Ticket: {{session.ticket_path}}
+        - Research: {{session.research_path}}
+        - Questions: {{session.questions_path}}
+
+        **Locked scope**: {{session.request_restatement}}
+        **Primary tag**: {{session.candidate_tag}}
+
+        **Next action**: invoke the `ticket-grill` skill from the ticketsmith
+        menu (cmd: TG) to enter the Q↔R loop. ticket-grill will load this
+        bundle, read the Orient Summary from the worklog, and begin
+        the first round of grilling.
+
+        If you need to resume in a fresh context (e.g., after compaction),
+        ticket-grill can be invoked directly — the bundle files contain
+        everything it needs to pick up from this state.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Why write a handoff breadcrumb">
+      <description>
+        Per spec §11, "the bundle artifacts on disk ARE the handoff state."
+        ticket-grill may run in a fresh context (compaction, new session,
+        different developer). The Orient Summary section is the breadcrumb
+        that lets it resume without re-reading the user's original message
+        or re-orienting.
+      </description>
+    </section>
+
+    <section title="The handoff IS the menu transition">
+      <description>
+        ticket-orient does NOT auto-invoke ticket-grill. The user returns to
+        the ticketsmith agent's menu and selects TG (ticket-grill). This
+        keeps each skill independently invocable and matches the menu-driven
+        architecture in the ticketsmith agent file.
+      </description>
+      <rules>
+        <rule>Do not call invoke-skill on ticket-grill here</rule>
+        <rule>Do not assume the user will proceed to ticket-grill immediately — they may pause, review the bundle, then resume later</rule>
+        <rule>The recommendation in 7d is informational; the menu is the actual control surface</rule>
+      </rules>
+    </section>
+
+    <section title="Final validation gate">
+      <description>
+        Substep 7c is a defense-in-depth check. The bundle should already be
+        valid (verified in step 6), but the Edit operation in 7a touched the
+        questions file. Re-validating catches any frontmatter corruption
+        from a stray edit.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

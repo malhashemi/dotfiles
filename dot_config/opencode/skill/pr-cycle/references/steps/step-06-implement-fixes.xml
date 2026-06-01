@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="pr-cycle" step="6" title="Implement Approved Fixes">
+
+  <step n="6" title="Implement Approved Fixes">
+
+    <substep n="6a" title="Extract Address-Marked Items">
+      <action>
+        Read {{bundle_dir}}/pr-cycle-assessment-iter-{{iteration_count}}.json.
+        Filter to items where recommendation == "Address". If empty,
+        skip to step 7.
+      </action>
+    </substep>
+
+    <substep n="6b" title="Dispatch codesmith-worker for Fixes">
+      <invoke-agent name="codesmith-worker" prompt="
+Implement PR review fixes for PR #{{pr_number}}.
+
+Inputs:
+- Worktree: {{worktree_path}}
+- Branch: {{branch}}
+- Approved items: {{bundle_dir}}/pr-cycle-assessment-iter-{{iteration_count}}.json
+  (filter to recommendation == 'Address')
+
+For each Address item:
+1. Read the file:line in context.
+2. Apply the minimal change specified in the assessment.
+3. Run project tests + build for the touched file(s).
+4. If a change breaks tests, stop and surface — do NOT commit
+   half-broken state.
+
+When all Address items are done:
+1. Stage all changes: git add -A
+2. Commit: 'Address PR #{{pr_number}} review feedback'
+   with one bullet per item in the commit body.
+3. Push to {{branch}}.
+4. Return the commit SHA.
+      "/>
+    </substep>
+
+    <substep n="6c" title="Capture Fix Commit SHA">
+      <action>
+        Store the returned commit SHA as {{fix_commit_sha}}.
+        Persist to {{bundle_dir}}/pr-cycle-changes-iter-{{iteration_count}}.md
+        with the commit + summary of items addressed.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

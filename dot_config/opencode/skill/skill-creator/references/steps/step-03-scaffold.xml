@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="skill-creator" step="3" title="Scaffold Skill">
+
+  <step n="3" title="Scaffold Skill">
+
+    <goal>
+      Create the skill directory and empty file shells under
+      .vera/skills/{skill_id}/. The scaffold script does the file
+      operations; this step orchestrates input gathering and confirmation.
+      If the project does not have shared/workflow-engine.md and the new
+      skill is type=workflow, copy the bundled reference from
+      references/shared-fragments/workflow-engine.md to the project's
+      .vera/shared/ location before scaffolding.
+    </goal>
+
+    <substep n="3-pre" title="Materialize Missing Workflow Engine">
+      <check if="skill_type == 'workflow'">
+        <action>
+          Check if .vera/shared/workflow-engine.md exists in the project.
+          If missing, copy from the bundled reference:
+
+            mkdir -p .vera/shared
+            cp {skill-creator-path}/references/shared-fragments/workflow-engine.md .vera/shared/workflow-engine.md
+
+          If the file already exists at the destination, DO NOT overwrite.
+          The user's project file is authoritative.
+
+          Workflow skills include shared/workflow-engine.md in their
+          skill.yaml. Without it in the project's shared/, the build
+          will fail.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3a" title="Confirm Skill Identifier">
+      <check if="skill_id not yet determined">
+        <ask>What should the skill ID be? (lowercase kebab-case, e.g., "code-grill", "validate-yaml")</ask>
+      </check>
+      <action>Validate skill_id format: lowercase, hyphens, no underscores or spaces</action>
+      <action>Validate skill_id does not already exist at .vera/skills/{skill_id}/</action>
+    </substep>
+
+    <substep n="3b" title="Run Scaffold Script">
+      <action type="script">uv run {base_dir}/references/scripts/scaffold-skill.py {{skill_id}} {{skill_type}}</action>
+      <note>
+        The scaffold script creates:
+
+        Workflow skill:
+          .vera/skills/{{skill_id}}/
+            skill.yaml             (empty)
+            head.md                (empty)
+            skill-overview.md      (empty)
+            references/steps/      (empty directory)
+            references/scripts/    (empty directory)
+
+        Exec skill:
+          .vera/skills/{{skill_id}}/
+            skill.yaml
+            head.md
+            skill-overview.md
+            references/scripts/
+
+        Data skill (flat layout):
+          .vera/skills/{{skill_id}}/
+            skill.yaml
+            SKILL.md
+      </note>
+    </substep>
+
+    <substep n="3c" title="Confirm Scaffold">
+      <template-output section="Scaffold Output">
+        Present the created skeleton:
+        - .vera/skills/{{skill_id}}/skill.yaml         (empty — filled in Step 5)
+        - .vera/skills/{{skill_id}}/head.md            (empty — filled in Step 4)
+        - .vera/skills/{{skill_id}}/skill-overview.md  (empty — filled in Step 7 for workflow)
+        - References directories created based on type
+
+        If shared/workflow-engine.md was copied from the bundle, mention it.
+
+        [a] Adjust [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Skill ID Conventions">
+      <rules>
+        <rule>Lowercase only, hyphens for multi-word</rule>
+        <rule>For workflow/exec: start with action verb (create-, validate-, extract-)</rule>
+        <rule>For data: noun-based (context-md-format, decision-record-format)</rule>
+        <rule>Be specific: deep-research not research</rule>
+        <rule>Must be unique across all skills in dubstack (check .vera/skills/ tree)</rule>
+      </rules>
+      <example type="good">create-product-brief, validate-architecture, context-md-format</example>
+      <example type="bad">Brief (uppercase), createBrief (camelCase), product_brief (underscores)</example>
+    </section>
+
+    <section title="Why Scaffold Early">
+      <rules>
+        <rule>Files exist before filling sections — each step saves incrementally</rule>
+        <rule>If session crashes mid-creation, work is preserved on disk</rule>
+        <rule>Validation can run against partial files during development</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

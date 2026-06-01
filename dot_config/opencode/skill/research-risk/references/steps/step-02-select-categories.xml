@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-risk" step="2" title="Select Risk Categories">
+
+  <step n="2" title="Select Risk Categories">
+
+    <substep n="2a" title="Select the Risk Lenses">
+      <action>
+        If categories were supplied in the dispatch, use them. Otherwise
+        select the lenses that apply to this approach from:
+
+        - Security — injection, auth/authz gaps, data exposure, secrets
+          handling, supply-chain. Applies to almost any code approach.
+        - Performance — latency, throughput, scalability bottlenecks,
+          resource exhaustion. Applies when scale or responsiveness matter.
+        - Regulatory / Compliance — data residency, PII handling,
+          licensing, standards. Applies only when the approach touches
+          regulated data or licensing.
+        - Operational — deployment, rollback, observability, failure
+          recovery, on-call burden. Applies to almost any shipped change.
+        - Correctness / Data-integrity — consistency, race conditions,
+          data loss. Applies when state or concurrency is involved.
+        - Cost — infrastructure spend, scaling cost. Applies when the
+          approach changes resource consumption materially.
+
+        Select the lenses that genuinely apply; do not pad the register
+        with categories the approach does not touch. Security and
+        operational nearly always apply to code; regulatory rarely does.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Scope Gate">
+      <action>
+        A risk register assesses one approach. If "the approach" is
+        actually a whole system or many independent changes, no single
+        register would cohere. Emit to stdout and stop:
+
+          SCOPE_TOO_LARGE
+          Reason: the approach spans multiple independent changes
+          Suggested split: <per-change risk reconnaissances>
+      </action>
+    </substep>
+
+    <substep n="2c" title="Confirm Categories" optional="true">
+      <check if="INTERACTIVE">
+        <template-output section="Risk Categories">
+          Present the selected risk categories and why each applies,
+          before scanning.
+
+          [a] Adjust (add/drop a category)  [c] Continue  [y] YOLO
+        </template-output>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

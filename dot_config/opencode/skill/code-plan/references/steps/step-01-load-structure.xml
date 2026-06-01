@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-plan" step="1" title="Load Locked Structure">
+
+  <step n="1" title="Load Locked Structure">
+
+    <substep n="1a" title="Read Structure Doc">
+      <action>
+        Read {{structure_path}} completely. Verify status == "accepted".
+        If not, halt: "code-structure has not been completed
+        (status={{actual_status}}). Run code-structure first; plan
+        consumes a locked structure."
+
+        Extract per plan:
+        - Files list (path, purpose, new/modify)
+        - Signatures (one block per file)
+        - Test structure (test files + what they cover)
+        - Slice list (slice N.M → files mapping)
+      </action>
+    </substep>
+
+    <substep n="1b" title="Read Linked Design">
+      <action>
+        Re-read {{design_path}}. Capture commit-message convention if
+        the design specified one. Capture risk areas for cross-
+        reference during plan drafting.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

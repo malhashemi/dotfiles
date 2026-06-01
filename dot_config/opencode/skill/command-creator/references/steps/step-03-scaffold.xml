@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="command-creator" step="3" title="Scaffold Command">
+
+  <step n="3" title="Scaffold Command">
+
+    <goal>
+      Create the command directory and initial template files.
+      This establishes the foundation that will be filled incrementally.
+    </goal>
+
+    <substep n="3a" title="Determine Location">
+      <action>
+        Command source lives at a flat path — agent scoping is the config's
+        `destination` field, not a nested folder:
+
+        - .vera/commands/{{command_name}}/
+
+        For an agent-specific command the directory is the same; only
+        `destination` (and the instructions.md frontmatter `agent:`) changes.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Create Directory Structure">
+      <action type="script">
+        uv run {base_dir}/references/scripts/scaffold-command.py {{command_name}} {{command_type}} {{owner_agent}}
+      </action>
+      <output>
+        Created command scaffold:
+        - command-config.yaml (build descriptor template)
+        - instructions.md (frontmatter + body template)
+      </output>
+    </substep>
+
+    <substep n="3c" title="Verify Scaffold">
+      <action>
+        Confirm the scaffold was created correctly:
+        - Directory exists at .vera/commands/{{command_name}}/
+        - command-config.yaml has the build descriptor (type/id/file_name/destination/includes)
+        - instructions.md has frontmatter + body template
+      </action>
+      <template-output section="Scaffold Complete">
+        ## Command Scaffold Created
+
+        **Location:** {{command_location}}
+
+        **Files:**
+        - command-config.yaml (build descriptor)
+        - instructions.md (ready for identity + instructions)
+
+        [c] Continue to configure identity
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Directory Structure">
+      <description>Command source files follow a flat structure under .vera/commands/.</description>
+      <structure>
+        .vera/commands/
+        +-- command-name/            # one dir per command (global OR agent-specific)
+            +-- command-config.yaml   # type/id/file_name/destination/includes
+            +-- instructions.md       # frontmatter (description, ...) + body
+      </structure>
+      <note>
+        Agent scoping is the config's `destination` field — "." for a global
+        command, or the agent name for an agent-specific one — NOT a nested
+        agent folder. Register the command in .vera/vera.manifest.yaml so it builds.
+      </note>
+    </section>
+
+    <section title="Template Files">
+      <description>
+        Initial templates provide structure to fill in. The command's IDENTITY
+        (description, argument-hint, agent) lives in the instructions.md
+        frontmatter; command-config.yaml is purely the vera build descriptor.
+      </description>
+
+      <template name="command-config.yaml">
+        type: command
+        id: {{command_name}}
+        file_name: {{command_name}}.md
+        destination: "."            # "." = global; an agent name = agent-specific
+        includes:
+          - instructions.md
+      </template>
+
+      <template name="instructions.md (standalone)">
+        ---
+        description: TODO - describe what this command does
+        argument-hint: "[args]"
+        # agent: {{owner_agent}}    # only for agent-specific commands
+        ---
+
+        &lt;command name="{{command_name}}"&gt;
+          &lt;instructions&gt;
+            TODO: Add instructions
+          &lt;/instructions&gt;
+
+          &lt;rules&gt;
+            &lt;rule&gt;TODO: Add rules&lt;/rule&gt;
+          &lt;/rules&gt;
+        &lt;/command&gt;
+      </template>
+
+      <template name="instructions.md (wrapper)">
+        ---
+        description: TODO - describe what this command does
+        ---
+
+        &lt;command name="{{command_name}}"&gt;
+          &lt;instructions&gt;
+            &lt;action&gt;Use the {{target_skill}} skill&lt;/action&gt;
+            &lt;action&gt;Pass $ARGUMENTS as context&lt;/action&gt;
+          &lt;/instructions&gt;
+        &lt;/command&gt;
+      </template>
+    </section>
+
+  </guidance>
+
+</step-file>

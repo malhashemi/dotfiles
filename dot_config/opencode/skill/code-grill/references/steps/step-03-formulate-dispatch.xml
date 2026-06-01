@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-grill" step="3" title="Formulate Research Dispatch Instructions">
+
+  <step n="3" title="Formulate Research Dispatch Instructions">
+
+    <substep n="3a" title="Load Research Pattern Table">
+      <action>
+        Load references/codesmith/research-pattern-table.md into
+        working memory. The question-shape quick-reference at the
+        bottom maps shapes to patterns + child subagents.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Split by Channel">
+      <action>
+        For each question identified in step 2, classify:
+
+        - **User-directed**: only the user can answer (scope
+          preferences, business constraints, deadlines, decisions
+          between functional alternatives, foundational concerns).
+
+        - **Research agenda**: answerable by codebase/thoughts/web
+          research — dispatch to researcher per the pattern
+          table.
+
+        - **Artifact checks**: answerable by direct reads (the bundle
+          itself, CONTEXT.md, briefs in thoughts/). No subagent
+          needed.
+
+        Most turns will have AT MOST ONE user-directed question (per
+        the per-turn user-checkpoint rule).
+      </action>
+    </substep>
+
+    <substep n="3c" title="Compose Dispatch Instructions (Hide-the-Intent)">
+      <action>
+        For each research-agenda question, compose a dispatch entry:
+
+        - question_text: the focused question
+        - pattern: from the pattern table (codebase-navigate,
+          thoughts-navigate, architecture-zoom, prototype,
+          diagnose-feedback-loop, external-research, escape-hatch)
+        - child_subagent_hint: per the pattern (codebase-locator,
+          codebase-analyzer, codebase-pattern-finder, thoughts-locator,
+          thoughts-analyzer, web-search-researcher) — researcher honors
+          the hint, and infers the child itself when it is omitted
+        - scope: directory or file globs to constrain search
+        - expected_output_shape: e.g., "markdown table with file:line
+          and one-line purpose"
+
+        CRITICAL: the dispatch entry contains ONLY the above. NOT the
+        ticket. NOT the parent decision context. NOT the design intent.
+        researcher is blind to the change's intent. Its job is to
+        gather facts about the codebase, not opinions about what to
+        change.
+
+        Store the list as {{research_dispatch}}.
+      </action>
+    </substep>
+
+    <substep n="3d" title="Refine User Question (if any)">
+      <check if="turn has a user-directed question">
+        <action>
+          Sharpen the user question:
+          - One-sentence statement
+          - RECOMMENDED answer FIRST in options (label ending "(Recommended)")
+          - 2-4 alternatives with one-line trade-off descriptions
+          - Never "I don't know, what do you think?" — the agent
+            always has a position; the user redirects when the
+            position is wrong.
+
+          Store as {{user_question}}. Asked in step 4a.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3e" title="Web Search Approval (if external-research in dispatch)">
+      <check if="any dispatch entry uses external-research pattern">
+        <ask>
+          One research item this turn requires external/web research:
+          {{topic}}.
+
+          Approve dispatching web-search-researcher?
+          - Approve (Recommended): proceed with web search
+          - Decline: drop the web item; rely on codebase + thoughts/ only
+        </ask>
+        <check if="user declines">
+          <action>
+            Remove the external-research entry from
+            {{research_dispatch}}. Note in {{turn_notes}}: "web
+            research deferred this turn."
+          </action>
+        </check>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

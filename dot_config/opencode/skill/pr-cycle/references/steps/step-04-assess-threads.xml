@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="pr-cycle" step="4" title="Assess Unresolved Threads">
+
+  <step n="4" title="Assess Unresolved Threads">
+
+    <substep n="4a" title="Persist Threads to Assessment Workspace">
+      <action>
+        Write the raw `unresolved_threads` array from
+        `await_pr_review` to:
+          {{bundle_dir}}/pr-cycle-threads-iter-{{iteration_count}}.json
+
+        This is the input the validator subagent will assess against.
+      </action>
+    </substep>
+
+    <substep n="4b" title="Dispatch Validator for Assessment">
+      <invoke-agent name="codesmith-validator" prompt="
+Assess PR #{{pr_number}} review threads against the actual codebase.
+
+Inputs:
+- Threads JSON: {{bundle_dir}}/pr-cycle-threads-iter-{{iteration_count}}.json
+- Branch: {{branch}}
+- Worktree: {{worktree_path}}
+- Bundle: {{bundle_dir}}
+
+For EACH thread:
+1. Spawn codebase-analyzer to read the file:line in context.
+2. Understand WHY the code was written this way (cross-reference
+   the bundle's design.md and plan-*.md).
+3. Evaluate Gemini's concern against codebase reality + design
+   intent.
+4. Recommend: Address | Decline | Defer
+   - Address: Gemini is correct; the code needs a change. Specify
+     the fix in concrete terms.
+   - Decline: Gemini is wrong (false positive, missing context, or
+     proposes a change that contradicts design). State the
+     rationale.
+   - Defer: Gemini is correct but the fix exceeds this PR's scope.
+     State why deferral is appropriate.
+
+Output: JSON to stdout matching the assessment schema. Persist a
+copy at {{bundle_dir}}/pr-cycle-assessment-iter-{{iteration_count}}.json.
+
+DO NOT rubber-stamp. Every thread requires evidence-bound
+assessment.
+      "/>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="worktree-setup" step="3" title="Return Handoff">
+
+  <step n="3" title="Return Handoff">
+
+    <substep n="3a" title="Emit JSON Handoff">
+      <template-output section="Worktree Handoff" critical="true">
+        {
+          "branch": "{{branch}}",
+          "worktree_path": "{{worktree_path}}",
+          "tag_prefix": "{{tag_prefix}}",
+          "base_branch": "{{base_branch}}"
+        }
+      </template-output>
+    </substep>
+
+    <substep n="3b" title="Confirm and Exit">
+      <output>
+        Worktree ready:
+        - Branch: {{branch}}
+        - Path:   {{worktree_path}}
+        - Base:   {{base_branch}}
+
+        code-implement: dispatch the first slice's codesmith-worker into
+        this worktree path.
+      </output>
+    </substep>
+
+  </step>
+
+</step-file>

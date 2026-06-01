@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-orient" step="3" title="Tier-1 Codebase Orientation">
+
+  <step n="3" title="Tier-1 Codebase Orientation">
+
+    <goal>
+      Build a high-level mental map of the codebase shape — just enough context
+      to write informed subagent prompts in ticket-grill. Tier 1 means
+      directory tree, top-level configs, and a handful of representative
+      source files. Anything deeper goes through a subagent during ticket-grill.
+    </goal>
+
+    <substep n="3a" title="Repo Top-Level Survey">
+      <action>
+        List the repository root. Identify:
+        - The runtime/language signals (package.json, pyproject.toml, Cargo.toml, go.mod, etc.)
+        - The build/test tooling (Makefile, justfile, CI configs)
+        - The source root directory convention (src/, app/, cmd/, lib/)
+        - The presence of docs/, thoughts/, specs/, or other documentation regions
+      </action>
+    </substep>
+
+    <substep n="3b" title="Read Top-Level Configs">
+      <action>
+        Read the project's top-level config files for runtime and dependency
+        signals. Examples:
+        - package.json -> dependencies, scripts, runtime version
+        - pyproject.toml -> Python version, packages, build system
+        - tsconfig.json -> TypeScript compilation strictness
+        - Cargo.toml -> Rust dependencies and features
+        - README.md -> the project's stated purpose
+
+        Capture the minimal set: language(s), framework(s) in use, primary
+        runtime, test framework. Do not deep-dive — note and move on.
+      </action>
+    </substep>
+
+    <substep n="3c" title="Sample Representative Source Files">
+      <action>
+        Read 2-4 source files that represent the codebase's idioms. Pick files
+        that show:
+        - The dominant module layout (one example)
+        - The dominant request/response or function-shape pattern (one example)
+        - The dominant test pattern (one example)
+        - Any cross-cutting infrastructure entry point (if obvious — e.g., src/index.ts, src/main.py)
+
+        These reads are for IDIOM RECOGNITION only. Do not start analyzing
+        the request against these files yet — that's ticket-grill's job via
+        subagent dispatch.
+      </action>
+    </substep>
+
+    <substep n="3d" title="Display Orient Summary">
+      <output>
+        Tier-1 orientation:
+        - Language: {{languages}}
+        - Runtime: {{runtimes}}
+        - Framework: {{frameworks_or_"none-detected"}}
+        - Test framework: {{test_framework_or_"unknown"}}
+        - Source layout: {{layout_one_line}}
+        - Documentation regions: {{docs_regions_or_"none"}}
+
+        Files sampled: {{file_paths_listed}}
+
+        Proceeding to request parsing and tag detection.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Tier 1 vs Tier 2 boundary" critical="true">
+      <description>
+        Tier 1 = orient. Tier 2 = research. The boundary is operational:
+        - Tier 1 allowed in ticket-orient: ls, glob, top-level config reads,
+          README, a handful of representative source files.
+        - Tier 2 forbidden in ticket-orient: "find all usages of X", "analyze
+          how feature Y works", "trace the data flow through module Z" —
+          these go through codebase-locator / codebase-analyzer / pattern-finder
+          subagents during ticket-grill.
+      </description>
+      <rules>
+        <rule>If a substep is tempted to read more than ~5 files, it's drifting into Tier 2 — stop and let ticket-grill handle it</rule>
+        <rule>If a substep requires understanding HOW something works (not WHAT exists), it's Tier 2 — defer</rule>
+        <rule>Bundle files and thoughts/ artifacts are exempt: unrestricted direct reads per spec §7.2</rule>
+      </rules>
+    </section>
+
+    <section title="Why orient, why not skip">
+      <description>
+        Per QRDSPIV's "orient before questioning" principle, an agent cannot
+        formulate informed questions without basic context. Skipping tier-1
+        leads to subagent prompts like "is there a database in this codebase?"
+        when ls would have shown a prisma/ directory. The cost is small
+        (a few file reads); the value is question quality.
+      </description>
+    </section>
+
+    <section title="When to stop reading">
+      <rules>
+        <rule>Stop when you can articulate the codebase's shape in 5-7 lines (language, runtime, framework, source layout, test approach, documentation regions, any obvious special concerns)</rule>
+        <rule>Stop if you find yourself wanting to "just check one more file" — that's Tier 2 drift</rule>
+        <rule>Stop and proceed even if uncertain about idioms; ticket-grill's subagents will clarify</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+  <examples>
+
+    <example name="TypeScript backend">
+      <output>
+        - Language: TypeScript
+        - Runtime: Node.js (20.x from package.json engines)
+        - Framework: Express, Sequelize ORM
+        - Test framework: Jest
+        - Source layout: src/{models,routes,middleware,utils}
+        - Documentation regions: docs/adr/, thoughts/shared/
+        Files sampled: src/index.ts, src/models/user.ts, src/routes/tasks.ts, src/middleware/auth.ts
+      </output>
+    </example>
+
+    <example name="Python CLI">
+      <output>
+        - Language: Python (3.11+)
+        - Runtime: uv-managed venv
+        - Framework: Typer (CLI), Pydantic (validation)
+        - Test framework: pytest
+        - Source layout: src/{package}/{cli,core,models}
+        - Documentation regions: none-detected
+        Files sampled: src/myapp/cli.py, src/myapp/core/engine.py, tests/test_cli.py
+      </output>
+    </example>
+
+  </examples>
+
+</step-file>

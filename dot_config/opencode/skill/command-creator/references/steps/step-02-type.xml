@@ -1,0 +1,221 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="command-creator" step="2" title="Command Type">
+
+  <step n="2" title="Command Type" critical="true">
+
+    <goal>
+      Determine command type (standalone/wrapper/agent-specific) and plan structure.
+      This shapes everything about how the command is built and used.
+    </goal>
+
+    <note>
+      THIS IS THE KEY DECISION. Commands are simpler than skills but the type
+      choice still matters for maintainability and clarity.
+    </note>
+
+    <substep n="2a" title="Analyze Requirements">
+      <action>
+        Based on discovery, analyze the command's nature:
+
+        - Does it need its own workflow logic? → standalone
+        - Does it just invoke a skill? → wrapper
+        - Is it specific to one agent? → agent-specific
+
+        Key questions:
+        - How complex are the instructions?
+        - Does an existing skill do most of the work?
+        - Should this be available globally or to one agent?
+      </action>
+    </substep>
+
+    <substep n="2b" title="Determine Type">
+      <ask>
+        Based on what this command does, which type fits best?
+
+        **standalone** - Self-contained instructions
+        - Has its own workflow or logic
+        - Doesn't rely on an existing skill
+        - Examples: /commit, /github, /sync
+
+        **wrapper** - Thin shell around a skill
+        - Primarily invokes another skill
+        - Minimal additional logic
+        - Examples: /pr-review → pr-review skill
+
+        **agent-specific** - Only for one agent
+        - Scoped to one agent via the config's `destination`
+        - Only that agent's namespace gets it
+        - Examples: /prompter/verify-compliance
+
+        Note: Agent-specific can be standalone OR wrapper.
+      </ask>
+    </substep>
+
+    <substep n="2c" title="Plan Structure">
+      <check if="command_type == 'standalone'">
+        <action>
+          Plan the instruction structure:
+          - Does it need a workflow with numbered steps?
+          - What rules should govern its behavior?
+          - Does it need to execute scripts?
+        </action>
+      </check>
+      <check if="command_type == 'wrapper'">
+        <action>
+          Identify the target skill:
+          - Which skill does this wrap?
+          - How should $ARGUMENTS be passed?
+          - Any pre/post processing needed?
+        </action>
+      </check>
+      <check if="agent_specific == true">
+        <action>
+          Identify the owner agent:
+          - Which agent owns this command?
+          - Why should it be agent-specific?
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2d" title="Present Architecture">
+      <template-output section="Command Architecture">
+        ## Command Architecture
+
+        **Type:** {{command_type}}
+        {{#if agent_specific}}**Agent:** {{owner_agent}}{{/if}}
+        {{#if wrapper}}**Wraps Skill:** {{target_skill}}{{/if}}
+
+        **Structure (both files, every type):**
+        - command-config.yaml (build descriptor: type/id/file_name/destination/includes)
+        - instructions.md (frontmatter: description/argument-hint/agent + body)
+
+        **Output Location:**
+        {{#if agent_specific}}
+        ~/.config/opencode/command/{{owner_agent}}/{{command_name}}.md
+        {{/if}}
+        {{#unless agent_specific}}
+        ~/.config/opencode/command/{{command_name}}.md
+        {{/unless}}
+
+        [a] Reconsider type [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Standalone Commands">
+      <description>
+        Self-contained commands with their own logic and instructions.
+        May include workflow steps, rules, and script execution.
+      </description>
+      <when-to-use>
+        <rule>Command has significant logic of its own</rule>
+        <rule>No existing skill covers this functionality</rule>
+        <rule>Logic is simple enough to not need skill checkpoints</rule>
+      </when-to-use>
+      <structure>
+        command-config.yaml (build descriptor):
+          - type: command, id, file_name, destination, includes
+
+        instructions.md:
+          - frontmatter: description (+ optional argument-hint, agent)
+          - body: &lt;command&gt; with &lt;instructions&gt;, optional &lt;workflow&gt;, &lt;rules&gt;
+      </structure>
+      <example>/commit, /github, /sync</example>
+    </section>
+
+    <section title="Wrapper Commands">
+      <description>
+        Thin wrappers that primarily delegate to an existing skill.
+        Minimal logic - just invoke the skill with arguments.
+      </description>
+      <when-to-use>
+        <rule>An existing skill does the heavy lifting</rule>
+        <rule>You want a quick shortcut to trigger the skill</rule>
+        <rule>Minimal pre/post processing needed</rule>
+      </when-to-use>
+      <structure>
+        command-config.yaml (build descriptor):
+          - type: command, id, file_name, destination, includes
+
+        instructions.md:
+          - frontmatter: description (+ optional argument-hint)
+          - body: &lt;command&gt; with a single &lt;action&gt; to invoke the skill, passing $ARGUMENTS
+      </structure>
+      <example>/pr-review → pr-review skill</example>
+    </section>
+
+    <section title="Agent-Specific Commands">
+      <description>
+        Commands that only appear for a specific agent.
+        Can be standalone or wrapper - the key is restricted availability.
+      </description>
+      <when-to-use>
+        <rule>Command only makes sense for one agent</rule>
+        <rule>Agent-specific functionality</rule>
+        <rule>Shouldn't pollute global command namespace</rule>
+      </when-to-use>
+      <structure>
+        Source: .vera/commands/{command}/  (config destination = {agent}; frontmatter agent: {agent})
+        Output: ~/.config/opencode/command/{agent}/{command}.md
+      </structure>
+      <example>/prompter/verify-compliance</example>
+    </section>
+
+    <section title="Choosing Between Types">
+      <rules>
+        <rule>If a skill exists that does this → wrapper</rule>
+        <rule>If command needs its own logic → standalone</rule>
+        <rule>If only one agent should use it → agent-specific</rule>
+        <rule>When in doubt, standalone is safer (more explicit)</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+  <examples>
+
+    <example name="Standalone: /commit">
+      <context>Creates git commits with proper messages.</context>
+      <config>
+        Type: standalone
+        Has workflow: yes (analyze, plan, execute)
+        Has rules: yes (never add co-author, specify files)
+      </config>
+      <rationale>
+        No skill to wrap. Needs its own workflow logic.
+        Includes specific rules for commit behavior.
+      </rationale>
+    </example>
+
+    <example name="Wrapper: /pr-review">
+      <context>Addresses PR review comments.</context>
+      <config>
+        Type: wrapper
+        Wraps: pr-review skill
+        Logic: just delegate with $ARGUMENTS
+      </config>
+      <rationale>
+        The pr-review skill has all the complexity.
+        Command is just a convenient entry point.
+      </rationale>
+    </example>
+
+    <example name="Agent-Specific: /prompter/verify-compliance">
+      <context>Verifies artifact compliance for Percy.</context>
+      <config>
+        Type: agent-specific (standalone)
+        Agent: prompter
+        Visibility: only Percy sees this command
+      </config>
+      <rationale>
+        Only makes sense for the Prompter agent.
+        Other agents don't need compliance verification.
+      </rationale>
+    </example>
+
+  </examples>
+
+</step-file>

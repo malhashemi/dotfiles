@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-design" step="1" title="Load Bundle and Initialize Strike Counter">
+
+  <step n="1" title="Load Bundle and Initialize Strike Counter">
+
+    <goal>
+      Read the entire bundle into working memory and initialize session
+      state for the D-phase, including the foundational-reversal strike
+      counter from Lock 31.
+    </goal>
+
+    <substep n="1a" title="Locate the Bundle">
+      <ask>
+        Which ticket bundle should I run the D-phase on?
+
+        Paste the bundle directory path (under {shared_folder}/tickets/{slug}/),
+        OR paste the ticket file path.
+
+        The bundle should already have a Q↔R Readiness Summary section in
+        the ticket body (written by ticket-grill). If it does not, D-phase
+        is premature — re-run ticket-grill first.
+      </ask>
+      <action>
+        Validate the path. Store {{session.bundle_dir}},
+        {{session.ticket_path}}, {{session.research_path}},
+        {{session.questions_path}}, {{session.worklog_path}}.
+
+        Verify the WORKLOG contains "## Q↔R Readiness Summary".
+        If absent, halt and direct the user to ticket-grill.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Read Bundle Files">
+      <action>
+        Read ALL bundle files completely. From the ticket file:
+        - Frontmatter: aliases, tags (primary = tags[0]), children
+          (existing DR links), owner, status
+        From the worklog file:
+        - Body: Q↔R Readiness Summary section in full
+
+        From the research file:
+        - All turn entries (factual findings accumulated by ticket-grill)
+        - All prototype findings (sections starting with "### Prototype:")
+
+        From the questions file:
+        - The Orient Summary (from ticket-orient)
+        - Every Q&A entry (Q1, Q2, R3, ...) from ticket-grill turns
+        - Note which questions were resolved with which answers and which
+          alternatives were rejected with what reasoning
+
+        Store in session:
+        - {{session.primary_tag}}
+        - {{session.slug}}
+        - {{session.readiness_summary}} (the Q↔R Readiness Summary content)
+        - {{session.research_findings}} (synthesized list of factual findings)
+        - {{session.qa_entries}} (list of resolved questions and answers)
+        - {{session.linked_drs}} (list of DR aliases from frontmatter children)
+      </action>
+    </substep>
+
+    <substep n="1c" title="Read Linked DRs">
+      <action>
+        For each DR alias in {{session.linked_drs}}, resolve the file path
+        and read the DR completely. Capture:
+        - Title, decision, context, why
+        - Whether the DR was created in this session or a prior one
+        - The DR's "considered options" if present
+
+        DRs constrain the design: their decisions cannot be revisited in
+        D-phase without strike-counter escalation. Surfacing them
+        explicitly here means the agent does not propose alternatives
+        that contradict locked DRs.
+
+        Store as {{session.locked_decisions}}: list of {alias, decision,
+        why}.
+      </action>
+    </substep>
+
+    <substep n="1d" title="Initialize Strike Counter">
+      <action>
+        Set {{session.foundational_strikes}} = 0.
+
+        Scope of the counter:
+        - Per-session only (no persistence in frontmatter; spec Lock 32)
+        - Resets at the start of every ticket-design invocation
+        - Increments only on FOUNDATIONAL reversals (defined in step 4)
+        - Resumption from compaction loses the count; this is acceptable
+          per the earlier-locked design decision
+
+        Also initialize {{session.strike_log}} = [] — a list of
+        per-strike notes for inclusion in the questions file if a
+        strike fires.
+      </action>
+    </substep>
+
+    <substep n="1e" title="Display Load Summary">
+      <output>
+        D-phase bundle loaded:
+        - Slug: {{session.slug}}
+        - Primary tag: {{session.primary_tag}}
+        - Q↔R Readiness Summary: present ({{readiness_summary_line_count}} lines)
+        - Research findings: {{count}} turns synthesized
+        - Q&A entries: {{count}} resolved questions
+        - Linked DRs: {{count}} ({{aliases if any}})
+        - Foundational strike counter: 0/3
+
+        Proceeding to design proposal.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Why re-read everything">
+      <description>
+        D-phase may run in a fresh context (compaction, new session). The
+        bundle on disk IS the handoff state per spec §11. Reading the
+        full bundle here means subsequent steps work from a complete
+        understanding without re-reading. Skipping this read leads to
+        design proposals that contradict findings the agent never saw.
+      </description>
+    </section>
+
+    <section title="DR awareness is non-negotiable">
+      <description>
+        Every linked DR represents a hard-to-reverse decision the user
+        already approved. Proposing alternatives to a DR's decision is
+        a foundational reversal — strike counter fires. The agent must
+        load DRs in 1c to AVOID accidentally proposing such alternatives
+        in step 2.
+      </description>
+    </section>
+
+    <section title="The strike counter does NOT carry across sessions">
+      <description>
+        Per Lock 32, custom frontmatter fields are forbidden. The strike
+        counter therefore lives only in session state. A user who
+        compacts and restarts ticket-design has a fresh counter. This
+        is a known trade-off: an adversarial user could reset the
+        counter by force, but the prior reversals are logged in the
+        questions file and ticket-verify will catch foundational drift
+        downstream.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-prototype" step="1" title="Receive Question and Choose Branch">
+
+  <step n="1" title="Receive Question and Choose Branch">
+
+    <goal>
+      Receive the question from the caller, decide whether a LOGIC or UI
+      prototype fits, and confirm with the user if the choice is ambiguous.
+      The branch decision shapes everything in steps 2-5.
+    </goal>
+
+    <substep n="1a" title="Read Caller Context">
+      <action>
+        The caller (ticket-grill or another grill-adopting skill) invoked
+        this skill with context. Extract:
+
+        - The question being investigated (one sentence, from the turn focus)
+        - The bundle directory path
+        - The slug
+        - Any prior findings already in the bundle's research file relevant to this prototype
+        - The user's stated language/framework preferences if any
+
+        Store in session as {{session.caller_question}},
+        {{session.bundle_dir}}, {{session.slug}}, etc.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Apply Branch Heuristics">
+      <action>
+        Decide LOGIC vs UI:
+
+        **LOGIC branch fits when**:
+        - The question concerns state transitions ("does X happen when Y?")
+        - The question concerns data shape or computation ("what does the
+          output look like when input is Z?")
+        - The question concerns timing or concurrency ("does this race
+          condition surface in practice?")
+        - The question concerns integration ("does library X actually
+          support method Y?")
+        - The answer can be expressed in terminal output, JSON, or a
+          structured log
+
+        **UI branch fits when**:
+        - The question concerns layout or visual hierarchy
+        - The question concerns interaction flow (clicks, navigation, transitions)
+        - The question concerns information density or accessibility
+        - The question concerns multiple visual variants the user wants to compare
+        - The answer requires the user to LOOK at something to evaluate it
+
+        If both could apply, default to LOGIC — it is faster and produces
+        more concrete evidence.
+
+        Store {{session.branch}}: "logic" or "ui".
+      </action>
+    </substep>
+
+    <substep n="1c" title="Choose Prototype Name">
+      <action>
+        Slug the prototype with a short kebab-case name derived from the
+        question:
+        - 2-4 words
+        - Names what is being tested, not the test method
+        - Avoid generic names like "test" or "experiment"
+
+        Examples:
+        - "Does Sequelize support nested transactions on Postgres?" -> sequelize-nested-tx
+        - "What does a horizontal task list look like with 50 items?" -> horizontal-tasks-density
+        - "Can we extract team_id from the JWT in middleware without a re-query?" -> jwt-team-extract
+
+        Store as {{session.prototype_name}}.
+
+        Validate: {{session.bundle_dir}}/prototypes/{{session.prototype_name}}/
+        does not already exist. If it does, append -2 / -3 until unique.
+      </action>
+    </substep>
+
+    <substep n="1d" title="Confirm Branch and Name">
+      <ask>
+        Prototype plan:
+        - Branch: {{session.branch}}
+        - Name: {{session.prototype_name}}
+        - Will be scaffolded at: {{session.bundle_dir}}/prototypes/{{session.prototype_name}}/
+
+        Question being answered: {{session.caller_question}}
+
+        Proceed?
+        - Confirm (Recommended): proceed to scaffold
+        - Switch branch: change LOGIC↔UI
+        - Rename: change the prototype name
+        - Cancel: abort prototyping; return null findings to the caller
+      </ask>
+      <check if="user cancels">
+        <action>
+          Halt the skill. Return {findings: null, prototype_path: null,
+          cancelled: true} to the caller. ticket-grill will log the
+          cancellation in its Q&A entry.
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="When neither branch fits">
+      <description>
+        If a question genuinely cannot be answered by either branch (e.g.,
+        "will users adopt this feature?"), prototyping is the wrong tool.
+        Such questions require user research, A/B testing, or beta
+        rollout — none of which fit a throwaway-prototype session.
+        Recommend to the caller that this question be deferred to a
+        post-launch validation activity, not absorbed into ticket-writing
+        Q↔R.
+      </description>
+    </section>
+
+    <section title="Anti-patterns to refuse">
+      <rules>
+        <rule>Refuse to prototype a full feature. Prototypes answer ONE question at a time. If the user asks for "a prototype of the whole team workspaces flow", split into multiple narrow prototypes or escalate to a spike ticket</rule>
+        <rule>Refuse to prototype code that should be production. If the question is "how would I implement X in production?", that is implementation work — not prototyping. Return findings: "use the actual implementation skill, not a throwaway prototype"</rule>
+        <rule>Refuse multi-day prototypes. Throwaway means 30-90 minutes typically; an hour or two at the outside. Anything longer becomes a spike ticket (kind: exploration tag)</rule>
+      </rules>
+    </section>
+
+    <section title="Branch examples">
+      <example type="logic">
+        Q: "Does the existing pagination middleware support cursor-based pagination?"
+        Branch: LOGIC
+        Why: Terminal-runnable; answer is yes/no with a code snippet showing how (or proving it can't).
+      </example>
+      <example type="logic">
+        Q: "What does the JWT payload look like after the new claims are added?"
+        Branch: LOGIC
+        Why: Terminal output suffices. Print the payload; done.
+      </example>
+      <example type="ui">
+        Q: "How does the team-switcher dropdown look with 50 teams vs 5 teams?"
+        Branch: UI
+        Why: Requires visual inspection. Two variants to compare.
+      </example>
+      <example type="ui">
+        Q: "Is the task-detail modal readable on mobile or does it need a different layout?"
+        Branch: UI
+        Why: Requires visual + interactive inspection at multiple viewports.
+      </example>
+    </section>
+
+  </guidance>
+
+</step-file>

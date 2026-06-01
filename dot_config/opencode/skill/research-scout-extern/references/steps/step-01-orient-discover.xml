@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-scout-extern" step="1" title="Orient and Catalog Discovery">
+
+  <step n="1" title="Orient and Catalog Discovery">
+
+    <substep n="1a" title="Detect Mode">
+      <action>
+        Check whether the question tool is available. Available →
+        INTERACTIVE. Absent → AUTONOMOUS. Later substeps branch on this.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Validate the Dispatch">
+      <check if="AUTONOMOUS">
+        <action>
+          Confirm repo and topic are both present. If either is missing,
+          emit to stdout and stop:
+
+            ERROR: Missing required field '{repo|topic}'. The dispatching
+            caller failed to supply complete dispatch context. No scout
+            performed.
+
+          If repo is present but cannot be parsed into an org/repo
+          (ambiguous shorthand, no resolvable URL), emit:
+
+            CLARIFICATION_NEEDED: Could not resolve '{repo}' to a
+            clonable repository. Re-dispatch with a full URL or org/repo.
+        </action>
+      </check>
+      <check if="INTERACTIVE">
+        <action>
+          Confirm the repo (URL, org/repo, or clone command) and the
+          study topic. Derive the canonical org/repo name; if ambiguous,
+          ask via the question tool.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="1c" title="Search the Catalog First">
+      <action>
+        Before any clone, search the global catalog:
+
+          uv run {base_dir}/scripts/catalog.py search "{org/repo or topic}"
+
+        Read what matches per references/extern-catalog.md.
+        - Prior research exists and covers this topic sufficiently:
+          read the existing document and SKIP cloning — jump to step 5
+          to return it with reused=true.
+        - Prior research exists but has gaps for this topic: note the
+          gaps; proceed to study only the gap.
+        - No prior research: proceed to clone.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="local-merge" step="4" title="Return Handoff">
+
+  <step n="4" title="Return Handoff">
+
+    <substep n="4a" title="Emit JSON Handoff">
+      <template-output section="Local Merge Handoff" critical="true">
+        {
+          "merged_commit": "{{merged_commit}}",
+          "target_branch": "{{target_branch}}",
+          "merged_branch": "{{branch}}",
+          "worktree_removed": {{worktree_removed}},
+          "files_changed": {{files_changed}},
+          "insertions": {{insertions}},
+          "deletions": {{deletions}}
+        }
+      </template-output>
+    </substep>
+
+    <substep n="4b" title="Confirm and Exit">
+      <output>
+        Local merge complete:
+        - Target: {{target_branch}} @ {{merged_commit}}
+        - Files: {{files_changed}} changed (+{{insertions}}, -{{deletions}})
+        - Branch {{branch}}: merged and removed
+
+        code-verify: transition the parent ticket to `verified` via
+        transition-ticket-status.py.
+      </output>
+    </substep>
+
+  </step>
+
+</step-file>

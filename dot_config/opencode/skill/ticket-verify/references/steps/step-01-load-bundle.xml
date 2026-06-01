@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-verify" step="1" title="Load Bundle">
+
+  <step n="1" title="Load Bundle">
+
+    <goal>
+      Read the bundle plus the severity ladder reference. ticket-verify
+      needs the full ticket body in head to walk it section-by-section
+      against the ladder.
+    </goal>
+
+    <substep n="1a" title="Locate the Bundle">
+      <ask>
+        Which ticket bundle should I verify?
+
+        The bundle should have a fully-drafted ticket body — every
+        section from the Structure Outline present — produced by
+        ticket-write. If sections are missing, run ticket-write to
+        completion first.
+      </ask>
+      <action>
+        Validate. Read the Structure Outline from the WORKLOG; compare
+        its section list to the level-2 headings currently in the ticket
+        body (the deliverable). If sections are missing, halt and direct
+        the user back to ticket-write.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Read Bundle Files">
+      <action>
+        Read the ticket, research, questions, and worklog files completely. Extract:
+        - Primary tag, slug
+        - The drafted ticket body in full
+        - The worklog's Design Summary + Structure Outline (drift checks)
+        - Research findings (used as evidence base for self-review)
+        - Q&A entries (used to detect Q&A→ticket drift)
+        - Linked DRs (read each one; the ticket body should not
+          contradict any DR's decision)
+        - The last_updated_note of the ticket (may contain a strike
+          count from ticket-design or a force-exit flag from
+          ticket-grill — those are findings inputs)
+      </action>
+    </substep>
+
+    <substep n="1c" title="Load Severity Ladder">
+      <action>
+        Read {{base_dir}}/references/severity-ladder.md into working
+        memory. The ladder defines the four severity levels with
+        examples, the finding output format, and the resolution
+        discipline. Steps 2-4 reference it.
+      </action>
+    </substep>
+
+    <substep n="1d" title="Display Load Summary">
+      <output>
+        Verify-phase bundle loaded:
+        - Slug: {{slug}}
+        - Primary tag: {{primary_tag}}
+        - Ticket body sections: {{section_count}} (matches Structure Outline: yes/no)
+        - Linked DRs to check against: {{count}}
+        - Q&A entries: {{count}}
+        - Severity ladder loaded: yes
+
+        Pre-flight check (from last_updated_note):
+        - Foundational strikes: {{strike_count or 0}}
+        - Force-exit at readiness gate: {{yes/no}}
+        - Length deviation flag: {{actual_vs_estimated percentage}}
+
+        Proceeding to self-review.
+      </output>
+    </substep>
+
+  </step>
+
+</step-file>

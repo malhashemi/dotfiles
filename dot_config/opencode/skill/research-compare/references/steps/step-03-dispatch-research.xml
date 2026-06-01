@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-compare" step="3" title="Dispatch per-Alternative Research">
+
+  <step n="3" title="Dispatch per-Alternative Research">
+
+    <substep n="3a" title="Web-Research Approval Gate">
+      <check if="any alternative needs web research AND INTERACTIVE">
+        <ask>
+          Name the alternative(s) needing external/web research. Ask the
+          user to approve dispatching web-search-researcher, recommended
+          option first. If declined, mark those alternatives' cells as
+          "not researched — web declined" and note the deferral.
+        </ask>
+      </check>
+      <check if="any alternative needs web research AND AUTONOMOUS">
+        <action>
+          If web_search_approved is true, keep the external research. If
+          false or absent, emit to stdout and stop:
+
+            CLARIFICATION_NEEDED: Comparing {alternatives} requires web
+            research, but web_search_approved was not set. Re-dispatch
+            with web_search_approved=true, or limit to internal
+            alternatives.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3b" title="Dispatch One Track per Alternative">
+      <action>
+        Dispatch one focused research question per alternative, all in a
+        SINGLE parallel message via the Task tool. Each prompt names the
+        alternative, the criteria to assess it on, and the expected
+        output shape (per-criterion findings with citations) — per
+        child-subagent-dispatch prompt-anatomy. The prompt carries the
+        alternative and the criteria alone, never which alternative is
+        hoped to win. Route external alternatives to web-search-researcher,
+        internal approaches to the codebase children.
+      </action>
+    </substep>
+
+    <substep n="3c" title="Validate Returns and Sharpen-Redispatch">
+      <action>
+        Redispatch any vague or partial return with a sharper prompt
+        before building the matrix — a track that did not cover all
+        criteria leaves holes in the grid. A criterion that genuinely
+        cannot be determined for an alternative becomes a "could not
+        determine" cell, which is honest; an evasive return that should
+        have an answer gets re-dispatched.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

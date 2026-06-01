@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-compare" step="5" title="Persist">
+
+  <step n="5" title="Persist">
+
+    <substep n="5a" title="Gather Metadata and Write">
+      <action>
+        Run `thoughts metadata` for owner, ISO timestamp, repository,
+        branch, commit, and shared_folder. Compose the frontmatter per
+        references/research/document-format — never use placeholders; tag
+        with `comparison`. Prepend it to the matrix body from step 4.
+        Write to {shared_folder}/research/ (or output_location when
+        provided) with filename
+        YYYY-MM-DD_HH-MM-SS_{subject-slug}-comparison.md.
+      </action>
+    </substep>
+
+    <substep n="5b" title="Convert Citations to Permalinks">
+      <action>
+        If the commit is pushed (branch has an upstream, or is the
+        default branch), convert local file:line citations to GitHub
+        permalinks per document-format. If not pushed, keep local
+        file:line paths. External citations stay as URLs.
+      </action>
+    </substep>
+
+    <substep n="5c" title="Sync">
+      <action>
+        Run `thoughts sync` so the comparison is discoverable by
+        thoughts-locator on future decisions.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

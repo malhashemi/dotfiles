@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="skill-creator" step="5" title="Build Configuration">
+
+  <step n="5" title="Build Configuration">
+
+    <goal>
+      Write skill.yaml — the vera-cli artifact descriptor. Configure
+      type, id, destination, file_name, includes, and attachments.
+    </goal>
+
+    <substep n="5a" title="Compose skill.yaml">
+      <action>
+        Write .vera/skills/{{skill_id}}/skill.yaml with the dubstack-native
+        artifact descriptor shape:
+
+        Workflow skill:
+        ```yaml
+        type: skill
+        id: {{skill_id}}
+        destination: {{skill_id}}
+        file_name: SKILL.md
+        includes:
+          - head.md
+          - shared/workflow-engine.md
+          - skill-overview.md
+        attachments:
+          - references/
+        ```
+
+        Exec skill:
+        ```yaml
+        type: skill
+        id: {{skill_id}}
+        destination: {{skill_id}}
+        file_name: SKILL.md
+        includes:
+          - head.md
+          - skill-overview.md
+        attachments:
+          - references/    # only if references/ has scripts or other content
+        ```
+
+        Data skill (flat layout):
+        ```yaml
+        type: skill
+        id: {{skill_id}}
+        destination: {{skill_id}}
+        file_name: SKILL.md
+        includes:
+          - SKILL.md
+        ```
+
+        Additional attachments for skills that consume shared resources:
+          - shared/scripts/                         # cross-skill scripts
+          - shared/references/{namespace}/          # cross-skill references
+      </action>
+    </substep>
+
+    <substep n="5b" title="Confirm Build Config">
+      <template-output section="Build Configuration">
+        Present the written skill.yaml for review:
+
+        Key checks:
+        - type: skill
+        - id matches directory name
+        - file_name is SKILL.md
+        - includes order matters (head.md first, then engine for workflows, then overview last)
+        - attachments list resource directories that get copied to runtime
+
+        [a] Adjust [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="includes vs attachments">
+      <rules>
+        <rule>includes: concatenated INTO the compiled SKILL.md body in order</rule>
+        <rule>attachments: copied as resource files alongside SKILL.md at runtime</rule>
+        <rule>head.md is always first include (provides --- name/description --- frontmatter)</rule>
+        <rule>For workflow skills, shared/workflow-engine.md comes second (engine before body)</rule>
+        <rule>skill-overview.md is always last include (provides the &lt;skill&gt; XML body)</rule>
+      </rules>
+    </section>
+
+    <section title="When to Attach shared/">
+      <rules>
+        <rule>shared/scripts/ — attach when the skill invokes any shared script</rule>
+        <rule>shared/references/{namespace}/ — attach when the skill consumes any cross-skill reference</rule>
+        <rule>Skill-local references stay at references/ (no shared/ prefix)</rule>
+      </rules>
+    </section>
+
+    <section title="destination Field">
+      <description>
+        destination controls where the compiled artifact is written under
+        the target's directory. Conventionally matches the skill id, but
+        can differ when multiple skills should compile to the same
+        directory or when a custom layout is needed.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

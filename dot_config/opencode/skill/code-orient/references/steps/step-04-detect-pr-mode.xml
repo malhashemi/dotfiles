@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-orient" step="4" title="Detect PR Mode" if="mode == 'planning'">
+
+  <step n="4" title="Detect PR Mode">
+
+    <substep n="4a" title="Check for Remote">
+      <action type="script">git remote get-url origin 2>/dev/null</action>
+      <check if="command failed OR empty">
+        <action>Set {{pr_mode_signal}} = "no-remote".</action>
+      </check>
+      <check if="output is non-empty">
+        <action>Set {{pr_mode_signal}} = "remote-exists".</action>
+      </check>
+    </substep>
+
+    <substep n="4b" title="Check for External Tracker Reference">
+      <action>
+        Inspect the ticket body for references like "GH-NNN" or
+        "Issue #NNN" or "Linear: ABC-NNN" or "Jira: PROJ-NNN".
+        If found, set {{has_tracker}} = true.
+      </action>
+    </substep>
+
+    <substep n="4c" title="Confirm Mode with User">
+      <ask>
+        Detected signals:
+        - Remote: {{pr_mode_signal}}
+        - External tracker reference in ticket: {{has_tracker}}
+
+        Which delivery mode applies?
+        - **PR mode (Recommended if remote-exists)**: open PR, Gemini reviews, human merges. Uses the `pr-cycle` skill at V-phase.
+        - **Local-only mode**: no PR; squash + rebase + merge locally via `wt merge`. Uses the `local-merge` skill at V-phase.
+      </ask>
+      <action>Store the user's choice as {{pr_mode}} = true | false.</action>
+    </substep>
+
+  </step>
+
+</step-file>

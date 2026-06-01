@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-structure" step="1" title="Load Bundle">
+
+  <step n="1" title="Load Bundle">
+
+    <goal>
+      Read the bundle into working memory. The Design Summary (written
+      by ticket-design) is the primary input — its artifact-chain
+      shape informs the ticket's structure.
+    </goal>
+
+    <substep n="1a" title="Locate the Bundle">
+      <ask>
+        Which ticket bundle should I structure?
+
+        Paste the bundle directory path or the ticket file path. The
+        bundle should already have both a Readiness Summary section
+        (written by ticket-grill) AND a Design Summary section
+        (written by ticket-design) in the ticket body.
+      </ask>
+      <action>
+        Validate the path. Store bundle paths in session (incl.
+        {{session.worklog_path}}). Verify the WORKLOG contains BOTH
+        "## Q↔R Readiness Summary" AND "## Design Summary". If either is
+        absent, halt — the user must run the prior phase first (ticket-grill
+        or ticket-design).
+      </action>
+    </substep>
+
+    <substep n="1b" title="Read Bundle Files">
+      <action>
+        Read the ticket, research, and questions files completely.
+        Extract:
+        - Primary tag and slug
+        - Design Summary content (artifact chain, decision points,
+          risk areas, locked DRs)
+        - Any prior structure attempts (a session resuming
+          ticket-structure may have a partial outline already present)
+        - Linked DRs (their decisions may shape sections — e.g., a
+          DR about a multi-tenancy choice means the structure outline
+          should have a "Data Isolation" section even if the recipe
+          doesn't mandate it)
+
+        Store in session: primary_tag, slug, design_summary,
+        artifact_chain, locked_drs, prior_structure_attempt.
+      </action>
+    </substep>
+
+    <substep n="1c" title="Display Load Summary">
+      <output>
+        Structure-phase bundle loaded:
+        - Slug: {{slug}}
+        - Primary tag: {{primary_tag}}
+        - Design Summary: present ({{design_summary_line_count}} lines)
+        - Artifact chain length: {{count}} items
+        - Linked DRs: {{count}}
+        - Prior structure attempt: {{yes / no}}
+
+        Proceeding to shape selection.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="What the Design Summary tells us about structure">
+      <description>
+        The Design Summary's artifact chain hints at section grouping.
+        For a feature ticket with chain [DR → Brief update → ADR →
+        Architecture → Spec → Implementation], the ticket's structure
+        will likely include sections for the product decision (linking
+        the DR), the architectural decision (linking the ADR), the
+        behavioral contract (referenced from the future Spec), and the
+        implementation scope. Each chain item maps loosely to one or
+        more sections; the recipe formalizes the mapping per tag.
+      </description>
+    </section>
+
+    <section title="DR-driven section additions">
+      <description>
+        Each linked DR is a load-bearing decision. The structure should
+        SURFACE these decisions in dedicated sections (or sub-sections),
+        not bury them in prose. Examples:
+        - DR on multi-tenancy → "Data Isolation Strategy" section
+        - DR on vendor choice → "Vendor Selection" section
+        - DR on scope boundary → "What This Does NOT Cover" section
+
+        These additions may override recipe defaults; step 2 reconciles.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

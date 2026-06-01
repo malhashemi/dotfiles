@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-implement" step="3" title="Dispatch Worker for Next Slice">
+
+  <step n="3" title="Dispatch Worker for Next Slice">
+
+    <substep n="3a" title="Pop Next Slice">
+      <action>
+        Take the head of {{slice_queue}}. If queue is empty, goto
+        step 7 (final integration).
+
+        Capture: {{current_slice}} = {plan_n, slice_id, worktree_branch}.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Extract Slice Scope from Plan">
+      <action>
+        Read {{plan_path_for_current_plan}}. Locate the section
+        "## Slice {{current_slice.plan_n}}.{{current_slice.slice_id}}: ...".
+        Extract:
+        - {{slice_description}}
+        - {{slice_steps}} (the 1-5 TDD steps)
+        - {{slice_verification_commands}}
+        - {{slice_commit_message_format}}
+      </action>
+    </substep>
+
+    <substep n="3c" title="Dispatch codesmith-worker">
+      <invoke-agent name="codesmith-worker" prompt="
+Execute one slice from the implementation plan.
+
+- plan_path: {{plan_path}}
+- slice_id: {{current_slice.plan_n}}.{{current_slice.slice_id}}
+- worktree_path: {{worktree_path}}
+- branch: {{worktree_branch}}
+- slice_description: {{slice_description}}
+- slice_steps:
+{{slice_steps}}
+- verification_commands:
+{{slice_verification_commands}}
+- commit_message_format:
+{{slice_commit_message_format}}
+      "/>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-quick-answer" step="3" title="Dispatch and Synthesize">
+
+  <step n="3" title="Dispatch and Synthesize">
+
+    <substep n="3a" title="Dispatch Children in Parallel">
+      <action>
+        Dispatch every composed child prompt via the Task tool in a
+        SINGLE message — that is what makes them parallel. Do not wait
+        between dispatches; dispatch all, then wait for all to return.
+        Total wall-clock = max(individual times), not sum.
+
+        A single-question lookup dispatches one child; that is fine.
+        Parallelism applies when more than one child is dispatched.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Validate Returns and Sharpen-Redispatch">
+      <action>
+        Inspect each child's return. A crisp return cites concrete
+        evidence (file:line, URL, thoughts/ alias). A vague return
+        ("found some files", "looks like there might be") is unusable —
+        redispatch that single child with a sharper prompt (tighter
+        scope, more specific question, explicit output shape) before
+        synthesis. Do not paper over a vague return in the synthesis.
+
+        A return of "no matches found" is NOT vague — it is a negative
+        finding. Keep it; it becomes a cited answer in 3c.
+      </action>
+    </substep>
+
+    <substep n="3c" title="Synthesize per Question">
+      <action>
+        For each question, synthesize the corresponding child's findings
+        into an answer:
+
+        - State the fact, not a transcript. Do NOT paste raw child output.
+        - Cite inline: file:line, URL, or thoughts/ alias for every claim.
+        - Record silence as data: a negative finding ships as a cited
+          answer ("searched {scope}; no definition of X found —
+          codebase-locator returned zero matches").
+        - Attach a confidence level (high / medium / low) reflecting
+          evidence quality.
+        - Note any gap: what the question asked that the evidence could
+          not answer.
+
+        When two children return contradictory facts for related
+        questions, surface the contradiction explicitly rather than
+        picking a side.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

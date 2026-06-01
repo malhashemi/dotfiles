@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="extract-knowledge" step="2" title="Analysis and Pattern Recognition">
+
+  <step n="2" title="Analysis and Pattern Recognition">
+    
+    <goal>
+      Analyze source material to identify patterns, conventions, and extractable knowledge.
+      This is the CORE STEP - quality here determines quality of output.
+    </goal>
+
+    <note>
+      PATTERN RECOGNITION is the key skill. Look for:
+      - What repeats across examples?
+      - What's consistent vs variable?
+      - What's the "why" behind choices?
+      - What would someone need to know to replicate this?
+    </note>
+
+    <substep n="2a" title="Load Source Material">
+      <action>
+        Read all source files completely:
+        {{#each sources}}
+        - Load: {{path}}
+        {{/each}}
+        
+        IMPORTANT: Read COMPLETE files, don't skim.
+        Patterns often emerge from details.
+      </action>
+    </substep>
+
+    <substep n="2b" title="First Pass - Surface Patterns">
+      <action>
+        Identify obvious patterns on first read:
+        
+        **Structure patterns:**
+        - How are files/sections organized?
+        - What's the consistent skeleton?
+        - What sections always appear?
+        
+        **Naming patterns:**
+        - What naming conventions are used?
+        - Are there prefixes/suffixes with meaning?
+        - How are things categorized?
+        
+        **Format patterns:**
+        - What syntax/format is preferred?
+        - How is information structured?
+        - What markup/styling is used?
+      </action>
+    </substep>
+
+    <substep n="2c" title="Second Pass - Deep Patterns">
+      <action>
+        Look deeper for non-obvious patterns:
+        
+        **Decision patterns:**
+        - When is X used vs Y?
+        - What conditions trigger different approaches?
+        - What trade-offs are being made?
+        
+        **Quality patterns:**
+        - What makes good examples good?
+        - What do the best examples have in common?
+        - What's missing from weaker examples?
+        
+        **Context patterns:**
+        - What assumptions are embedded?
+        - What knowledge is assumed?
+        - What would confuse a newcomer?
+      </action>
+    </substep>
+
+    <substep n="2d" title="Extract Rationale">
+      <action>
+        For each pattern identified, capture the WHY:
+        
+        - Why is this pattern used?
+        - What problem does it solve?
+        - What would happen if you didn't follow it?
+        - What are the trade-offs?
+        
+        Rationale makes knowledge ACTIONABLE, not just descriptive.
+      </action>
+      <ask>
+        For the patterns identified, what's the reasoning behind them?
+        
+        Help me understand:
+        - Why these conventions exist
+        - What problems they solve
+        - Historical context if relevant
+      </ask>
+    </substep>
+
+    <substep n="2e" title="Identify Examples">
+      <action>
+        For each pattern, identify concrete examples:
+        
+        **Good examples** - Show the pattern done well
+        **Counter-examples** - Show what NOT to do (if available)
+        **Edge cases** - Show pattern in tricky situations
+        
+        Examples are critical for LLM consumption (few-shot learning).
+      </action>
+    </substep>
+
+    <substep n="2f" title="Localize and Verify (fixing an existing agent/skill)">
+      <action if="the target is a defect in an existing agent or skill">
+        Do NOT guess where the fix goes. Dispatch the researcher (Task tool,
+        subagent: researcher) to map the exact source sites in .vera/:
+        - the true-source file(s) for the flaw (never a compiled artifact)
+        - the include/attachment chain (so one edit covers all consumers)
+        - whether one shared file is the leverage point vs many
+
+        Then VERIFY the researcher's load-bearing claims with a cheap
+        deterministic probe (a one-off script, a grep, a parse) BEFORE drafting
+        any fix. Treat a dispatched finding as a hypothesis until a probe
+        confirms it.
+
+        Output: a localized target list — each item {source file, what's wrong,
+        the precise change}.
+      </action>
+    </substep>
+
+    <substep n="2g" title="Present Analysis">
+      <template-output section="Analysis Results">
+        ## Knowledge Extraction: Analysis
+        
+        ### Patterns Identified
+        
+        {{#each patterns}}
+        #### {{name}}
+        **Type:** {{type}}
+        **Description:** {{description}}
+        **Rationale:** {{rationale}}
+        **Evidence:** Found in {{count}} sources
+        
+        {{/each}}
+        
+        ### Key Observations
+        {{observations}}
+        
+        ### Questions/Uncertainties
+        {{questions}}
+        
+        [a] Deeper analysis [c] Continue to extraction [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Pattern Recognition Techniques">
+      <techniques>
+        <technique name="Comparison">
+          Compare multiple examples side-by-side.
+          What's consistent? What varies?
+        </technique>
+        <technique name="Abstraction">
+          Remove specifics, see the skeleton.
+          What's the template underneath?
+        </technique>
+        <technique name="Questioning">
+          Ask "why" for every choice.
+          The answer reveals the pattern's purpose.
+        </technique>
+        <technique name="Inversion">
+          Imagine the opposite.
+          What would break if this pattern wasn't followed?
+        </technique>
+      </techniques>
+    </section>
+
+    <section title="Pattern Categories">
+      <category name="Structural">
+        How things are organized, ordered, grouped.
+        File layouts, section ordering, hierarchy.
+      </category>
+      <category name="Naming">
+        How things are named, labeled, identified.
+        Prefixes, suffixes, conventions, vocabulary.
+      </category>
+      <category name="Behavioral">
+        How things work, interact, respond.
+        Workflows, error handling, state transitions.
+      </category>
+      <category name="Stylistic">
+        How things look, read, feel.
+        Tone, formatting, emphasis, verbosity.
+      </category>
+    </section>
+
+    <section title="Quality Indicators">
+      <description>Signs of high-quality pattern extraction:</description>
+      <indicators>
+        <indicator>Pattern has clear rationale (not just "we do it this way")</indicator>
+        <indicator>Pattern appears in multiple sources (not one-off)</indicator>
+        <indicator>Pattern has concrete examples</indicator>
+        <indicator>Pattern is actionable (someone could follow it)</indicator>
+        <indicator>Pattern handles edge cases or exceptions</indicator>
+      </indicators>
+    </section>
+
+    <section title="Common Pitfalls">
+      <pitfall name="Over-generalization">
+        Extracting pattern from too few examples.
+        Solution: Require 3+ occurrences before calling it a pattern.
+      </pitfall>
+      <pitfall name="Missing context">
+        Pattern without rationale is just trivia.
+        Solution: Always capture the "why".
+      </pitfall>
+      <pitfall name="Surface-only">
+        Only seeing obvious patterns, missing deeper ones.
+        Solution: Do multiple passes, ask "why" repeatedly.
+      </pitfall>
+    </section>
+
+  </guidance>
+
+  <examples>
+    
+    <example name="Extracting from Agent Prompts">
+      <source>3 successful agent prompts</source>
+      <patterns-found>
+        - All start with persona block (role, identity)
+        - All use XML for structure, markdown for prose
+        - All have numbered menu items
+        - All include failure modes / anti-patterns
+        - Emphasis keywords used sparingly (NEVER, MUST, CRITICAL)
+      </patterns-found>
+      <rationale>
+        Persona first = establishes identity before instructions.
+        XML structure = unambiguous for LLM parsing.
+        Failure modes = prevents common mistakes.
+      </rationale>
+    </example>
+
+    <example name="Extracting from Code">
+      <source>Error handling across 5 API endpoints</source>
+      <patterns-found>
+        - All wrap operations in try/catch
+        - All log errors before returning
+        - All return structured error response
+        - Error codes follow HTTP conventions
+        - User-facing messages separate from debug info
+      </patterns-found>
+      <rationale>
+        Consistent error handling = predictable API behavior.
+        Separation of messages = security (no internal details to users).
+      </rationale>
+    </example>
+
+  </examples>
+
+</step-file>

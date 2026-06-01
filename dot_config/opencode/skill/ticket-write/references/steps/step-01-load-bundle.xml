@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-write" step="1" title="Load Bundle">
+
+  <step n="1" title="Load Bundle">
+
+    <goal>
+      Read the entire bundle into working memory plus the
+      AGENT-BRIEF principles reference. ticket-write is the
+      single point where the ticket body's content gets written; it
+      needs everything in head.
+    </goal>
+
+    <substep n="1a" title="Locate the Bundle">
+      <ask>
+        Which ticket bundle should I write?
+
+        Paste the bundle directory path or the ticket file path. The
+        bundle should have these prior-phase sections in the WORKLOG:
+        - Q↔R Readiness Summary (from ticket-grill)
+        - Design Summary (from ticket-design)
+        - Structure Outline (from ticket-structure)
+        - Writing Plan (from ticket-plan)
+
+        If any is missing, run the prior phase first.
+      </ask>
+      <action>
+        Validate. Halt if prior-phase sections are missing.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Read Bundle Files">
+      <action>
+        Read the ticket, research, questions, and worklog files
+        completely. Extract:
+        - Primary tag, slug
+        - All prior-phase sections (Readiness, Design, Structure,
+          Plan) from the worklog
+        - Research findings (synthesized findings from ticket-grill
+          turns, including any prototype findings)
+        - Q&A entries (resolved questions; rejected alternatives)
+        - Linked DRs (read each DR's content; the ticket will reference
+          them in its body)
+
+        Store in session: primary_tag, slug, design_summary,
+        structure_outline, writing_plan, research_findings,
+        qa_entries, locked_drs, bundle_dir, ticket_path, etc.
+      </action>
+    </substep>
+
+    <substep n="1c" title="Load AGENT-BRIEF Principles">
+      <action>
+        Read {{base_dir}}/references/agent-brief-principles.md
+        completely. This reference defines the discipline every section
+        drafted in step 3 must honor. Store the seven principles + the
+        section-quality checklist into session memory for use during
+        iteration.
+      </action>
+    </substep>
+
+    <substep n="1d" title="Display Load Summary">
+      <output>
+        Write-phase bundle loaded:
+        - Slug: {{slug}}
+        - Primary tag: {{primary_tag}}
+        - Sections to draft: {{section_count}}
+        - Planned subagent dispatches: {{dispatch_count}}
+        - Planned checkpoints: {{checkpoint_count}}
+        - Estimated total length: {{total_estimate}} lines
+        - Linked DRs: {{linked_drs_count}}
+        - AGENT-BRIEF principles loaded: yes
+
+        Proceeding to pre-flight subagent dispatch.
+      </output>
+    </substep>
+
+  </step>
+
+</step-file>

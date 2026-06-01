@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-orient" step="2" title="Read CONTEXT.md">
+
+  <step n="2" title="Read CONTEXT.md">
+
+    <goal>
+      Absorb the project's shared vocabulary glossary before formulating any
+      questions or interpreting the user's request. CONTEXT.md is the source
+      of canonical terms; mismatches between user phrasing and the glossary
+      become questions for ticket-grill.
+    </goal>
+
+    <substep n="2a" title="Detect Glossary Layout">
+      <action>
+        Check the repository root for one of three states:
+        1. CONTEXT-MAP.md exists -> multi-context project. Read the map; defer
+           per-context CONTEXT.md reads until ticket-grill identifies which
+           context the request belongs to.
+        2. CONTEXT.md exists at repo root -> single-context project. Read it
+           fully.
+        3. Neither exists -> no glossary yet. Note this in session state.
+           DO NOT lazy-create here; the lazy-create policy belongs to
+           ticket-grill (the first resolved term during Q↔R triggers
+           creation per the context-md-format skill).
+      </action>
+    </substep>
+
+    <substep n="2b" title="Read Glossary">
+      <check if="CONTEXT-MAP.md exists">
+        <action>
+          Read CONTEXT-MAP.md completely. Capture the bounded contexts and
+          their paths. Store in session as {{session.contexts}}.
+        </action>
+      </check>
+      <check if="CONTEXT.md exists at root and no CONTEXT-MAP.md">
+        <action>
+          Read CONTEXT.md completely. Capture canonical terms, aliases-to-avoid,
+          relationships, and flagged ambiguities. Store as {{session.glossary}}.
+        </action>
+      </check>
+      <check if="neither file exists">
+        <action>
+          Record {{session.glossary}} = "none". This is a normal state for
+          early-stage projects.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2c" title="Display Glossary Status">
+      <output>
+        CONTEXT.md status:
+        - Layout: {{single | multi | none}}
+        - Terms loaded: {{count of terms or "none"}}
+        - Flagged ambiguities: {{count or "none"}}
+
+        Proceeding to tier-1 codebase orientation.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Read-only here">
+      <description>
+        Step 2 is strictly a read. Writes to CONTEXT.md happen during
+        ticket-grill when a term is resolved through Q↔R. Lazy-create
+        is the context-md-format skill's responsibility, not this step's.
+      </description>
+    </section>
+
+    <section title="Multi-context handling">
+      <description>
+        For multi-context repos, ticket-orient does not pre-select a context.
+        That decision emerges from the user request and the first round of
+        ticket-grill. The map is loaded so the right context's CONTEXT.md can
+        be read later without re-orienting.
+      </description>
+    </section>
+
+    <section title="Why this matters for grilling">
+      <description>
+        A user who says "account" when the glossary defines "Customer" and
+        "User" as distinct terms is making a question for ticket-grill to
+        sharpen. Loading the glossary now means ticket-grill can spot these
+        mismatches in real time instead of researching the same vocabulary
+        twice.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

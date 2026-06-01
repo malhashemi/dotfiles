@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-implement" step="1" title="Determine Execution Mode">
+
+  <step n="1" title="Determine Execution Mode">
+
+    <substep n="1a" title="Read Bundle State">
+      <action>
+        From session state (handed off by code-orient in execution
+        mode, or by code-plan if running through in a single session):
+        - {{bundle_dir}}, {{ticket_path}}, {{ticket_alias}}, {{ticket_slug}}, {{primary_tag}}
+        - {{plan_paths}} (list; accepted)
+        - {{plan_count}}
+        - {{parallel_safety}} (parallel | sequential | N/A)
+        - {{pr_mode}} (true | false)
+
+        Verify each plan doc has status: "accepted". If any plan is
+        active or draft, halt: "Plan {{path}} has status
+        {{actual_status}}; expected accepted. Run code-plan to lock
+        before invoking code-implement."
+      </action>
+    </substep>
+
+    <substep n="1b" title="Initialize Strike Counter">
+      <action>
+        For decomposition tracking per Lock 17.2:
+        {{decomposition_strikes}} = {} (dict mapping slice_id → count).
+      </action>
+    </substep>
+
+    <substep n="1c" title="Identify Slice Execution Order">
+      <action>
+        Build the execution queue:
+
+        - Single plan: read slice dependency order from the plan doc;
+          enqueue slices in order.
+
+        - Multi-plan sequential: enqueue plan-1 slices in order, then
+          plan-2 slices, etc.
+
+        - Multi-plan parallel-safe: enqueue all plans' slices; track
+          which can run in parallel (independent worktrees per plan).
+
+        Store as {{slice_queue}} = list of {plan_n, slice_id,
+        worktree_branch}.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

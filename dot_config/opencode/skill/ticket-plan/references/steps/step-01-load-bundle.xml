@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-plan" step="1" title="Load Bundle">
+
+  <step n="1" title="Load Bundle">
+
+    <goal>
+      Read the bundle. The Structure Outline (written by
+      ticket-structure) is the primary input.
+    </goal>
+
+    <substep n="1a" title="Locate the Bundle">
+      <ask>
+        Which ticket bundle should I plan the writing for?
+
+        The bundle should have Readiness Summary, Design Summary, AND
+        Structure Outline sections in the ticket body. If any is
+        missing, run the prior phase first.
+      </ask>
+      <action>
+        Validate paths (incl. {{worklog_path}}). Verify all three prior
+        sections (Readiness, Design, Structure) are present in the worklog.
+        Halt if any is missing.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Read Bundle Files">
+      <action>
+        Read the ticket, research, questions, and worklog files. Extract:
+        - Primary tag, slug
+        - Structure Outline (from worklog): section list with scope notes; Parts (if any)
+        - Design Summary (from worklog): artifact chain, risk areas (some risks
+          may need subagent dispatch to flesh out)
+        - Research findings: prior subagent dispatches (a section
+          that's already well-covered by prior research doesn't need
+          new dispatch)
+        - Linked DRs: the DR content (a section like "Decisions"
+          references DRs and doesn't need new research)
+
+        Store in session: primary_tag, slug, structure_outline,
+        design_summary, research_findings, linked_drs.
+      </action>
+    </substep>
+
+    <substep n="1c" title="Display Load Summary">
+      <output>
+        Plan-phase bundle loaded:
+        - Slug: {{slug}}
+        - Primary tag: {{primary_tag}}
+        - Section count to plan: {{count}}
+        - Parts: {{parts_count or "none"}}
+
+        Proceeding to plan draft.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Single-load discipline">
+      <description>
+        Like other phase skills, this one reads the bundle once and
+        works from session state. No re-reads in subsequent steps;
+        the Edit operations in step 4 don't invalidate this load
+        because they only touch the ticket body's new Plan section.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

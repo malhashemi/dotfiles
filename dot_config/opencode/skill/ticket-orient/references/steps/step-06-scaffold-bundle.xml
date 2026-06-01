@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-orient" step="6" title="Scaffold Ticket Bundle">
+
+  <step n="6" title="Scaffold Ticket Bundle">
+
+    <goal>
+      Invoke the scaffold-bundle.py script with the confirmed slug, topic, and
+      primary tag. The script creates the bundle directory and three
+      schema-valid markdown files (ticket, research, questions). Verify the
+      output before proceeding to handoff.
+    </goal>
+
+    <substep n="6a" title="Invoke scaffold-bundle.py">
+      <action type="script">uv run {base_dir}/scripts/scaffold-bundle.py --slug "{{session.slug}}" --topic "{{session.request_restatement}}" --primary-tag "{{session.candidate_tag}}"</action>
+      <note>
+        The script:
+        1. Calls `thoughts metadata` internally (re-fetching, NOT relying on
+           our session.* values — this is the script's contract and ensures
+           a fresh timestamp on the bundle files).
+        2. Creates {{session.shared_folder}}/tickets/{{session.slug}}/ if it
+           does not exist; errors out if the directory already exists.
+        3. Writes three files:
+           - ticket-YYYY-MM-DD-{{session.slug}}.md (kind: ticket, status: draft)
+           - research-YYYY-MM-DD-{{session.slug}}.md (kind: research, status: active)
+           - questions-YYYY-MM-DD-{{session.slug}}.md (kind: questions, status: active)
+           - worklog-YYYY-MM-DD-{{session.slug}}.md (kind: worklog, status: active)
+        4. Populates frontmatter with both `owner:` and `researcher:`, full
+           ISO 8601 `date:` and `last_updated:`, schema-valid `parent:` (on
+           sibling files) and `children:` (on the ticket), tags array, and
+           the canonical alias as first element of `aliases:`.
+        5. Returns the three created paths on stdout for capture.
+      </note>
+    </substep>
+
+    <substep n="6b" title="Verify Outputs">
+      <action>
+        Parse the script's stdout. Confirm:
+        - Three paths returned, all under {{session.shared_folder}}/tickets/{{session.slug}}/
+        - Each file exists on disk and is non-empty
+        - Each file's frontmatter parses as YAML
+        - Each file's `kind:` matches expected (ticket / research / questions)
+
+        Run `thoughts validate {{ticket_path}}` and confirm zero validation
+        errors. If validation fails, halt and surface the errors to the user —
+        the bundle is malformed and ticket-grill should not start.
+
+        Store in session:
+        - {{session.ticket_path}}
+        - {{session.research_path}}
+        - {{session.questions_path}}
+        - {{session.worklog_path}}
+        - {{session.bundle_dir}}
+      </action>
+    </substep>
+
+    <substep n="6c" title="Display Scaffold Result">
+      <template-output section="Bundle Scaffolded">
+        Bundle directory created:
+        {{session.bundle_dir}}/
+
+        Files created:
+        - {{session.ticket_path}} (kind: ticket, status: draft)
+        - {{session.research_path}} (kind: research, status: active)
+        - {{session.questions_path}} (kind: questions, status: active)
+        - {{session.worklog_path}} (kind: worklog, status: active)
+
+        All three pass `thoughts validate`. Schema-native frontmatter populated.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="The script's encapsulation contract">
+      <description>
+        scaffold-bundle.py invokes `thoughts metadata` internally. This is
+        deliberate per Lock 27: the script is self-contained, and the agent
+        passes only domain arguments (slug, topic, primary-tag). Do NOT pass
+        owner, date, or repo context as arguments — the script fetches those
+        itself to guarantee freshness.
+      </description>
+    </section>
+
+    <section title="If the bundle directory already exists">
+      <rules>
+        <rule>The script errors out by design. The agent should NOT pass --force or any override</rule>
+        <rule>Surface the conflict to the user via Question tool: "A bundle with slug X already exists. Use a different slug, or are you resuming a previous session?"</rule>
+        <rule>If resuming: the user should invoke ticket-grill directly with the existing bundle, not re-run ticket-orient</rule>
+        <rule>If different work: ask for a new slug and loop back to step 5 (scope checkpoint) to reconfirm</rule>
+      </rules>
+    </section>
+
+    <section title="Validation failure handling">
+      <rules>
+        <rule>If `thoughts validate` reports errors, halt the workflow</rule>
+        <rule>Surface the raw validation output to the user</rule>
+        <rule>Do NOT auto-fix frontmatter — that is the script's job; if the script produced invalid output, the script needs fixing, not the file</rule>
+        <rule>Report as a bug in scaffold-bundle.py and abort the session</rule>
+      </rules>
+    </section>
+
+    <section title="Frontmatter sanity check">
+      <description>
+        Per Lock 32, the script emits BOTH `owner:` AND `researcher:` fields
+        populated from the same `thoughts metadata` owner value. It emits
+        full ISO 8601 datetime for `last_updated:` (not date-only — the
+        validator requires full timestamps). It emits `[[alias]]` wiki-link
+        form for `parent:` and `children:`. If any of these are missing or
+        malformed, validation will fail in substep 6b.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

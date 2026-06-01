@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-grill" step="1" title="Load Bundle State">
+
+  <step n="1" title="Load Bundle State">
+
+    <substep n="1a" title="Read Bundle">
+      <action>
+        From session state (handed off by code-orient or restored on
+        resumption), capture:
+        - {{bundle_dir}}, {{ticket_path}}, {{ticket_alias}}, {{ticket_slug}}, {{primary_tag}}
+        - {{design_path}} (placeholder; will be populated by code-design later)
+        - {{research_path}} (may not yet exist; created on first turn with findings)
+
+        Read the ticket file completely. Extract relevant facts into
+        session: topic, AC, scope-boundary statements, depends_on, any
+        linked DRs/ADRs in children.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Read CONTEXT.md (refresh)">
+      <action>
+        Re-read CONTEXT.md (or CONTEXT-MAP.md). code-orient already
+        loaded it, but a resumption session may have lost that state.
+        Store as {{glossary}}.
+      </action>
+    </substep>
+
+    <substep n="1c" title="Read Prior Turns">
+      <action>
+        If {{research_path}} exists, read it. Each "## Turn N: ..."
+        section is a completed Q↔R turn. Store the count as
+        {{turn_count}} (next turn = turn_count + 1).
+
+        Also re-read any DRs spawned during prior turns (listed in
+        ticket frontmatter children). Their decisions constrain what
+        this skill can revisit.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

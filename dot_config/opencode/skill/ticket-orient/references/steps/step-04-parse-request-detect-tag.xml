@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-orient" step="4" title="Parse Request and Detect Tag">
+
+  <step n="4" title="Parse Request and Detect Tag">
+
+    <goal>
+      Read the user's request that opened the session. Distill it into a
+      one-paragraph restatement and select a CANDIDATE primary tag. The
+      tag is a starting hypothesis — step 5's checkpoint may correct it,
+      and ticket-grill may further refine it once the request's true nature
+      surfaces during Q↔R.
+    </goal>
+
+    <substep n="4a" title="Restate the Request">
+      <action>
+        Distill the user's request into one or two sentences. The restatement
+        should:
+        - Use the canonical terms from CONTEXT.md when applicable
+        - Be neutral about scope (do not infer features the user did not state)
+        - Surface ambiguity explicitly ("X may mean A or B; this needs grilling")
+
+        Store as {{session.request_restatement}}.
+      </action>
+    </substep>
+
+    <substep n="4b" title="Select Candidate Primary Tag">
+      <action>
+        Pick ONE primary tag from the six-tag taxonomy (spec §8). Use these
+        heuristics:
+
+        - feature -> new product capability. User wants to add or change observable behavior.
+        - bug -> broken behavior. User reports something works incorrectly.
+        - exploration -> spike / learning goal. User wants to investigate or evaluate.
+        - hotfix -> emergency fix. User signals urgency and incident context.
+        - infrastructure -> setup/config/tooling. Not user-facing behavior; cross-cutting plumbing.
+        - chore -> task scope. Small, well-defined task with no decisions.
+
+        Tag selection is a CANDIDATE only. The scope checkpoint in step 5 lets
+        the user redirect. Tag may further evolve during ticket-grill if
+        research surfaces the request's true nature is different (e.g., a
+        "feature" request that's really an exploration because foundational
+        questions are unresolved).
+
+        Store as {{session.candidate_tag}}.
+      </action>
+    </substep>
+
+    <substep n="4c" title="Slug the Request">
+      <action>
+        Generate a kebab-case slug from the request restatement. Conventions:
+        - Lowercase
+        - Words separated by hyphens
+        - 2-5 words maximum
+        - No filler words (the, a, of) unless they clarify
+        - No tag prefix (the alias-form `ticket-YYYY-MM-DD-{slug}` is added by scaffold-bundle.py)
+
+        Examples:
+        - "Add team workspaces with shared task lists" -> team-workspaces
+        - "Fix invoice truncation at 1024 chars" -> invoice-truncation
+        - "Investigate adopting tRPC for the API layer" -> trpc-adoption-spike
+
+        Store as {{session.slug}}.
+      </action>
+    </substep>
+
+    <substep n="4d" title="Display Tag Candidate">
+      <output>
+        Request parsing:
+        - Restatement: {{session.request_restatement}}
+        - Candidate primary tag: {{session.candidate_tag}}
+        - Slug: {{session.slug}}
+
+        Proceeding to scope checkpoint.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Why only one primary tag">
+      <description>
+        Primary tag selects the depth recipe in subsequent phases. Tags like
+        `feature` mandate full Q↔R/D/S/P depth; `chore` minimizes ceremony.
+        Mixing primary tags conflates depth signals.
+
+        Secondary tags (security, performance, refactor, etc.) are free-form
+        metadata for filtering — they do NOT change the recipe. Those are
+        set during ticket-grill or ticket-write, not here.
+      </description>
+    </section>
+
+    <section title="Tag selection heuristics">
+      <rules>
+        <rule>If the user says "broken", "regression", "fails", "wrong" -> bug</rule>
+        <rule>If the user says "explore", "spike", "investigate", "evaluate", "consider" -> exploration</rule>
+        <rule>If the user says "emergency", "production down", "blocking customer", "ASAP" -> hotfix</rule>
+        <rule>If the user describes plumbing (CI, build, deployment, dependencies, dev tooling) without user-facing behavior -> infrastructure</rule>
+        <rule>If the user describes a small mechanical task ("update the README", "rename this field everywhere") -> chore</rule>
+        <rule>Otherwise default to feature; correct at scope checkpoint or during ticket-grill</rule>
+      </rules>
+    </section>
+
+    <section title="Restatement quality">
+      <rules>
+        <rule>The restatement is what gets presented at step 5's checkpoint — it must be precise enough for the user to spot misunderstanding</rule>
+        <rule>Do not silently add scope. If the user said "team workspaces", do not write "team workspaces with billing integration"</rule>
+        <rule>Do not silently subtract scope. If the user said "team workspaces with billing", do not collapse to "team workspaces"</rule>
+        <rule>Surface ambiguity explicitly with parenthetical flags: "(unclear whether per-team or per-user)"</rule>
+      </rules>
+    </section>
+
+    <section title="Slug discipline">
+      <rules>
+        <rule>The slug becomes part of the bundle directory name AND part of every file's canonical alias for the lifetime of the ticket</rule>
+        <rule>It is hard to change later (touches frontmatter aliases, parent links, file paths)</rule>
+        <rule>If unsure, pick the noun phrase that names the WORK, not the action verb</rule>
+      </rules>
+      <example type="good">team-workspaces (noun phrase, names the work)</example>
+      <example type="bad">add-teams (action verb, scope-narrow)</example>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-design" step="6" title="Lock and Handoff">
+
+  <step n="6" title="Lock and Handoff">
+
+    <substep n="6a" title="Flip Design Status to Locked">
+      <action>
+        Edit {{design_path}} frontmatter: status: "active" → status:
+        "accepted".
+
+        Accepted status signals to S/P/I phases that D is settled;
+        loop-back to D requires user re-engagement and resets the
+        strike counter.
+      </action>
+    </substep>
+
+    <substep n="6b" title="Stamp Frontmatter">
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{design_path}}" --note "D-phase locked after brain-surgery alignment; {{plan_count}} plan(s) identified; {{strike_count}} foundational reversals during D"</action>
+    </substep>
+
+    <substep n="6c" title="Validate">
+      <action type="script">thoughts validate "{{design_path}}"</action>
+      <check if="validation fails">
+        <action>Halt; surface validation error.</action>
+      </check>
+    </substep>
+
+    <substep n="6d" title="Emit Handoff">
+      <template-output section="Design Locked" critical="true">
+        D-phase complete.
+
+        - Design: {{design_path}} (status: accepted)
+        - Plans identified: {{plan_count}}
+        - Vertical slices: {{slice_count}}
+        - Risk areas: {{risk_count}}
+        - DRs spawned during D: {{dr_count}}
+        - Strike count: {{strike_count}}
+
+        **Next**: invoke `code-structure` skill. It will read the
+        design doc's vertical slices + risk areas + plan
+        identification and produce the structural skeleton (files +
+        signatures + test structure) per plan.
+      </template-output>
+    </substep>
+
+  </step>
+
+</step-file>

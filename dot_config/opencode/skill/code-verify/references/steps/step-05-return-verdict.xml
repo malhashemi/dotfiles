@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-verify" step="5" title="Return Verdict to Caller">
+
+  <step n="5" title="Return Verdict to Caller">
+
+    <substep n="5a" title="Compute Findings Summary">
+      <action>
+        Aggregate severity counts across all angles:
+        - critical: count of Critical findings
+        - high: count of High findings
+        - medium: count of Medium findings (waived count separate)
+        - medium_waived: count where user_waived == true
+        - low: count of Low findings
+        - suggestion: count of Suggestion findings
+      </action>
+    </substep>
+
+    <substep n="5b" title="Emit JSON Return">
+      <template-output section="Verify Verdict" critical="true">
+        {
+          "verdict": "{{verdict}}",
+          "loop_back_target": "{{loop_back_target}}",
+          "findings_summary": {
+            "critical": {{critical_count}},
+            "high": {{high_count}},
+            "medium": {{medium_count}},
+            "medium_waived": {{medium_waived_count}},
+            "low": {{low_count}},
+            "suggestion": {{suggestion_count}}
+          },
+          "verification_doc": "{{verification_doc_path}}",
+          "user_waivers_applied": {{medium_waived_count}}
+        }
+      </template-output>
+    </substep>
+
+    <substep n="5c" title="Confirm and Exit">
+      <output>
+        Gate {{gate}} verdict: **{{verdict}}**.
+
+        {{if BLOCKED: "Loop-back target: {{loop_back_target}}. Caller
+          will route accordingly."}}
+
+        {{if PROCEED: "All checks passed (or only non-blocking
+          severity findings present). Caller advances to next phase."}}
+
+        Findings: {{critical}} Critical, {{high}} High,
+        {{medium}} Medium ({{medium_waived}} waived), {{low}} Low,
+        {{suggestion}} Suggestion.
+
+        Verification doc updated: {{verification_doc_path}}.
+      </output>
+    </substep>
+
+  </step>
+
+</step-file>

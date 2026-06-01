@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-prototype" step="5" title="Extract Findings and Return">
+
+  <step n="5" title="Extract Findings and Return">
+
+    <goal>
+      Synthesize observations from the run into a structured findings block
+      that the caller (ticket-grill) can append to the bundle's research
+      file. Return the block + the preserved prototype path. Do NOT write
+      a separate findings document.
+    </goal>
+
+    <substep n="5a" title="Synthesize Findings Block">
+      <action>
+        Compose a markdown block matching the research-finding shape. Format:
+
+        ```md
+        ### Prototype: {{session.prototype_name}} ({{ISO 8601 datetime}})
+
+        **Question answered**: {{session.caller_question}}
+
+        **Branch**: {{session.branch}}
+
+        **What was built**: {{one-sentence description of the prototype}}
+
+        **How it ran**: `{{session.run_command}}` (LOGIC) | "viewed in browser" (UI)
+
+        **Findings**:
+        {{numbered factual list of what was observed. Each finding is one
+        or two sentences with no opinions or recommendations. Examples:
+
+        1. SQLAlchemy SAVEPOINT-based nested transactions DO work on
+           Postgres; both outer and inner tx report in_transaction()=True.
+        2. Rolling back the inner transaction (savepoint) does NOT roll
+           back the outer; the outer commits successfully.
+        3. Sequelize-style nested-tx semantics are achievable; no fragile
+           workarounds needed.}}
+
+        **Preserved at**: `{{session.prototype_path}}` (refer to this path
+        if the prototype needs to be re-run or inspected in the future)
+
+        **Iterations**: {{session.iteration_count + 1}}
+        ```
+
+        Store as {{session.findings_block}}.
+
+        Findings discipline:
+        - FACTUAL — what was observed, not what should be done
+        - SPECIFIC — cite the run output, the visible state, the user's UI report
+        - SHORT — 3-7 findings max; if more, the question was too broad
+        - NO RECOMMENDATIONS — those belong to ticket-design, not here
+      </action>
+    </substep>
+
+    <substep n="5b" title="Update Prototype README with Final Status">
+      <action>
+        Edit {{session.prototype_path}}/README.md to add a final section:
+
+        ## Findings (captured)
+
+        Findings recorded in: {{session.bundle_dir}}/research-*-{{session.slug}}.md
+        on {{ISO 8601 datetime}}.
+
+        See that file for the full finding block. This prototype is now
+        evidence — preserved but not actively maintained.
+
+        Iterations: {{session.iteration_count + 1}}
+        Status: {{answered | partially_answered}}
+
+        Use the Edit tool.
+      </action>
+    </substep>
+
+    <substep n="5c" title="Return to Caller">
+      <action>
+        Compose the return payload:
+
+        {
+          status: "answered" | "partially_answered" | "aborted" | "escalate_to_spike",
+          findings_block: {{session.findings_block}} (or null if aborted),
+          prototype_path: {{session.prototype_path}},
+          prototype_name: {{session.prototype_name}},
+          branch: {{session.branch}},
+          iteration_count: {{session.iteration_count + 1}},
+          notes: {{any caveats or follow-ups for the caller}}
+        }
+
+        Return this payload as the skill's final output. The caller
+        (ticket-grill in step-05) is responsible for:
+        - Appending findings_block to the bundle's research file
+        - Logging the prototype invocation in the questions file
+        - Stamping last_updated on the research file
+
+        ticket-prototype does NOT write to the research or questions
+        files directly — that responsibility stays with the caller to
+        keep the bundle's update path coherent in one place.
+      </action>
+    </substep>
+
+    <substep n="5d" title="Present Final Output">
+      <template-output section="Prototype Complete" critical="true">
+        Prototype session complete.
+
+        - Name: {{session.prototype_name}}
+        - Branch: {{session.branch}}
+        - Status: {{status}}
+        - Iterations: {{iteration_count}}
+        - Preserved at: {{session.prototype_path}}
+
+        **Findings block** (returned to caller for inclusion in research file):
+
+        {{session.findings_block}}
+
+        Caller (ticket-grill) will append this to the bundle's research
+        file in its own step-05.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="The findings absorption pattern" critical="true">
+      <description>
+        Per QRDSPIV: "the answer extracted from a prototype belongs in the
+        parent artifact". For ticketsmith, the "parent artifact" is the
+        bundle's research file (kind: research). Prototype findings absorb
+        into research findings; the prototype itself is preserved as a
+        reference path linked from the finding.
+
+        There is NO separate prototype-findings document. This was a
+        possible reading of spec §4.1's "Prototype doc(s)" listing, but
+        Lock 38 supersedes that: findings absorb, prototypes preserve.
+      </description>
+    </section>
+
+    <section title="Why ticket-prototype doesn't write the research file directly">
+      <description>
+        The bundle's update path is owned by ticket-grill's step-05
+        (update-bundle-files). Centralizing all bundle writes in one
+        place keeps the audit trail coherent — every bundle edit comes
+        from one skill's responsibility. If ticket-prototype wrote
+        directly to the research file, there would be two places that
+        touch it, and bundle updates would diverge.
+
+        Return the findings_block; let the caller decide where and when
+        to write it. This also lets the caller (or future grill-adopting
+        agents) include the findings under their own appropriate research
+        section structure.
+      </description>
+    </section>
+
+    <section title="When prototype findings are negative">
+      <description>
+        "X does not work" is a valid finding. "X works only under condition
+        Y" is a valid finding. "The prototype crashed in a way that
+        revealed underlying constraint Z" is a valid finding. Negative
+        evidence saves implementation time downstream.
+      </description>
+    </section>
+
+    <section title="Aborted prototype handling">
+      <rules>
+        <rule>Aborted prototypes still preserve the prototype_path so the caller can record what was attempted</rule>
+        <rule>The findings_block is null on abort, but the caller logs the attempt in the questions file</rule>
+        <rule>An aborted prototype is not a failure of the skill — it is information ("this question is not prototype-able")</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

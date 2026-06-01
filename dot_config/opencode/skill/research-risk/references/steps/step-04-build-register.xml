@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-risk" step="4" title="Build Risk Register">
+
+  <step n="4" title="Build Risk Register">
+
+    <substep n="4a" title="Pre-Mortem Pass">
+      <action>
+        Before cataloguing, run a pre-mortem over the scan findings:
+        assume this approach has failed in production six months from now
+        — what were the causes? This surfaces failure modes the
+        category scans may have under-weighted, especially at the seams
+        between categories (a performance fix that opens a security hole;
+        an operational shortcut that risks data integrity).
+      </action>
+    </substep>
+
+    <substep n="4b" title="Grade Each Risk">
+      <action>
+        For each risk identified, record:
+        - Category: which lens it falls under
+        - Risk: what could go wrong, stated concretely
+        - Evidence: file:line, URL, or thoughts/ alias grounding the risk
+        - Likelihood (High / Medium / Low): the evidence-grounded
+          probability it materializes — justify with the evidence, not a
+          hunch ("HIGH: input is user-controlled and reaches the query
+          unescaped [cite]")
+        - Impact (High / Medium / Low): severity if it does materialize
+        - Mitigation: the standard countermeasure for this risk class,
+          stated factually ("mitigated by parameterized queries") — NOT
+          a remediation order for our code. Where our codebase already
+          applies the mitigation elsewhere, cite it.
+
+        Rank by likelihood × impact; High/High risks lead the register.
+      </action>
+    </substep>
+
+    <substep n="4c" title="Compose the Register">
+      <action>
+        Compose the body per references/research/document-format
+        body-skeleton. Fixed top: the approach assessed, and a Summary
+        ranking the top risks (the High/High and High/Medium first).
+        Variable middle: the risk register grouped by category, entries
+        ordered by severity within each. Bottom: Open Questions
+        (categories assessed from internal evidence only, scans deferred
+        at the web gate).
+
+        Adversarial honesty: if the approach is genuinely low-risk, say
+        so — but surface the residual and low risks rather than declaring
+        all-clear. A scan that found nothing worth noting is a scan that
+        did not look hard enough.
+      </action>
+    </substep>
+
+    <substep n="4d" title="Review the Register" optional="true">
+      <check if="INTERACTIVE">
+        <template-output section="Risk Register">
+          Present the register for review before persistence.
+
+          [a] Revise (re-scan a category, sharpen a likelihood grade)
+          [c] Continue to persistence
+          [y] YOLO
+        </template-output>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

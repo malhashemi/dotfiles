@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-investigate" step="4" title="Synthesize Document">
+
+  <step n="4" title="Synthesize Document">
+
+    <substep n="4a" title="Compose the Document Body">
+      <action>
+        Synthesize the raw child findings ONCE into the methodology's
+        section structure (from investigation-methodologies). This is the
+        only synthesis pass — children returned raw findings; the
+        document is where they become coherent.
+
+        Compose the body per references/research/document-format
+        body-skeleton: Research Question, Summary, the methodology's
+        middle sections, Open Questions.
+
+        Discipline for every section:
+        - State facts, not transcripts. Do NOT paste raw child output.
+        - Cite inline: file:line, URL, or thoughts/ alias for every claim.
+        - Record silence as data: a negative finding ships as a cited
+          line ("searched {scope}; no match").
+        - Surface contradictions explicitly where children disagreed,
+          rather than picking a side silently.
+        - Open Questions captures what the evidence could not answer,
+          including any sub-questions deferred at the web-approval gate.
+      </action>
+    </substep>
+
+    <substep n="4b" title="Review the Draft" optional="true">
+      <check if="INTERACTIVE">
+        <template-output section="Investigation Draft">
+          Present the full drafted body for review before persistence.
+          One checkpoint, not per-section — all dispatch is already done,
+          so the document is reviewed as a whole.
+
+          [a] Revise (refine sections, dispatch follow-up children)
+          [c] Continue to persistence
+          [y] YOLO
+        </template-output>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

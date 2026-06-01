@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-write" step="4" title="Finalize and Handoff">
+
+  <step n="4" title="Finalize and Handoff">
+
+    <goal>
+      All sections drafted. Stamp last_updated with final state.
+      Re-validate. Recommend ticket-verify.
+    </goal>
+
+    <substep n="4a" title="Verify All Sections Written">
+      <action>
+        Compare {{written_sections}} to {{writing_plan.writing_order}}.
+        Every section in the writing_order list should be in
+        written_sections.
+
+        If any section was skipped (perhaps due to a pause that wasn't
+        resumed), halt and surface: "Section X was not written.
+        Re-invoke ticket-write to complete the remaining sections
+        before proceeding to ticket-verify."
+      </action>
+    </substep>
+
+    <substep n="4b" title="Final last_updated Stamp">
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{ticket_path}}" --note "I-phase complete. All {{total_sections}} sections drafted. Final length: {{actual_lines}} lines (estimated: {{total_estimate}}). Ready for ticket-verify."</action>
+    </substep>
+
+    <substep n="4c" title="Re-Validate Bundle">
+      <action type="script">thoughts validate {{ticket_path}} {{research_path}} {{questions_path}}</action>
+      <check if="validation fails">
+        <action>Halt. Surface errors.</action>
+      </check>
+    </substep>
+
+    <substep n="4d" title="Present Final Handoff">
+      <template-output section="I-Phase Complete" critical="true">
+        Write phase complete. Bundle ready for Verify.
+
+        **Ticket file**: {{ticket_path}}
+        **Final length**: {{actual_lines}} lines (estimated:
+        {{total_estimate}}; deviation: {{percent}})
+        **Subagent dispatches performed**: {{dispatch_count}}
+        **Checkpoints triggered**: {{checkpoint_count}}
+
+        **Status**: draft (will transition to 'ready' at end of
+        ticket-verify if verification passes)
+
+        **Next action**: invoke `ticket-verify` from the ticketsmith
+        menu (cmd: TV) for the V-phase:
+        - Self-review against the AGENT-BRIEF principles
+        - Reviewer subagent dispatch (for tags feature / exploration / infrastructure)
+        - Severity-classified findings
+        - Inline fixes (with user approval for ambiguous ones)
+        - draft → ready transition (final user-gated checkpoint)
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Length deviation flag">
+      <description>
+        If actual_lines deviates from total_estimate by >50% (either
+        under or over), surface this in the handoff. Under: sections
+        may have been written too thin; ticket-verify will check for
+        missing content. Over: sections may have scope crept; ticket-verify
+        will check for content that belongs elsewhere.
+
+        Mild deviation (<25%) is normal and not flagged.
+      </description>
+    </section>
+
+    <section title="Status discipline">
+      <description>
+        ticket-write does NOT change status. The ticket remains 'draft'
+        throughout this skill. Status transitions only happen in
+        ticket-verify's final substep, gated by user approval.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-grill" step="4" title="Dispatch and Synthesize">
+
+  <step n="4" title="Dispatch and Synthesize">
+
+    <substep n="4a" title="Ask the User Question (if any)">
+      <check if="user_question is not null">
+        <ask>
+          Present {{user_question.statement}}.
+          Options: {{user_question.options}} (recommended first).
+
+          Capture answer + rejected alternatives + agent's why-not
+          rationale for each rejected option. Store as
+          {{turn_user_answer}}.
+        </ask>
+      </check>
+    </substep>
+
+    <substep n="4b" title="Dispatch researcher">
+      <invoke-agent name="researcher" prompt="
+Answer these research questions and return synthesized findings with
+citations.
+
+Questions (JSON array; each entry carries question_text, scope, an
+optional child_subagent_hint, and expected_output_shape):
+{{research_dispatch}}
+
+web_search_approved: {{true if a web-research entry survived the step
+3e approval gate, else false}}
+      "/>
+      <action>Capture the returned synthesis as {{turn_synthesis}}.</action>
+    </substep>
+
+    <substep n="4c" title="Perform Artifact Checks (if any)">
+      <action>
+        For each artifact_check item: read the file directly (bundle
+        files, CONTEXT.md, briefs in thoughts/). Append the findings
+        to {{turn_synthesis}}.
+      </action>
+    </substep>
+
+    <substep n="4d" title="Spot Term Resolutions + DR Triggers">
+      <action>
+        Scan {{turn_synthesis}} and {{turn_user_answer}} for:
+
+        - **Resolved terms**: domain terms now precise that were fuzzy
+          before. Mark {{glossary_updates}} = list of
+          {term, definition, aliases_to_avoid}.
+
+        - **DR candidates**: hard-to-reverse decisions surfaced this
+          turn. Apply the three-condition gate per
+          decision-record-format skill. If all three fire, mark
+          {{dr_candidate}} = {title, context, decision, why,
+          considered_options}.
+
+        These flags drive step 5.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

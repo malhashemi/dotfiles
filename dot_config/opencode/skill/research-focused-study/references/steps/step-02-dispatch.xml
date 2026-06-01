@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-focused-study" step="2" title="Dispatch">
+
+  <step n="2" title="Dispatch">
+
+    <substep n="2a" title="Web-Research Approval Gate">
+      <check if="any aspect routes to web-search-researcher AND INTERACTIVE">
+        <ask>
+          Name the aspect(s) needing web research. Ask the user to
+          approve dispatching web-search-researcher, recommended option
+          first. If declined, drop those aspects and record them as
+          deferred gaps for the Open Questions section.
+        </ask>
+      </check>
+      <check if="any aspect routes to web-search-researcher AND AUTONOMOUS">
+        <action>
+          If web_search_approved is true, keep the web aspects. If false
+          or absent, emit to stdout and stop:
+
+            CLARIFICATION_NEEDED: Study requires web research for
+            {aspect(s)}, but web_search_approved was not set. Re-dispatch
+            with web_search_approved=true, or narrow to internal sources.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2b" title="Dispatch the Wave">
+      <action>
+        A single-domain study is one wave. Dispatch all aspect prompts
+        via the Task tool in a SINGLE message (parallel). Compose each
+        prompt per child-subagent-dispatch prompt-anatomy — the aspect
+        question alone, never the parent task's intent.
+      </action>
+    </substep>
+
+    <substep n="2c" title="Validate Returns and Sharpen-Redispatch">
+      <action>
+        Redispatch any vague return with a sharper prompt before
+        synthesis. A "no matches" return is a negative finding, not a
+        vague one — keep it; it becomes a cited finding in step 3.
+        Collect the raw findings per aspect.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

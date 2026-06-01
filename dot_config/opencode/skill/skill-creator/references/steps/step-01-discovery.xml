@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="skill-creator" step="1" title="Discovery and Context">
+
+  <step n="1" title="Discovery and Context">
+    
+    <goal>
+      Understand what skill the user wants to create, which agent will own it,
+      and gather any existing context (architecture documents, similar skills).
+    </goal>
+
+    <substep n="1a" title="Gather Requirements">
+      <ask>
+        What skill would you like to create? Please describe:
+        - What does this skill do? (what problem does it solve?)
+        - Which agent(s) will invoke this skill? (e.g., ticketsmith, codesmith, prompter)
+        - Is there a workflow spec, architecture document, or existing skill to reference?
+      </ask>
+    </substep>
+
+    <substep n="1b" title="Check for Context">
+      <check if="architecture document provided">
+        <action>Read the architecture document completely</action>
+        <action>Extract the skill's defined responsibilities</action>
+        <action>Note any templates, scripts, or references specified</action>
+        <action>Identify integration points with other skills</action>
+      </check>
+      <check if="similar skill exists">
+        <action>
+          Review the similar skill's structure as reference:
+          - What type is it? (workflow, exec, data)
+          - How many steps does it have?
+          - What scripts/templates does it use?
+        </action>
+      </check>
+      <check if="no context provided">
+        <action>
+          Conduct lightweight discovery to understand:
+          - Core purpose (what output does it produce?)
+          - User interaction (multi-step or single-shot?)
+          - Dependencies (what files/tools does it need?)
+        </action>
+      </check>
+    </substep>
+
+    <substep n="1c" title="Confirm Understanding">
+      <template-output section="Discovery Summary">
+        Summarize what you've learned:
+        - Skill purpose
+        - Owner agent
+        - Expected outputs
+        - Any constraints or requirements
+        
+        Present to user for confirmation before proceeding.
+        
+        [a] Explore more [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Good Discovery Questions">
+      <example type="good">
+        "What's the primary output this skill produces?"
+        "Is this a guided process or a quick action?"
+        "What existing files or templates should it use?"
+        "Who will trigger this skill? (user via menu, or another skill)"
+      </example>
+      <example type="bad">
+        "What color should the output be?" (irrelevant)
+        "What's the exact file structure?" (too detailed for discovery)
+      </example>
+    </section>
+
+    <section title="Skill Location and Reuse">
+      <description>
+        All skills live at .vera/skills/{skill_id}/ — flat namespace.
+        Skills are referenced by their id from any agent's permission.skill
+        map or from another skill's invoke-skill calls. Cross-agent reuse
+        is the criterion for skill existence; agent-internal references
+        stay inside the agent's directory.
+      </description>
+      <rules>
+        <rule>Skill should serve a clear purpose that crosses agents OR represents progressive disclosure for a multi-capability agent</rule>
+        <rule>Single-agent single-use logic belongs in the agent's instructions, not in a separate skill</rule>
+        <rule>Reusability across agents is the strongest justification</rule>
+      </rules>
+      <example>
+        ticket-grill: used by ticketsmith and could be reused by future grill-adopting agents
+        context-md-format: cross-agent data reference
+        agent-creator: used by prompter
+      </example>
+    </section>
+
+    <section title="Architecture Document Integration">
+      <description>
+        If an Architect agent has produced a system architecture, it may contain:
+        - Skill definitions with inputs/outputs
+        - Step outlines for workflow skills
+        - Template requirements
+        - Integration patterns
+      </description>
+      <tip>
+        Use architecture docs as primary source of truth. Don't re-ask
+        questions that the architecture already answers.
+      </tip>
+    </section>
+
+  </guidance>
+
+</step-file>

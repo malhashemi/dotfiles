@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-plan" step="4" title="Spot-Check With User">
+
+  <step n="4" title="Spot-Check With User">
+
+    <substep n="4a" title="Present Summary">
+      <ask>
+        Plan(s) drafted:
+
+        - Plan files: {{list of plan-*.md paths}}
+        - Total slices: {{slice_count}}
+        - Parallel-safety: {{parallel | sequential | N/A (single plan)}}
+        - Open questions: 0 (verified)
+
+        Spot-check sample (random slice from plan-1):
+        Slice {{sampled_slice_id}}: {{description}}
+        Steps:
+        1. {{step 1}}
+        2. {{step 2}}
+        ...
+
+        Your response:
+        - Accept (Recommended): proceed to lock
+        - Push back on a specific slice's tactics: name it + concern
+        - Loop back: structure or design needs revision
+      </ask>
+      <check if="user accepts">
+        <action>Proceed to step 5.</action>
+      </check>
+      <check if="user pushes back">
+        <action>Revise the affected slice's tactics. Re-present. Loop within step.</action>
+      </check>
+      <check if="user wants loop back">
+        <action>
+          Halt this skill. Emit handoff per the relevant earlier
+          phase (S or D). After re-locking that phase, re-invoke
+          code-plan.
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

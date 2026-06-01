@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-orient" step="2" title="Load Bundle Context">
+
+  <step n="2" title="Load Bundle Context">
+
+    <substep n="2a" title="Planning Mode: Load Ticket">
+      <check if="mode == 'planning'">
+        <action>
+          Read the ticket file completely. Extract from frontmatter:
+          - status (must be `ready`; halt if not)
+          - aliases[0] → {{ticket_alias}}
+          - tags[0] → {{primary_tag}} (must be one of feature/bug/
+            exploration/hotfix/infrastructure/chore; halt if not)
+          - topic → {{ticket_topic}}
+
+          Derive {{ticket_slug}} from the ticket_alias (strip the
+          `ticket-YYYY-MM-DD-` prefix).
+
+          Store {{ticket_path}} = absolute path to the ticket file.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2b" title="Execution Mode: Load Bundle">
+      <check if="mode == 'execution'">
+        <action>
+          List the bundle directory. Expected contents:
+          - design-YYYY-MM-DD-<slug>.md (mandatory)
+          - structure-YYYY-MM-DD-<slug>.md (mandatory if S-phase ran)
+          - plan-YYYY-MM-DD-<slug>.md (or plan-N.md for multi-plan)
+          - research-YYYY-MM-DD-<slug>.md (optional per Lock 5)
+          - verification-YYYY-MM-DD-<slug>.md (may not yet exist)
+
+          Read design.md frontmatter. Extract:
+          - parent → {{ticket_alias}} (strip [[ ]])
+          - aliases[0] → {{design_alias}}
+
+          Derive {{ticket_slug}} from {{ticket_alias}}.
+
+          Resolve the ticket via `thoughts metadata` + alias lookup.
+          Read the ticket frontmatter to populate {{primary_tag}},
+          {{ticket_topic}}.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2c" title="Read CONTEXT.md">
+      <action>
+        Read CONTEXT.md or CONTEXT-MAP.md at repo root if it exists.
+        Store the glossary terms in session as {{glossary}}. If
+        neither file exists, set {{glossary}} = none (lazy-create
+        will fire later if a term is resolved during Q↔R).
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

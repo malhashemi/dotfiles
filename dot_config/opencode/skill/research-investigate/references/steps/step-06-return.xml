@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-investigate" step="6" title="Return">
+
+  <step n="6" title="Return">
+
+    <check if="AUTONOMOUS">
+      <output-format>
+        Emit to stdout:
+
+        ```
+        SUCCESS
+        Document: {absolute path to the persisted research document}
+        Methodology: {selected methodology}
+        Summary: {2-4 sentence synthesis of the headline findings}
+        Key findings:
+          - {finding with citation}
+          - {finding with citation}
+        Open questions: {count, or "none"}
+        ```
+      </output-format>
+    </check>
+
+    <check if="INTERACTIVE">
+      <output-format>
+        Present to the user:
+
+        ## Investigation Complete
+
+        **Document**: {path}
+        **Methodology**: {selected methodology}
+
+        {2-4 sentence summary of headline findings with inline citations}
+
+        **Open questions**: {list, or "none"}
+
+        Then offer next actions:
+        - Follow-up research appended to this same document
+        - A related investigation on an adjacent question
+      </output-format>
+    </check>
+
+  </step>
+
+</step-file>

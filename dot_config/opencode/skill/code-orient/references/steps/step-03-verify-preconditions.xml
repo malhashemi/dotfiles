@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-orient" step="3" title="Verify Preconditions">
+
+  <step n="3" title="Verify Preconditions">
+
+    <substep n="3a" title="Confirm thoughts CLI Available">
+      <action type="script">command -v thoughts || echo "MISSING"</action>
+      <check if="output == 'MISSING'">
+        <action>
+          Halt with: "thoughts CLI not found on PATH. Codesmith
+          requires thoughts CLI. Install thoughts-cli or ensure it's
+          on PATH for this session."
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3b" title="Confirm wt CLI Available">
+      <action type="script">command -v wt || echo "MISSING"</action>
+      <check if="output == 'MISSING'">
+        <action>
+          Halt with: "worktrunk (wt) CLI not found on PATH. Codesmith
+          requires worktrunk for Work-Tree management. Install via
+          `brew install worktrunk` + `wt config shell install`."
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3c" title="Confirm Team Config Has Required Kinds">
+      <action type="script">thoughts metadata | grep -E "^team:" | head -1</action>
+      <action>
+        Extract the team name. Read the team config:
+        ~/thoughts/teams/{{team}}/config.json
+
+        Verify workflow.kinds includes: design, structure, plan,
+        verification, research.
+
+        If any kind is missing, halt with: "Team config is missing
+        required kind(s): {{missing}}. Codesmith authoring requires
+        these kinds. Add them to ~/thoughts/teams/{{team}}/config.json
+        in workflow.kinds, workflow.backlog.kinds, and
+        workflow.archive.kinds. Then run `thoughts sync`."
+      </action>
+    </substep>
+
+    <substep n="3d" title="Confirm Working Tree Clean">
+      <action type="script">git status --porcelain</action>
+      <check if="output is non-empty">
+        <action>
+          Halt with: "Working tree has uncommitted changes. Codesmith
+          enters Work-Tree phase later and requires a clean baseline.
+          Commit, stash, or discard before invoking codesmith.
+
+          Output:\n{{git_status_output}}"
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

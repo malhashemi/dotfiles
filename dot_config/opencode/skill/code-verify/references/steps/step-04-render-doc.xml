@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-verify" step="4" title="Render Verification Doc Entry">
+
+  <step n="4" title="Render Verification Doc Entry">
+
+    <substep n="4a" title="Write Final Findings JSON">
+      <action>
+        After user-waiver handling, write the final findings (with
+        user_waived markers and updated verdict) to
+        {{bundle_dir}}/findings-{{gate_id}}.json. This is the file
+        render-verification-report.py consumes.
+      </action>
+    </substep>
+
+    <substep n="4b" title="Invoke render-verification-report.py">
+      <action type="script">uv run {base_dir}/scripts/render-verification-report.py --findings "{{bundle_dir}}/findings-{{gate_id}}.json" --bundle-dir "{{bundle_dir}}" --ticket-slug "{{ticket_slug}}" --ticket-alias "{{ticket_alias}}"</action>
+      <check if="exit code != 0">
+        <action>
+          Surface stderr verbatim. The renderer's schema validation is
+          strict; failures usually indicate the validator emitted
+          malformed JSON (a validator bug — surface for fix, do not
+          paper over).
+        </action>
+      </check>
+      <action>Parse the script's stdout. Capture {{verification_doc_path}}.</action>
+    </substep>
+
+  </step>
+
+</step-file>

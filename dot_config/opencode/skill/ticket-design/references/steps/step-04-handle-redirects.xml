@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-design" step="4" title="Handle Redirects and Strike Escalation">
+
+  <step n="4" title="Handle Redirects and Strike Escalation">
+
+    <goal>
+      Classify the user's response and dispatch accordingly. The
+      classification controls whether the skill confirms and proceeds,
+      loops back to a prior phase, increments the strike counter, or
+      recommends abort. Strike counter enforces Lock 31's three-strike
+      escalation on foundational reversals.
+    </goal>
+
+    <substep n="4a" title="Classify the Response">
+      <action>
+        Refine {{session.user_response.classification_hint}} into a
+        final classification:
+
+        - **confirm**: user accepted the design; proceed to step 5
+        - **redirect_scope_ungrilled**: user revealed a scoping concern
+          NOT previously raised in Q↔R. Loop back to ticket-grill with
+          the new focus.
+        - **adjust_chain**: user modified the artifact chain (added or
+          removed an artifact, reordered). NOT a foundational reversal —
+          edit the draft and re-present.
+        - **adjust_risk**: user modified a risk-area statement. NOT a
+          foundational reversal — edit and re-present.
+        - **foundational_reversal**: user reversed a previously LOCKED
+          foundational decision. Examples:
+          - Changing a confirmed scope ("actually, the work should NOT
+            include the auth changes after all")
+          - Reversing a DR's decision ("I want to reconsider the
+            shared-tables vs RLS choice")
+          - Rejecting a confirmed Q↔R outcome on a load-bearing question
+          STRIKE COUNTER INCREMENTS.
+        - **abort**: user explicitly wants to stop. Archive the bundle
+          and exit.
+
+        Use the verbatim record from substep 3b as the source of
+        classification. When ambiguous, prefer the LESS severe
+        classification (adjust over reverse; reverse over abort) but
+        verify with one clarifying question.
+      </action>
+    </substep>
+
+    <substep n="4b" title="Dispatch by Classification">
+      <check if="classification == 'confirm'">
+        <action>
+          Lock {{session.design_summary_draft}} as
+          {{session.design_summary_final}}. Proceed to step 5.
+        </action>
+      </check>
+
+      <check if="classification == 'redirect_scope_ungrilled'">
+        <action>
+          Append a note to {{session.questions_path}} (Q&A entry) describing
+          the new scoping concern. Stamp last_updated on the questions
+          file via stamp-frontmatter.py.
+
+          Present the user with:
+          "This redirect surfaces a scoping gap not previously grilled.
+          Recommend looping back to ticket-grill for an additional Q↔R
+          turn focused on this gap. Confirm?"
+
+          On confirm: exit this skill cleanly. The user invokes
+          ticket-grill via the ticketsmith menu (TG). ticket-grill's
+          step 1 will re-load the bundle and re-enter the loop at step 2.
+
+          On decline (the user wants to proceed without grilling): treat
+          as a force-skip; log in the questions file; loop back to step 2
+          of THIS skill with the redirect absorbed (assume the user knows
+          what they're doing).
+        </action>
+      </check>
+
+      <check if="classification == 'adjust_chain' OR classification == 'adjust_risk'">
+        <action>
+          Edit the draft in {{session.design_summary_draft}} per the
+          user's correction. Loop back to step 3 to re-present the
+          adjusted version.
+        </action>
+        <goto step="3"/>
+      </check>
+
+      <check if="classification == 'foundational_reversal'">
+        <action>
+          Increment {{session.foundational_strikes}}.
+          Append a strike entry to {{session.strike_log}}:
+          {
+            strike_n: {{session.foundational_strikes}},
+            timestamp: ISO 8601,
+            reversed_decision: <which DR / Q↔R outcome / scope element>,
+            user_rationale: <verbatim>,
+            agent_assessment: <one-line agent note>
+          }
+
+          Apply the strike-N protocol:
+          - Strike 1 → substep 4c
+          - Strike 2 → substep 4d
+          - Strike 3 → substep 4e
+        </action>
+      </check>
+
+      <check if="classification == 'abort'">
+        <action>
+          Proceed to substep 4f (archive and exit).
+        </action>
+      </check>
+    </substep>
+
+    <substep n="4c" title="Strike 1 Protocol">
+      <action>
+        Strike 1: ABSORB and LOOP BACK.
+
+        Present to user:
+        "Acknowledged — this is a reversal of a previously locked
+        {{decision_type}}. I'll absorb the change. Identifying which
+        Q↔R turns or research findings are invalidated:
+        {{agent's list of invalidated bundle content}}
+
+        Loop back recommendation: ticket-grill, to re-grill the
+        affected scope. Alternatively: stay in this skill and
+        re-draft the design with the new constraint."
+
+        Append a strike-1 record to the questions file. Stamp
+        last_updated.
+
+        Ask user to confirm direction: loop to ticket-grill OR stay
+        in ticket-design with the absorbed reversal.
+
+        On loop: exit cleanly; user invokes ticket-grill via menu.
+        On stay: loop back to step 2 of this skill with reversal
+        absorbed.
+      </action>
+    </substep>
+
+    <substep n="4d" title="Strike 2 Protocol">
+      <action>
+        Strike 2: SURFACE CONCERN.
+
+        Present to user:
+        "Second foundational reversal this session. The bundle is
+        becoming inconsistent — prior turns are being invalidated.
+        Recommend pausing to consolidate before continuing.
+
+        Options:
+        - Pause: review the bundle content; reconcile contradictions
+          before next phase
+        - Continue absorbing: proceed past this reversal (strike
+          counter advances; one more reversal triggers abort
+          recommendation)
+        - Abort now: archive bundle as research evidence; start fresh
+          Q↔R later"
+
+        Append a strike-2 record to the questions file. Stamp
+        last_updated.
+
+        Ask user to confirm direction. On pause: exit cleanly with a
+        pause note. On continue: loop back to step 2 with reversal
+        absorbed. On abort: proceed to substep 4f.
+      </action>
+    </substep>
+
+    <substep n="4e" title="Strike 3 Protocol">
+      <action>
+        Strike 3: RECOMMEND ABORT.
+
+        Present to user:
+        "Three foundational reversals this session. This pattern
+        indicates the original Q↔R scoping was wrong — accumulated
+        inconsistencies in the bundle now exceed what additional
+        absorption can repair.
+
+        Recommendation: ABORT this ticket-writing session. Archive the
+        current bundle (status: abandoned, with a postscript explaining
+        the abort) as research evidence. Start a fresh ticket-writing
+        session with the new understanding from these reversals.
+
+        Options:
+        - Abort and archive (Recommended): mark the ticket
+          status=abandoned; add a postscript; exit
+        - Override and continue: I'll force one more attempt; strike
+          counter logic ends; you accept the inconsistency risk
+        - Pause: stop here without aborting; resume later with fresh
+          context"
+
+        Append a strike-3 record to the questions file. Stamp
+        last_updated.
+
+        Ask user to confirm. On abort: proceed to substep 4f. On
+        override: loop back to step 2 with reversal absorbed; do NOT
+        increment strike counter further. On pause: exit cleanly.
+      </action>
+    </substep>
+
+    <substep n="4f" title="Abort Path">
+      <action>
+        Edit the ticket frontmatter: set status = abandoned. Append a
+        postscript section to the ticket body:
+
+        ## Session Abandoned
+
+        - Reason: {{abort reason: explicit user abort OR three-strike escalation}}
+        - Strikes accumulated: {{session.foundational_strikes}}
+        - Strike log: see {{session.questions_path}} (entries timestamped this session)
+
+        This bundle is preserved as research evidence. To start a fresh
+        ticket-writing session on the same underlying request, invoke
+        ticket-orient with a new slug and reference this bundle as prior
+        art in the Orient Summary.
+
+        Stamp last_updated on the ticket file with note: "Session
+        abandoned per ticket-design step 4."
+
+        Exit the skill cleanly. Bundle is preserved; status reflects the
+        abandonment.
+      </action>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="The classification call is the core skill craft" critical="true">
+      <description>
+        Most session-ending mistakes come from misclassifying a redirect
+        as adjustment (under-counting strikes) or misclassifying an
+        adjustment as reversal (over-counting strikes). When ambiguous,
+        the agent asks ONE clarifying question before applying the
+        strike protocol:
+
+        "Just to be precise: are you reversing the previous decision on X
+        (which would be a foundational change), or adjusting the
+        artifact-chain to include something new (which is additive)?
+        These trigger different protocols."
+
+        The user's answer determines the classification.
+      </description>
+    </section>
+
+    <section title="What counts as 'foundational' vs 'adjustment'">
+      <rules>
+        <rule>Reverses a DR's chosen alternative → foundational</rule>
+        <rule>Reverses a Q↔R outcome on a load-bearing question (one whose answer drove other findings) → foundational</rule>
+        <rule>Changes the scope statement in a way that invalidates prior research turns → foundational</rule>
+        <rule>Adds a new artifact to the chain (ADR/UX spec) without contradicting prior decisions → adjustment</rule>
+        <rule>Restates a risk area more precisely → adjustment</rule>
+        <rule>Reorders the artifact chain without removing or contradicting elements → adjustment</rule>
+        <rule>Adds a new edge case to the risk list → adjustment</rule>
+      </rules>
+    </section>
+
+    <section title="Strike counter does not penalize honest discovery">
+      <description>
+        Reversals are NORMAL during D-phase — that's WHY D-phase is a
+        firm checkpoint. The strike counter exists to catch
+        ACCUMULATING incoherence (three reversals in one session signal
+        the original Q↔R was wrong), not to discourage one honest
+        course correction. Strike 1 is supposed to fire; strike 2 is
+        a warning; strike 3 is the trigger.
+      </description>
+    </section>
+
+    <section title="The override option is intentional">
+      <description>
+        Per Lock 31: "User can always insist on continuing past Strike 3."
+        Some users have external time constraints or know context the
+        agent does not (e.g., this is a throwaway exploration anyway).
+        The override exists to honor that. But the bundle is then flagged
+        as having been force-continued past abort threshold; ticket-verify
+        will surface this for review.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

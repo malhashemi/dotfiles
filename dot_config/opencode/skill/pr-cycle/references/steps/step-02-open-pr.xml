@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="pr-cycle" step="2" title="Open PR (first iteration only)">
+
+  <step n="2" title="Open PR" if="iteration_count == 0">
+
+    <substep n="2a" title="Ensure Branch Is Pushed">
+      <action type="script">cd {{worktree_path}} &amp;&amp; git push -u origin {{branch}}</action>
+      <check if="push failed">
+        <action>Halt with the git push error verbatim.</action>
+      </check>
+    </substep>
+
+    <substep n="2b" title="Compose PR Body">
+      <action>
+        Build the PR body from the bundle. Include:
+        - Link to parent ticket: [[{{ticket_alias}}]]
+        - Brief summary (1-2 sentences from ticket frontmatter `topic`)
+        - Verification gate summary (which gates have run + verdicts)
+        - Link to bundle: {{bundle_dir}}
+
+        Format as standard markdown. Do not include implementation
+        narrative — the implementation log is in the bundle and the
+        plan; the PR body is a pointer, not a duplicate.
+      </action>
+    </substep>
+
+    <substep n="2c" title="Create PR">
+      <action type="script">gh pr create --base {{target_branch}} --head {{branch}} --title "{{ticket_topic}}" --body-file /tmp/pr-body-{{ticket_slug}}.md</action>
+      <check if="command failed">
+        <action>Halt with the gh error verbatim.</action>
+      </check>
+    </substep>
+
+    <substep n="2d" title="Capture PR Metadata">
+      <action type="script">gh pr view --json number,url</action>
+      <action>
+        Parse JSON. Store {{pr_number}} and {{pr_url}}.
+      </action>
+    </substep>
+
+    <substep n="2e" title="Persist Initial State">
+      <action>Write {bundle_dir}/pr-cycle-state.md with initial state (see step 8 for format).</action>
+    </substep>
+
+  </step>
+
+</step-file>

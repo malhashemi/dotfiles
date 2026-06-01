@@ -1,0 +1,467 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="skill-creator" step="2" title="Skill Type and Architecture">
+
+  <step n="2" title="Skill Type and Architecture" critical="true">
+    
+    <goal>
+      Determine skill type, identify what should be scripts, and plan the
+      complete architecture. This step shapes everything about how the skill
+      is built and used.
+    </goal>
+
+    <note>
+      THIS IS THE MOST IMPORTANT STEP. Key decisions made here:
+      - Skill type (workflow/exec/data)
+      - What should be scripts (SCRIPT-FIRST MENTALITY)
+      - Reusable content plan (scripts, references, assets)
+      - Overall structure
+      
+      SCRIPT-FIRST PRINCIPLE: If anything CAN be a script, it probably
+      SHOULD be a script rather than a prompt. Scripts are deterministic,
+      token-efficient, and reliably repeatable.
+    </note>
+
+    <substep n="2a" title="Analyze Requirements">
+      <action>
+        Based on discovery, analyze the skill's nature:
+        - Does it have multiple distinct phases? → workflow
+        - Is it a quick lookup or transformation? → exec
+        - Is it reference material for context? → data
+        
+        Key questions:
+        - Will users need to review/adjust intermediate outputs?
+        - Does it produce a file incrementally or all at once?
+        - Is there a "journey" the user goes through?
+      </action>
+    </substep>
+
+    <substep n="2b" title="Determine Type">
+      <ask>
+        Based on what this skill does, which type fits best?
+        
+        **workflow** - Multi-step, checkpoint-driven process
+        - User interaction at each checkpoint
+        - Produces output incrementally (template-output tags)
+        - Examples: create-product-brief, agent-creator, deep-research
+        
+        **exec** - Single-shot execution
+        - Agent reads skill, performs action, returns result
+        - No intermediate checkpoints
+        - Examples: validate-yaml, format-output, check-dependencies
+        
+        **data** - Reference material
+        - Loaded on demand for context
+        - Not "executed", just provides information
+        - Examples: coding-standards, template-library, glossary
+      </ask>
+    </substep>
+
+    <substep n="2c" title="Script-First Analysis">
+      <action>
+        Apply script-first thinking. For each capability the skill needs, ask:
+        - Is this deterministic and repeatable? → SCRIPT
+        - Is it rewritten the same way every time? → SCRIPT
+        - Does it need reliability over creativity? → SCRIPT
+        - Is it a transformation, validation, or file operation? → SCRIPT
+        
+        Only defer to prompts when the task genuinely requires:
+        - Creative judgment
+        - Context-dependent decisions
+        - Natural language generation
+        - User interaction
+      </action>
+      <ask>
+        What operations in this skill should be scripts?
+        
+        Common script candidates:
+        - Scaffolding (create files/directories)
+        - Validation (check correctness)
+        - Transformation (convert formats)
+        - File operations (read/write/parse)
+        - Calculations (deterministic logic)
+      </ask>
+    </substep>
+
+    <substep n="2d" title="Design Scripts">
+      <check if="scripts identified">
+        <action>
+          For each planned script, define:
+          
+          | Field | Description |
+          |-------|-------------|
+          | name | Filename (kebab-case.py) |
+          | purpose | What it does (one sentence) |
+          | inputs | Arguments/parameters |
+          | outputs | What it returns/creates |
+          | dependencies | Python packages needed |
+          
+          This design will be used to generate script templates in Step 6.
+        </action>
+        <ask>
+          Let's design each script. For each one, what are:
+          - Name and purpose?
+          - Inputs (arguments)?
+          - Outputs (return value, files created)?
+          - Dependencies (Python packages)?
+        </ask>
+      </check>
+      <check if="no scripts identified">
+        <action>
+          Confirm this skill genuinely needs no scripts.
+          
+          This is valid for:
+          - Pure data/reference skills
+          - Skills that only orchestrate other skills
+          - Skills where all work is cognitive/creative
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2e" title="Plan Reusable Content">
+      <action>
+        Categorize all reusable content:
+        
+        | Resource | When to Use | Location |
+        |----------|-------------|----------|
+        | **scripts/** | Deterministic, repeatable code | references/scripts/ |
+        | **references/** | Documentation loaded as needed | references/ |
+        | **assets/** | Files used in output (not loaded) | assets/ |
+        
+        Scripts: Already designed in 2d
+        References: What documentation should be loadable?
+        Assets: What files are used in output (templates, images)?
+      </action>
+      <ask>
+        Beyond scripts, what other reusable content does this skill need?
+        - Reference documentation?
+        - Templates for output?
+        - Static assets?
+      </ask>
+    </substep>
+
+    <substep n="2f" title="Outline Structure">
+      <check if="skill_type == 'workflow'">
+        <action>
+          Outline the workflow steps (3-9 steps typical):
+          - What's the natural progression?
+          - Where are the checkpoints?
+          - What does each step produce?
+          - Which steps invoke scripts?
+        </action>
+      </check>
+      <check if="skill_type == 'exec'">
+        <action>
+          Define the execution pattern:
+          - What input does it need?
+          - What processing happens? (likely a script)
+          - What output does it return?
+        </action>
+      </check>
+      <check if="skill_type == 'data'">
+        <action>
+          Define the reference content:
+          - What categories of information?
+          - How should it be organized?
+          - When would an agent load this?
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2g" title="Present Architecture">
+      <template-output section="Skill Architecture">
+        Present the complete skill architecture:
+
+        **Type:** {{skill_type}}
+
+        **Scripts Planned:** (table of name, purpose, inputs, outputs per planned script)
+
+        **Reusable Content:** (per-skill references/ contents; cross-skill shared/ attachments if any)
+
+        **Structure:**
+        (For workflow: list of steps with script references)
+        (For exec: input → script → output)
+        (For data: content outline)
+
+        **Files to Create:**
+        - skill.yaml
+        - head.md
+        - skill-overview.md (workflow/exec) OR SKILL.md (data, flat layout)
+        - references/scripts/*.py (if scripts planned)
+        - references/steps/*.xml (if workflow type)
+
+        [a] Reconsider architecture [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Workflow Type">
+      <description>
+        Multi-step, checkpoint-driven processes with user interaction.
+        The user reviews and can adjust output at each checkpoint.
+      </description>
+      <when-to-use>
+        <rule>Creating documents (briefs, specs, plans)</rule>
+        <rule>Guided discovery processes</rule>
+        <rule>Multi-phase analysis</rule>
+        <rule>Anything with "steps" the user should see and verify</rule>
+        <rule>When intermediate outputs need human judgment</rule>
+      </when-to-use>
+      <structure>
+        - instructions.xml with step references
+        - references/steps/step-0N-*.xml for each step
+        - template-output tags for checkpoints
+        - 3-8 steps typical
+      </structure>
+      <example>agent-creator, create-product-brief, deep-research</example>
+    </section>
+    
+    <section title="Exec Type">
+      <description>
+        Single-shot execution. Agent reads skill, performs action, returns result.
+        No intermediate checkpoints or user interaction during execution.
+      </description>
+      <when-to-use>
+        <rule>Quick lookups or validations</rule>
+        <rule>Single transformations</rule>
+        <rule>Checks that return pass/fail</rule>
+        <rule>Operations that don't need human review mid-process</rule>
+      </when-to-use>
+      <structure>
+        - instructions.md (simpler, markdown-based)
+        - No step files needed
+        - Clear input/output specification
+      </structure>
+      <example>validate-yaml, format-commit, check-dependencies</example>
+    </section>
+    
+    <section title="Data Type">
+      <description>
+        Reference material loaded on demand. Not executed, just provides context.
+        Agent reads this when it needs specific knowledge.
+      </description>
+      <when-to-use>
+        <rule>Standards or guidelines to follow</rule>
+        <rule>Templates the agent should use</rule>
+        <rule>Domain glossaries or definitions</rule>
+        <rule>Checklists for reference</rule>
+      </when-to-use>
+      <structure>
+        - instructions.md with reference content
+        - Organized by topic/category
+        - No execution flow, just information
+      </structure>
+      <example>coding-standards, security-checklist, template-library</example>
+    </section>
+
+    <section title="Choosing Between Types">
+      <rules>
+        <rule>If users need to review intermediate work → workflow</rule>
+        <rule>If it's "do this thing and tell me the result" → exec</rule>
+        <rule>If it's "here's information you might need" → data</rule>
+        <rule>When in doubt, consider: does this need checkpoints?</rule>
+      </rules>
+      <example type="decision">
+        "Create a PRD" → workflow (user reviews each section)
+        "Validate this YAML file" → exec (just return valid/invalid)
+        "Follow these coding standards" → data (reference when coding)
+      </example>
+    </section>
+
+    <section title="Skills with Dual-Mode Callers">
+      <description>
+        A dual-mode primary (e.g., researcher) backs each menu item with a
+        skill, and runs that skill both INTERACTIVELY (a human invoked the
+        primary) and AUTONOMOUSLY (the primary was dispatched via Task, so
+        the question tool is stripped). The same skill must serve both.
+        Those skills are normal workflow skills — same skill.yaml +
+        head.md + skill-overview.md + references/steps/ shape; the
+        mode-awareness lives in the step content, not in a different
+        structure.
+
+        The skill detects mode the same way the activation does — the
+        question tool is available interactively, absent autonomously —
+        then guards interactive-only constructs and provides an autonomous
+        path for each.
+      </description>
+      <rules>
+        <rule>Detect mode in an early step (question tool available → INTERACTIVE; absent → AUTONOMOUS)</rule>
+        <rule>Guard interactive-only constructs (&lt;ask&gt;, template-output checkpoints) behind &lt;check if="INTERACTIVE"&gt;</rule>
+        <rule>For each interactive checkpoint, provide an autonomous path: parse the input from the dispatch prompt, and emit a structured return signal (SUCCESS / ERROR / CLARIFICATION_NEEDED / domain signals) via stdout</rule>
+        <rule>An autonomous caller cannot answer mid-dispatch; surface a needed answer as CLARIFICATION_NEEDED for re-dispatch via Task session resume, not as an &lt;ask&gt;</rule>
+      </rules>
+    </section>
+
+    <section title="Step Count Guidelines (Workflow)">
+      <rules>
+        <rule>Minimum 3 steps: Setup → Work → Complete</rule>
+        <rule>Maximum 9 steps: Beyond this, consider splitting into multiple skills</rule>
+        <rule>Sweet spot: 5-7 steps</rule>
+        <rule>Each step should have a clear deliverable</rule>
+      </rules>
+    </section>
+
+    <section title="Script-First Mentality" critical="true">
+      <description>
+        If anything CAN be a script, it probably SHOULD be a script.
+        Scripts are deterministic, token-efficient, and reliably repeatable.
+      </description>
+      <when-to-script>
+        <rule>File operations (create, read, write, move)</rule>
+        <rule>Validation (syntax, schema, completeness)</rule>
+        <rule>Scaffolding (directory structure, templates)</rule>
+        <rule>Transformations (format conversion, data processing)</rule>
+        <rule>Calculations (deterministic logic)</rule>
+        <rule>Anything rewritten the same way repeatedly</rule>
+      </when-to-script>
+      <when-to-prompt>
+        <rule>Creative content generation</rule>
+        <rule>Context-dependent decisions</rule>
+        <rule>User interaction and elicitation</rule>
+        <rule>Judgment calls requiring reasoning</rule>
+      </when-to-prompt>
+      <example type="good">
+        "Create agent directory structure" → scaffold-agent.py
+        "Validate YAML syntax" → validate.py
+        "Parse and transform data" → transform.py
+      </example>
+      <example type="bad">
+        Writing a prompt to create directories (use script)
+        Writing a prompt to validate JSON (use script)
+      </example>
+    </section>
+
+    <section title="Script Design Best Practices">
+      <rules>
+        <rule>Use PEP 723 inline metadata for dependencies</rule>
+        <rule>Include docstring with usage and output description</rule>
+        <rule>Use argparse for command-line arguments</rule>
+        <rule>Return meaningful exit codes (0 success, 1 error)</rule>
+        <rule>Print structured output (JSON for data, human-readable for status)</rule>
+      </rules>
+      <template>
+        # /// script
+        # requires-python = ">=3.11"
+        # dependencies = ["pyyaml>=6.0"]
+        # ///
+        """Brief description.
+        
+        Usage: uv run script.py arg1 [arg2]
+        Output: Description of what it produces
+        """
+      </template>
+    </section>
+
+    <section title="Base Directory Convention">
+      <description>
+        When a skill is loaded, the agent receives the skill's base directory path.
+        All file references in SKILL.md should use {base_dir} placeholder.
+      </description>
+      <rules>
+        <rule>Reference scripts as: uv run {base_dir}/scripts/name.py</rule>
+        <rule>Reference files as: {base_dir}/references/file.md</rule>
+        <rule>This allows skills to work regardless of installation location</rule>
+      </rules>
+      <example>
+        ## Scripts
+        
+        Execute via:
+        ```bash
+        uv run {base_dir}/scripts/validate.py [args]
+        ```
+      </example>
+    </section>
+
+    <section title="Progressive Disclosure">
+      <description>
+        Skills use a three-level loading system to manage context efficiently.
+      </description>
+      <levels>
+        <level n="1">Metadata (name + description) - Always in context (~100 words)</level>
+        <level n="2">SKILL.md body - When skill triggers (keep under 5k words)</level>
+        <level n="3">Bundled resources - Loaded on demand (unlimited)</level>
+      </levels>
+      <rules>
+        <rule>Keep SKILL.md lean - move details to references/</rule>
+        <rule>Large reference files (>10k words): include grep patterns in SKILL.md</rule>
+        <rule>Avoid duplication between SKILL.md and references</rule>
+      </rules>
+    </section>
+
+    <section title="Reusable Content Framework">
+      <description>Categorize content by how it will be used:</description>
+      <categories>
+        <category name="scripts/">
+          <purpose>Deterministic code executed repeatedly</purpose>
+          <examples>scaffold.py, validate.py, transform.py</examples>
+          <when>Same code would be rewritten every time</when>
+        </category>
+        <category name="references/">
+          <purpose>Documentation loaded into context as needed</purpose>
+          <examples>schema.md, api-docs.md, workflow-steps/</examples>
+          <when>Agent needs information while working</when>
+        </category>
+        <category name="assets/">
+          <purpose>Files used in output, not loaded into context</purpose>
+          <examples>template.pptx, logo.png, boilerplate/</examples>
+          <when>Files get copied or modified in output</when>
+        </category>
+      </categories>
+    </section>
+
+  </guidance>
+
+  <examples>
+    
+    <example name="Workflow: agent-creator">
+      <context>Creates dubstack agent source directories through guided process.</context>
+      <config>
+        Type: workflow
+        Steps:
+        1. Discovery and Context
+        2. Template Selection (critical)
+        3. Scaffold and Configure
+        4. Fill Content Templates
+        5. Validate and Complete
+      </config>
+      <rationale>
+        Each step produces reviewable output. User reviews template
+        selection, scaffold, and fill operations. Classic workflow.
+      </rationale>
+    </example>
+
+    <example name="Exec: validate-yaml">
+      <context>Validates YAML files for syntax and schema compliance.</context>
+      <config>
+        Type: exec
+        Input: Path to YAML file
+        Process: Parse YAML, check against schema, collect errors
+        Output: Validation result with errors/warnings
+      </config>
+      <rationale>
+        No intermediate checkpoints needed. User wants "is this valid?"
+        Single action, single response.
+      </rationale>
+    </example>
+
+    <example name="Data: coding-standards">
+      <context>Reference material for code style and practices.</context>
+      <config>
+        Type: data
+        Sections:
+        - Naming conventions
+        - File organization
+        - Error handling patterns
+        - Testing requirements
+      </config>
+      <rationale>
+        Agent loads this when writing code, references specific sections.
+        No execution, just structured information.
+      </rationale>
+    </example>
+
+  </examples>
+
+</step-file>

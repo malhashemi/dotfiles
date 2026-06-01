@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="extract-knowledge" step="1" title="Discovery and Scoping">
+
+  <step n="1" title="Discovery and Scoping">
+    
+    <goal>
+      Identify what to extract knowledge from and scope the extraction appropriately.
+      Good scoping is critical - too broad yields shallow results, too narrow misses patterns.
+    </goal>
+
+    <substep n="1a" title="Identify Source Material">
+      <ask>
+        What should we extract knowledge from?
+        
+        **Source types:**
+        - **Code** - Implementation patterns, conventions, architecture
+        - **Documents** - PRDs, specs, guides, READMEs
+        - **Prompts** - Existing agent/skill prompts that work well
+        - **Conversations** - Chat logs with useful decisions/patterns
+        - **Examples** - Reference implementations, templates
+        
+        Please provide:
+        1. Path(s) to source material
+        2. Brief description of what it is
+      </ask>
+    </substep>
+
+    <substep n="1b" title="Determine Knowledge Type">
+      <ask>
+        What kind of knowledge are we extracting?
+        
+        **patterns** - Recurring solutions (error handling, API design)
+        **conventions** - Standards and naming rules
+        **templates** - Reusable structures with placeholders
+        **guidelines** - Decision frameworks and best practices
+        **vocabulary** - Domain terms and definitions
+        
+        Which type best describes what you want to extract?
+      </ask>
+    </substep>
+
+    <substep n="1c" title="Define Scope">
+      <action>
+        Based on source and type, define extraction scope:
+        
+        - What specific patterns/knowledge to look for?
+        - What should be excluded?
+        - How deep should analysis go?
+        - Who will consume this knowledge? (agents, humans, both)
+      </action>
+      <ask>
+        Let's scope this extraction:
+        
+        1. **Focus areas** - What specifically should we extract?
+        2. **Exclusions** - What should we ignore?
+        3. **Depth** - Surface patterns or deep analysis?
+        4. **Audience** - Who will use this knowledge?
+      </ask>
+    </substep>
+
+    <substep n="1d" title="Summarize Discovery">
+      <template-output section="Discovery Summary">
+        ## Knowledge Extraction: Discovery
+        
+        **Source Material:**
+        {{#each sources}}
+        - {{path}}: {{description}}
+        {{/each}}
+        
+        **Knowledge Type:** {{knowledge_type}}
+        
+        **Scope:**
+        - Focus: {{focus_areas}}
+        - Exclude: {{exclusions}}
+        - Depth: {{depth_level}}
+        - Audience: {{audience}}
+        
+        **Output:** {{output_description}}
+        
+        [a] Refine scope [c] Continue to analysis [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Source Selection">
+      <rules>
+        <rule>Prefer multiple examples over single source (reveals patterns)</rule>
+        <rule>Choose sources that represent "good" - what you want to replicate</rule>
+        <rule>Include context (why was this created, what problem did it solve)</rule>
+        <rule>Recent sources often better than old (current practices)</rule>
+      </rules>
+      <example type="good">
+        "Extract from our 5 most successful PRDs to find what makes them effective"
+        "Analyze the 3 agent prompts that users like best"
+      </example>
+      <example type="bad">
+        "Extract from all files in the repo" (too broad)
+        "Extract from this one file" (may not reveal patterns)
+      </example>
+    </section>
+
+    <section title="Scoping Guidelines">
+      <rules>
+        <rule>Narrow scope = deeper, more actionable knowledge</rule>
+        <rule>Broad scope = surface-level, may miss nuance</rule>
+        <rule>Start narrow, expand if needed</rule>
+        <rule>Define what "success" looks like for extraction</rule>
+      </rules>
+      <example>
+        Narrow: "Error handling patterns in our API layer"
+        Broad: "All patterns in the codebase" (likely too broad)
+      </example>
+    </section>
+
+    <section title="Audience Consideration">
+      <description>Who will consume this knowledge affects format and depth.</description>
+      <audiences>
+        <audience name="Agents">
+          - Structure for LLM consumption
+          - Include examples for few-shot learning
+          - Clear rules with emphasis keywords
+        </audience>
+        <audience name="Humans">
+          - More explanation and context
+          - Visual organization (headers, lists)
+          - Rationale for decisions
+        </audience>
+        <audience name="Both">
+          - Balance structure and readability
+          - Include both rules and explanations
+        </audience>
+      </audiences>
+    </section>
+
+  </guidance>
+
+</step-file>

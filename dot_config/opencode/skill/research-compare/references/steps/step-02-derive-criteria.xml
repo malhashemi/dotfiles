@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-compare" step="2" title="Derive Criteria">
+
+  <step n="2" title="Derive Criteria">
+
+    <substep n="2a" title="Establish the Comparison Criteria">
+      <action>
+        If criteria were supplied in the dispatch, use them. Otherwise
+        derive them from the decision context and the nature of the
+        alternatives — the dimensions on which this class of choice
+        actually differs and that the decision actually cares about.
+        Typical dimensions for a technology choice: capability fit,
+        performance characteristics, operational cost, ecosystem and
+        maturity, integration effort, licensing/lock-in, failure modes.
+        Select the criteria that matter for THIS decision; do not pad the
+        grid with dimensions no one will weigh.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Scope Gate">
+      <action>
+        A matrix has to cohere on one screen of judgment. If the
+        alternatives or criteria are so numerous that no single matrix
+        would be legible (rough guide: beyond ~5 alternatives or ~8
+        criteria), emit to stdout and stop:
+
+          SCOPE_TOO_LARGE
+          Reason: the comparison grid is too large to cohere
+          Suggested split: <narrower comparisons, e.g., shortlist first
+          on a few criteria, then compare the finalists in depth>
+      </action>
+    </substep>
+
+    <substep n="2c" title="Confirm Criteria" optional="true">
+      <check if="INTERACTIVE">
+        <template-output section="Comparison Criteria">
+          Present the alternatives and the derived criteria for
+          confirmation before researching:
+          - The alternatives
+          - The criteria, each with a one-line definition of what it
+            measures
+          - Which alternatives will need web research (flag for step 3)
+
+          [a] Adjust (add/drop/redefine criteria)  [c] Continue  [y] YOLO
+        </template-output>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

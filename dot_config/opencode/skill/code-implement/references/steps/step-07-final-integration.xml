@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-implement" step="7" title="Final Integration + Handoff">
+
+  <step n="7" title="Final Integration + Handoff">
+
+    <substep n="7a" title="Final Integration V-Gate">
+      <action>
+        Invoke code-verify with:
+        - gate = "final-integration"
+        - (other inputs same as per-slice but without slice_id)
+      </action>
+      <invoke-skill name="code-verify"/>
+    </substep>
+
+    <substep n="7b" title="Handle Final Verdict">
+      <check if="verdict == 'BLOCKED'">
+        <action>
+          Apply the same loop-back routing as step 5b. final-
+          integration findings often surface cross-slice integration
+          issues that per-slice gates missed; these typically loop
+          back to I-phase (re-dispatch worker on the affected slice
+          with the cross-slice finding context). Rare cases loop back
+          to P-phase (planning gap revealed).
+        </action>
+      </check>
+      <check if="verdict == 'PROCEED'">
+        <action>
+          Final integration passed. Determine merge path.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="7c" title="Transition Ticket to Implemented">
+      <action type="script">uv run {base_dir}/scripts/transition-ticket-status.py --ticket-file "{{ticket_path}}" --new-status implemented</action>
+      <check if="exit code != 0">
+        <action>Halt; surface stderr.</action>
+      </check>
+    </substep>
+
+    <substep n="7d" title="Route to Merge Skill">
+      <check if="pr_mode == true">
+        <output>
+          Implementation complete. All slices verified. Final
+          integration passed.
+
+          **Next**: invoke `pr-cycle` skill for the V-phase PR-review
+          gate. Inputs:
+          - bundle_dir = {{bundle_dir}}
+          - ticket_slug = {{ticket_slug}}
+          - ticket_alias = {{ticket_alias}}
+          - branch = {{branch}}
+          - target_branch = {{base_branch}}
+          - worktree_path = {{worktree_path}}
+
+          pr-cycle handles PR open, Gemini review loop, human merge
+          escalation, post-merge worktree cleanup.
+        </output>
+      </check>
+      <check if="pr_mode == false">
+        <output>
+          Implementation complete. All slices verified. Final
+          integration passed.
+
+          **Next**: invoke `local-merge` skill for the V-phase merge.
+          Inputs:
+          - branch = {{branch}}
+          - target_branch = {{base_branch}}
+          - worktree_path = {{worktree_path}}
+
+          local-merge handles squash + rebase + merge + worktree
+          cleanup in one operation.
+
+          After local-merge returns successfully, transition the
+          ticket to `verified` via transition-ticket-status.py.
+        </output>
+      </check>
+    </substep>
+
+    <substep n="7e" title="Emit Handoff">
+      <template-output section="I-phase Complete" critical="true">
+        I-phase orchestration complete.
+
+        - Slices implemented + verified: {{slice_count}}
+        - Commits added: {{commit_count}}
+        - Decomposition events: {{total_decompositions}}
+        - Plan(s): {{plan_paths}}
+        - Worktree(s): {{worktree_paths}}
+
+        Bundle:
+        - design.md: accepted
+        - structure.md: accepted
+        - plan(s): accepted (with implementation log subsections)
+        - verification.md: {{verification_path}} (per-gate entries)
+
+        Ticket status: implemented (awaiting verified after merge).
+
+        Routing to merge: {{pr-cycle | local-merge}}.
+      </template-output>
+    </substep>
+
+  </step>
+
+</step-file>

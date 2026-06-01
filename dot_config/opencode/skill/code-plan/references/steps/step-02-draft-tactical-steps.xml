@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-plan" step="2" title="Draft Per-Plan Tactical Steps">
+
+  <step n="2" title="Draft Per-Plan Tactical Steps">
+
+    <substep n="2a" title="Create Plan File(s)">
+      <action>
+        For each plan {{plan_n}} in {{plan_count}}:
+
+        Filename:
+        - Single plan: plan-{{date}}-{{ticket_slug}}.md
+        - Multi-plan:  plan-{{date}}-{{ticket_slug}}-plan-{{plan_n}}.md
+
+        Create with frontmatter:
+          kind: plan
+          status: active
+          parent: [[{{ticket_alias}}]]
+          depends_on: [[{{design_alias}}, {{structure_alias}}]]
+          aliases: [plan-{{date}}-{{ticket_slug}}[-plan-{{plan_n}}]]
+          (plus standard fields)
+      </action>
+    </substep>
+
+    <substep n="2b" title="Compose Per-Slice Tactical Steps">
+      <action>
+        For each slice in this plan:
+
+        Section template:
+
+        ## Slice {{plan_n}}.{{slice_m}}: {{slice_description}}
+
+        **AC coverage**: {{which AC items this slice satisfies}}
+        **Files**: {{list from structure}}
+
+        ### Steps (TDD vertical)
+
+        1. Write failing test for {{behavior}}.
+           - File: tests/{{test_file}}
+           - Test name: "{{describe...it...}}"
+           - Expected fail mode: {{e.g., function not exported / assertion}}
+
+        2. Minimal implementation to pass.
+           - File(s): {{impl files}}
+           - Signature: {{from structure}}
+           - Minimal-impl scope: {{what's enough to pass; what to defer}}
+
+        3. (Optional) Refactor while green.
+           - Trigger: {{e.g., duplication with existing X / clarity}}
+           - Constraint: tests stay green throughout
+
+        4. Verification commands.
+           - {{project test runner}} (e.g., `bun test tests/{{test_file}}`)
+           - {{type check}} (e.g., `bun run typecheck`)
+           - {{lint}} (e.g., `bun run lint -- {{paths}}`)
+
+        5. Commit.
+           - Message: "{{conventional-commits format}}"
+             Example: "feat({{scope}}): {{slice description}}"
+
+        TDD VERTICAL MANDATE: one test → one impl → repeat. Do NOT
+        write all slice tests first then all slice impl.
+      </action>
+    </substep>
+
+    <substep n="2c" title="Document Dependency Ordering">
+      <action>
+        At the top of the plan doc (after frontmatter, before slice
+        sections):
+
+        ## Slice dependency order
+
+        - {{plan_n}}.1 → {{plan_n}}.2 → {{plan_n}}.3 → ... (sequential within plan)
+        OR
+        - {{plan_n}}.1 (parallel with {{plan_n}}.2)
+        - {{plan_n}}.3 (depends on {{plan_n}}.1 + {{plan_n}}.2)
+
+        Within a plan, slices are usually sequential. Parallel within
+        a plan is unusual; if it happens, the parallel slices MUST
+        touch non-overlapping files.
+      </action>
+    </substep>
+
+    <substep n="2d" title="No Open Questions">
+      <action>
+        Final check: scan the plan body for any "?", "TBD", "TODO",
+        "FIXME" markers. If found:
+        - Either resolve now by looping back to D or S
+        - Or surface to user: "Plan has unresolved questions. Cannot
+          lock. Loop back to {{relevant phase}}?"
+
+        Discipline: NO open questions in the final plan (Lock 8 +
+        RPIV-era planner inheritance).
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

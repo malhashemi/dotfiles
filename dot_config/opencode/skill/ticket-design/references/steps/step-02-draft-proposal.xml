@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-design" step="2" title="Draft Design Proposal">
+
+  <step n="2" title="Draft Design Proposal">
+
+    <goal>
+      Compose the brain-surgery proposal: the artifact chain this work
+      requires, the decision points future user touchpoints will surface,
+      and the risk areas where friction is most likely. Tag recipe drives
+      depth.
+    </goal>
+
+    <substep n="2a" title="Load Tag Recipe (if available)">
+      <action>
+        Check whether a tag-recipe file exists at
+        .vera/shared/references/tag-recipes/{{session.primary_tag}}.md
+        (these are Phase 4 references; may not exist yet during
+        ticketsmith development). If present, load it; it provides
+        depth guidance for the primary tag.
+
+        Tag-recipe contents (when authored) specify:
+        - Depth expectation for D-phase per tag
+        - Mandatory artifact-chain elements per tag
+        - Typical risk profile per tag
+
+        If absent, use built-in defaults based on the spec §8 tag
+        descriptions: feature → full depth, bug → medium, exploration →
+        learning-focused, hotfix → minimal, infrastructure → medium,
+        chore → minimal.
+
+        Store {{session.tag_recipe}} (or "default" if no file found).
+      </action>
+    </substep>
+
+    <substep n="2b" title="Identify the Artifact Chain">
+      <action>
+        Based on the Q↔R findings and the tag recipe, identify the
+        downstream artifacts that will need creating or modifying to
+        deliver this work. Categories:
+
+        - **DRs** (`kind: decision`): hard-to-reverse decisions that will
+          need recording. Some may already be linked from prior turns;
+          new ones may surface during structure or implementation.
+        - **Specs** (`kind: spec`, if the spec layer exists in the
+          target harness): formal contracts for the behavior.
+        - **Sub-tickets**: if Q↔R revealed multi-slice scope, the
+          implementation-QRDSPIV will decompose. Surface that here.
+        - **Live document updates**: brief, architecture, policy,
+          manifest may need touching.
+        - **Implementation**: the code that delivers the behavior.
+        - **Tests / verification**: if not implicit in implementation.
+
+        Per the worked example in QRDSPIV: a feature ticket's chain
+        typically reads "DR → Brief update → ADR → Architecture update
+        → Spec → Implementation."
+
+        Order the chain by dependency. Store as {{session.artifact_chain}}.
+
+        IMPORTANT: the artifact chain is SCOPING, not prescription. The
+        agent is identifying what artifacts will be needed, not specifying
+        their content. Per QRDSPIV §S: "Scope, don't prescribe."
+      </action>
+    </substep>
+
+    <substep n="2c" title="Identify Decision Points">
+      <action>
+        Walk through the artifact chain. For each artifact, identify
+        whether the user will need to make a decision during its
+        creation that goes beyond mechanical work:
+
+        - ADR creation typically requires a user decision on the
+          chosen alternative
+        - Spec creation may surface edge-case decisions
+        - Implementation may surface technology-version or library
+          decisions
+
+        List decision points as: "Step N (artifact X): user decides Y."
+
+        Store as {{session.decision_points}}. This is the calendar of
+        future user touchpoints that downstream implementation-QRDSPIV
+        will need to honor.
+      </action>
+    </substep>
+
+    <substep n="2d" title="Identify Risk Areas">
+      <action>
+        Synthesize from the research findings: where is the friction
+        most likely to surface? Risk areas typically include:
+
+        - Cross-cutting code touch (e.g., "auth middleware touches 47 test files")
+        - Migration steps (data migration, schema change, API version bump)
+        - Permissions or security implications
+        - Performance-critical paths
+        - Third-party dependency surfaces (vendor APIs, OS-level)
+        - Breaking changes to public contracts
+
+        Be specific. Cite the research findings that surface each risk
+        (file paths, prior-art notes from the research file).
+
+        Store as {{session.risk_areas}}: list of {area, evidence,
+        impact-if-mismanaged}.
+      </action>
+    </substep>
+
+    <substep n="2e" title="Draft the Design Summary Block">
+      <action>
+        Compose the Design Summary as it will appear in the ticket body.
+        Format:
+
+        ```md
+        ## Design Summary
+
+        ### The work
+
+        {{2-3 sentences restating what is being built, drawing from the
+        Q↔R Readiness Summary's scope statement and refining if D-phase
+        surfaces clarifications}}
+
+        ### Artifact chain
+
+        {{numbered list of downstream artifacts in dependency order; one
+        line each: "1. DR — record decision on X. 2. Brief update — add
+        capability Y. 3. ..."}}
+
+        ### Decision points
+
+        {{bullet list of future user touchpoints: "- Step 3 (ADR): user
+        decides between option A, B, C"}}
+
+        ### Risk areas
+
+        {{bullet list: each risk with evidence cite and impact}}
+
+        ### Locked DRs (this session)
+
+        {{list of DR aliases that constrain the design; references back
+        to the Q↔R phase's findings}}
+        ```
+
+        Store as {{session.design_summary_draft}}. This is the DRAFT;
+        step 3 presents it to the user, who may redirect.
+      </action>
+    </substep>
+
+    <substep n="2f" title="Display Draft for Internal Review">
+      <output>
+        Design Summary draft prepared. Composition:
+        - Artifact chain: {{count}} items
+        - Decision points: {{count}}
+        - Risk areas: {{count}}
+        - Locked DRs referenced: {{count}}
+
+        Proceeding to brain-surgery alignment with user.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Scoping, not prescribing" critical="true">
+      <description>
+        Per QRDSPIV §S: "At the ticket level, S stays high-level. The
+        ticket creator does not need to know the internal structure of
+        each artifact type. 'We need a spec covering teams, membership,
+        and permissions' is correct scoping. 'The spec needs 6 Kipling
+        categories with these specific criteria' is too deep — that's
+        the spec creator's job during the spec's own S phase."
+
+        Same principle applies to D at the ticket-writing layer. D-phase
+        identifies WHAT artifacts and decisions are needed — not what
+        the content of each artifact will be.
+      </description>
+    </section>
+
+    <section title="No technical prescription">
+      <rules>
+        <rule>The Design Summary does NOT name implementation libraries unless they are constraints (e.g., "must use Sequelize because that's what the codebase uses"). Library selection during implementation is implementation-QRDSPIV's job</rule>
+        <rule>The Design Summary does NOT specify file paths for new code</rule>
+        <rule>The Design Summary does NOT prescribe vertical slices — that's the implementation-QRDSPIV's P-phase</rule>
+        <rule>The Design Summary DOES cite specific files and modules from the research findings when surfacing risk (those are evidence, not prescription)</rule>
+      </rules>
+    </section>
+
+    <section title="Risk-area evidence discipline">
+      <description>
+        Every risk area cites specific evidence from the research file.
+        "Auth middleware refactor is risky" without evidence is hand-waving.
+        "Auth middleware (src/middleware/auth.ts:42) is referenced by 38
+        route handlers per the codebase-locator finding in research file
+        Turn 4; refactoring will require updating each handler's
+        req.user.id usage" is grounded.
+      </description>
+    </section>
+
+    <section title="What if the artifact chain reveals decomposition">
+      <description>
+        Per spec §9, ticket-writing produces ONE ticket per session.
+        Decomposition into sub-tickets is implementation-QRDSPIV's job
+        (its P-phase). D-phase surfaces the LIKELY decomposition as a
+        risk-area or in the artifact-chain narrative, but does NOT
+        produce sub-tickets here.
+
+        Example: "The implementation step is likely to decompose into
+        3-4 vertical slices (model layer, middleware, route handlers,
+        test migration) — this is downstream P-phase's job, not this
+        ticket's scope."
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

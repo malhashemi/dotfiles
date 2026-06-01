@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-quick-answer" step="4" title="Return">
+
+  <step n="4" title="Return">
+
+    <check if="AUTONOMOUS and synthesis produced">
+      <output-format>
+        Emit to stdout:
+
+        ```
+        SUCCESS
+        For each question:
+          Q: <question_text>
+          Answer: <2-3 sentence synthesis with file:line / URL / thoughts-alias citations>
+          Confidence: <high | medium | low>
+          Gaps: <what the evidence could not answer; "none" if fully answered>
+        Deferred: <questions dropped at the web-approval gate; omit if none>
+        ```
+      </output-format>
+    </check>
+
+    <check if="INTERACTIVE">
+      <output-format>
+        Present a markdown block to the user:
+
+        ## Quick Answer
+
+        For each question:
+
+        ### <question_text>
+        <2-3 sentence synthesis with inline citations>
+        - **Confidence**: <high | medium | low>
+        - **Gaps**: <what the evidence could not answer; omit if none>
+
+        Then offer next actions:
+        - Ask another quick question
+        - Escalate to Focused Study or Comprehensive Investigation if the
+          finding is load-bearing and warrants a persisted document
+      </output-format>
+    </check>
+
+  </step>
+
+</step-file>

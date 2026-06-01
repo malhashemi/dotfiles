@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-structure" step="2" title="Select Shape (Recipe or Custom)">
+
+  <step n="2" title="Select Shape (Recipe or Custom)">
+
+    <goal>
+      Decide whether the ticket's structure follows the tag recipe's
+      default shape, deviates with custom additions/omissions, or
+      requires a fully custom outline. Also decide whether the ticket
+      warrants numbered Parts (heavy ticket convention per spec §2.3).
+    </goal>
+
+    <substep n="2a" title="Load Tag Recipe">
+      <action>
+        Look for a tag-recipe file at
+        .vera/shared/references/tag-recipes/{{primary_tag}}.md. When
+        Phase 4 is complete, these recipes specify per-tag section
+        lists and content guidance.
+
+        If the recipe exists, parse:
+        - Mandatory section list (in writing order)
+        - Optional sections (per-ticket decision)
+        - Notes on each section's purpose
+        - Whether the recipe assumes numbered Parts
+
+        Store as {{tag_recipe}} with a 'present' or 'absent' flag.
+
+        If the recipe is absent, fall back to a built-in skeleton based
+        on the primary tag. Defaults:
+
+        - feature: Problem Statement, User Stories, Behaviors, Edge
+          Cases, Decision Records (linked), Acceptance Criteria,
+          Out of Scope
+        - bug: Reproduction Steps, Expected vs Actual, Root Cause
+          Hypothesis (if known), Fix Approach, Acceptance Criteria,
+          Out of Scope
+        - exploration: Goal, Boundaries, Time Box, Expected Outputs,
+          Decision Points, Out of Scope
+        - hotfix: Incident Description, Fix, Rollback Plan,
+          Verification, Postmortem Link
+        - infrastructure: Current State, Target State, Setup Steps
+          Required, Dependencies, Verification, Out of Scope
+        - chore: What, Why, Acceptance Criteria, Out of Scope
+      </action>
+    </substep>
+
+    <substep n="2b" title="Decide on Numbered Parts">
+      <action>
+        Heavy tickets (per spec §2.3) often use numbered Parts to group
+        sections for section-batched review. Apply Parts when:
+
+        - The ticket is expected to exceed ~600 lines (estimated from
+          the Design Summary's artifact-chain breadth and the primary
+          tag)
+        - The work spans >2 distinct concern areas (e.g., data model
+          changes AND middleware changes AND API surface AND test
+          migration)
+        - The downstream implementation will clearly decompose into
+          multiple slices (the Design Summary often surfaces this)
+
+        Standard Part patterns:
+        - **Part 1: Context and Decisions** (problem, design summary,
+          DR references)
+        - **Part 2: Behavior and Contract** (user stories, behaviors,
+          AC, scope boundaries)
+        - **Part 3: Risk and Edge Cases** (risk areas, edge cases,
+          rollout concerns)
+        - **Part 4: Open Questions / Future Work** (only if applicable)
+
+        Store {{use_parts}}: true | false. If true, store {{part_plan}}:
+        list of {part_number, part_title, sections_in_part}.
+      </action>
+    </substep>
+
+    <substep n="2c" title="Identify Custom Additions and Omissions">
+      <action>
+        Compare the recipe's section list to what THIS ticket needs:
+
+        **Additions**: sections to add that the recipe doesn't mandate.
+        Driven by:
+        - Linked DRs (each DR's decision typically gets its own
+          surfaced section)
+        - Risk areas from the Design Summary (a major risk may
+          warrant a dedicated section)
+        - Prior thoughts/ artifacts that this ticket extends
+          (cross-references section)
+
+        **Omissions**: recipe sections to skip. Driven by:
+        - Sections that don't apply to this ticket's primary concern
+          (e.g., a feature ticket that doesn't touch user-facing
+          behavior may omit "User Stories" in favor of an "API
+          Behaviors" section)
+        - Recipe sections that duplicate content already in the
+          Design Summary (avoid restating)
+
+        Each addition and omission must have a rationale. Store as
+        {{custom_additions}} and {{custom_omissions}}, each as a list of
+        {section_name, rationale}.
+
+        Anti-pattern guard: if additions exceed 50% of the recipe's
+        sections, the recipe probably doesn't fit this ticket — switch
+        to fully-custom mode (substep 2d).
+      </action>
+    </substep>
+
+    <substep n="2d" title="Decide Custom vs Recipe-Driven">
+      <action>
+        Final shape decision:
+        - **Recipe-driven**: recipe's sections work; <50% additions; no
+          mode-flag needed
+        - **Recipe-with-customizations**: recipe is the base; additions
+          and omissions documented
+        - **Fully-custom**: the recipe doesn't fit this ticket's
+          nature; design a custom section list from scratch
+          (justifying each section's inclusion)
+
+        Store as {{shape_mode}}.
+
+        If fully-custom, draft the custom section list now (will be
+        refined in step 3): names + one-line scope notes per section.
+        Aim for 5-12 sections; fewer is too thin, more is bloat.
+      </action>
+    </substep>
+
+    <substep n="2e" title="Compose Outline Draft">
+      <action>
+        Assemble the Structure Outline draft. Format:
+
+        ```md
+        ## Structure Outline
+
+        **Shape**: {{shape_mode}} {{if recipe-driven: "(tag recipe: {{primary_tag}})"}}
+        **Parts**: {{use_parts ? "Yes — section grouping for batched review" : "No — flat section list"}}
+
+        ### Sections
+
+        {{if use_parts:}}
+        **Part 1: {{part_1.title}}**
+        1. {{section_name}} — {{one-line scope}}
+        2. ...
+
+        **Part 2: {{part_2.title}}**
+        ...
+        {{else:}}
+        1. {{section_name}} — {{one-line scope}}
+        2. ...
+        {{end}}
+
+        ### Custom additions
+
+        {{list of custom_additions with rationale, or "(none)" if recipe-driven and not customized}}
+
+        ### Recipe omissions
+
+        {{list of custom_omissions with rationale, or "(none)"}}
+        ```
+
+        Store as {{structure_outline_draft}}.
+      </action>
+    </substep>
+
+    <substep n="2f" title="Display Shape Summary">
+      <output>
+        Shape selected:
+        - Mode: {{shape_mode}}
+        - Numbered Parts: {{use_parts}}
+        - Section count: {{total_section_count}}
+        - Custom additions: {{count}}
+        - Recipe omissions: {{count}}
+
+        Proceeding to alignment with user.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="When to use Parts" critical="true">
+      <description>
+        Numbered Parts exist to enable section-batched review. A
+        300-line ticket doesn't need them — read it whole. A 1200-line
+        ticket NEEDS them — the user can't hold the full ticket in
+        head, so review-by-Part is the practical strategy. Apply Parts
+        when expected line count is over ~600 OR when concern areas
+        cluster into 3+ groups.
+      </description>
+      <rules>
+        <rule>Don't force Parts on small tickets — overhead with no benefit</rule>
+        <rule>Don't omit Parts on huge tickets — the user will lose the thread</rule>
+        <rule>Part titles describe what's IN the part, not the abstract role</rule>
+        <rule>4 Parts is the typical maximum; more suggests the ticket should decompose downstream</rule>
+      </rules>
+    </section>
+
+    <section title="The 'scope, don't prescribe' boundary">
+      <rules>
+        <rule>Section names + one-line scope notes are OK — they describe what the section is</rule>
+        <rule>Specifying section CONTENT is OUT OF SCOPE for this skill — that's ticket-write's job</rule>
+        <rule>Section ORDER is a structure decision, not a content decision — OK to lock</rule>
+        <rule>Section LENGTH expectations are guesses; surface in notes but don't lock specifics</rule>
+      </rules>
+    </section>
+
+    <section title="Recipe-vs-custom tradeoff">
+      <description>
+        Recipes encode pattern-matched best practices for typical
+        tickets per tag. Custom outlines exist because real tickets
+        sometimes don't fit the pattern. Bias toward the recipe when
+        possible — consistency across tickets makes them easier to
+        consume. Switch to custom when the recipe's assumptions are
+        actively wrong for this ticket.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

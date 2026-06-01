@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-focused-study" step="3" title="Synthesize">
+
+  <step n="3" title="Synthesize">
+
+    <substep n="3a" title="Compose the Write-Up">
+      <action>
+        Synthesize the raw aspect findings ONCE into a focused write-up.
+        Use references/research/document-format body-skeleton — fixed top
+        (Research Question / topic, Summary) and bottom (Open Questions),
+        with the variable middle filled as a simple Findings section
+        organized by topic aspect. No methodology sections; this is a
+        single-domain study.
+
+        Discipline:
+        - State facts, not transcripts. Do NOT paste raw child output.
+        - Cite inline: file:line, URL, or thoughts/ alias for every claim.
+        - Record silence as data: a negative finding ships as a cited line.
+        - Open Questions captures what the evidence could not answer,
+          including aspects deferred at the web-approval gate.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Review the Draft" optional="true">
+      <check if="INTERACTIVE">
+        <template-output section="Study Draft">
+          Present the drafted write-up for review before persistence.
+
+          [a] Revise (refine sections, dispatch a follow-up aspect)
+          [c] Continue to persistence
+          [y] YOLO
+        </template-output>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

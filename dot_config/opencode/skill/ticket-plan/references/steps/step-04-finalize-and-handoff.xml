@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-plan" step="4" title="Finalize and Handoff">
+
+  <step n="4" title="Finalize and Handoff">
+
+    <goal>
+      Write the locked Writing Plan to the ticket body, stamp
+      last_updated, re-validate, present handoff to ticket-write.
+    </goal>
+
+    <substep n="4a" title="Write Plan to Worklog">
+      <action>
+        Append {{plan_final}} to the worklog file. Heading:
+        "## Writing Plan" (level 2). Placement: AFTER the Structure
+        Outline section in the worklog.
+
+        Worklog journal now reads:
+        - Orient Summary (orient)
+        - Q↔R Readiness Summary (grill)
+        - Design Summary (design)
+        - Structure Outline (structure)
+        - Writing Plan (this skill)
+        - (later: Verify Session, written by ticket-verify)
+      </action>
+    </substep>
+
+    <substep n="4b" title="Stamp last_updated">
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{worklog_path}}" --note "P-phase complete; Writing Plan locked. Estimated length: {{total_estimate}} lines, {{checkpoint_count}} review checkpoints."</action>
+    </substep>
+
+    <substep n="4c" title="Re-Validate Bundle">
+      <action type="script">thoughts validate {{ticket_path}} {{research_path}} {{questions_path}} {{worklog_path}}</action>
+      <check if="validation fails">
+        <action>Halt. Surface errors.</action>
+      </check>
+    </substep>
+
+    <substep n="4d" title="Present Final Handoff">
+      <template-output section="P-Phase Complete" critical="true">
+        Plan phase complete. Bundle ready for Write.
+
+        **Bundle location**: {{bundle_dir}}
+
+        **Writing Plan** (now in ticket body):
+
+        {{plan_final}}
+
+        **Summary**:
+        - Sections: {{count}}
+        - Estimated total length: {{total_estimate}} lines
+        - Review checkpoints: {{count}}
+        - Subagent dispatches scheduled: {{count}}
+
+        **Next action**: invoke `ticket-write` from the ticketsmith
+        menu (cmd: TW) to begin drafting the ticket per this plan.
+
+        ticket-write loads this Writing Plan and works through the
+        sections in writing order, dispatching subagents per the plan,
+        pausing at each checkpoint for user review.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Status remains 'draft'">
+      <description>
+        Only ticket-verify transitions to 'ready'.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

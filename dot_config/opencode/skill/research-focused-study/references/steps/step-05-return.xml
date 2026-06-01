@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-focused-study" step="5" title="Return">
+
+  <step n="5" title="Return">
+
+    <check if="AUTONOMOUS">
+      <output-format>
+        Emit to stdout:
+
+        ```
+        SUCCESS
+        Document: {absolute path to the persisted write-up}
+        Topic: {the studied topic}
+        Summary: {2-4 sentence synthesis of the findings}
+        Key findings:
+          - {finding with citation}
+          - {finding with citation}
+        Open questions: {count, or "none"}
+        ```
+      </output-format>
+    </check>
+
+    <check if="INTERACTIVE">
+      <output-format>
+        Present to the user:
+
+        ## Focused Study Complete
+
+        **Document**: {path}
+        **Topic**: {topic}
+
+        {2-4 sentence summary with inline citations}
+
+        **Open questions**: {list, or "none"}
+
+        Then offer next actions:
+        - A follow-up study on an adjacent aspect
+        - Escalation to Comprehensive Investigation if the topic grew
+          beyond a single domain
+      </output-format>
+    </check>
+
+  </step>
+
+</step-file>

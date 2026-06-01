@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-grill" step="5" title="Update Bundle Files">
+
+  <step n="5" title="Update Bundle Files">
+
+    <goal>
+      Persist this turn's findings, Q&A entries, glossary resolutions, and
+      Decision Records to disk. Stamp last_updated on every modified file.
+      The bundle on disk IS the handoff state — if the session ends here,
+      another session can resume cleanly.
+    </goal>
+
+    <substep n="5a" title="Append Synthesis to Research File">
+      <action>
+        Open {{session.research_path}} and append a new dated section to its
+        body with {{session.turn_synthesis}}. Format:
+
+        ## Turn {{turn_number}}: {{session.turn_focus}} ({{ISO 8601 datetime}})
+
+        {{session.turn_synthesis}}
+
+        ### Sources
+
+        {{citations}}
+
+        Use the Edit tool — do not overwrite the file's frontmatter or
+        prior turn entries.
+      </action>
+    </substep>
+
+    <substep n="5b" title="Append Q&A Entry to Questions File">
+      <check if="session.user_question is not null">
+        <action>
+          Open {{session.questions_path}} and append a Q&A entry. Format:
+
+          ## Q{{turn_number}}: {{session.user_question.statement}}
+
+          **Asked**: {{ISO 8601 datetime}}
+          **Mode**: {{session.turn_mode}}
+
+          **Answer**: {{session.turn_user_answer.answer}}
+
+          **Rejected alternatives**:
+          - **{{alt_1.label}}**: {{alt_1.why_not}}
+          - **{{alt_2.label}}**: {{alt_2.why_not}}
+          ...
+
+          {{optional: brief note linking to research findings or DRs spawned this turn}}
+
+          Use the Edit tool to append. Preserve all prior content.
+        </action>
+      </check>
+      <check if="turn was research-only (no user question)">
+        <action>
+          Append a research-only note to the questions file. Format:
+
+          ## R{{turn_number}}: {{session.turn_focus}} (research-only)
+
+          **Performed**: {{ISO 8601 datetime}}
+          **Mode**: {{session.turn_mode}}
+          **Findings recorded**: see research file Turn {{turn_number}}
+          {{optional: deferred items, e.g., "web research declined"}}
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5c" title="Update CONTEXT.md (if glossary updates)">
+      <check if="session.glossary_updates is non-empty">
+        <action>
+          Invoke the context-md-format skill via the skill system. Pass:
+          - List of terms to add or update
+          - The repo's current glossary state ({{session.glossary}})
+          - The repo root path
+
+          context-md-format will:
+          - Lazy-create CONTEXT.md if it does not exist
+          - Append or update entries inline
+          - Maintain the opinionated-naming and Avoid-list discipline
+        </action>
+        <invoke-skill name="context-md-format"/>
+      </check>
+      <check if="no glossary updates this turn">
+        <action>
+          Skip this substep.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5d" title="Invoke Prototype Skill (if prototyping mode)">
+      <check if="session.turn_mode includes 'Prototyping'">
+        <ask>
+          This turn's mode includes Prototyping. The gap to explore is:
+          {{session.turn_focus}}
+
+          Run a throwaway prototype now?
+          - Yes (Recommended): invoke the ticket-prototype skill; findings will be appended to the research file alongside this turn's other findings
+          - No: skip prototyping; absorb whatever findings the research-agenda dispatches produced
+          - Defer: log the prototype need in the questions file for a future turn
+        </ask>
+        <check if="user approves">
+          <action>
+            Invoke the ticket-prototype skill via the skill system. Pass context:
+            - caller_question: {{session.turn_focus}}
+            - bundle_dir: {{session.bundle_dir}}
+            - slug: {{session.slug}}
+            - prior_research: a brief summary of relevant findings already in the research file
+
+            Wait for ticket-prototype to return its payload (findings_block,
+            prototype_path, status, etc.).
+          </action>
+          <invoke-skill name="ticket-prototype"/>
+          <action>
+            On return, take the findings_block from ticket-prototype's return
+            and APPEND it to {{session.research_path}} (Edit tool — append
+            after this turn's synthesis from substep 5a). The block follows
+            ticket-prototype's defined shape (### Prototype: ... section).
+
+            If ticket-prototype returned status: "aborted" or
+            "escalate_to_spike", do NOT append a findings_block (it's null);
+            instead, log the abort or spike-recommendation in the questions
+            file's R-entry for this turn (already written in 5b — add an
+            append).
+
+            Store the prototype invocation in
+            {{session.turn_prototype_record}}: {name, path, status} for use
+            in subsequent substeps.
+          </action>
+        </check>
+        <check if="user declines or defers">
+          <action>
+            Note in {{session.turn_prototype_record}} that prototyping was
+            offered and declined/deferred. Continue without invoking the
+            skill.
+          </action>
+        </check>
+      </check>
+      <check if="session.turn_mode does NOT include 'Prototyping'">
+        <action>
+          Skip this substep. No prototype this turn.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5e" title="Scaffold Decision Record (if DR candidate)">
+      <check if="session.dr_candidate is not null">
+        <ask>
+          This turn surfaced a hard-to-reverse decision matching the
+          three-condition gate:
+
+          - Title: {{session.dr_candidate.title}}
+          - Hard to reverse: yes
+          - Surprising without context: yes
+          - Real trade-off: yes ({{considered_options summary}})
+
+          Record as a Decision Record (DR)?
+          - Yes (Recommended): scaffold the DR file now; link from the ticket
+          - No: capture in Q&A log only; do not create a separate artifact
+        </ask>
+        <check if="user approves">
+          <action>
+            Invoke the decision-record-format skill to draft the DR body
+            (title, context, decision, why, optional considered options).
+
+            Then invoke scaffold-decision-record.py to create the DR file
+            with schema-valid frontmatter:
+
+            uv run {base_dir}/scripts/scaffold-decision-record.py
+              --slug "{{dr_slug}}"
+              --title "{{dr_title}}"
+              --parent-ticket-alias "ticket-{{date}}-{{session.slug}}"
+
+            Capture the returned DR path and DR number from the manifest.
+
+            Edit the ticket file frontmatter to add the DR's canonical alias
+            to the `children:` array.
+
+            Write the DR body content (drafted via decision-record-format)
+            into the scaffolded DR file using the Edit tool.
+          </action>
+          <invoke-skill name="decision-record-format"/>
+        </check>
+        <check if="user declines">
+          <action>
+            Note the rejected DR in the Q&A entry (already in 5b). Do not
+            scaffold a file. Continue.
+          </action>
+        </check>
+      </check>
+      <check if="no DR candidate this turn">
+        <action>
+          Skip this substep.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5f" title="Stamp last_updated on Modified Files">
+      <action type="script">
+        For each modified file this turn (research file always; questions
+        file always; ticket file if children was edited; CONTEXT.md if
+        terms were added; any new DR), invoke:
+
+        uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{file_path}}" --note "Turn {{turn_number}}: {{turn_focus_short}}"
+
+        Per Lock 27, stamp-frontmatter.py REPLACES last_updated_note (git
+        holds history).
+      </action>
+    </substep>
+
+    <substep n="5g" title="Re-Validate Bundle">
+      <action type="script">thoughts validate {{session.ticket_path}} {{session.research_path}} {{session.questions_path}} {{any_new_dr_path}}</action>
+      <check if="validation fails">
+        <action>
+          Halt the loop. Surface validation errors. Do NOT auto-fix; the
+          script or the skill that wrote invalid frontmatter is the bug.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5h" title="Display Bundle Update Summary">
+      <output>
+        Turn {{turn_number}} bundle updates:
+
+        - Research file: synthesis appended {{+ prototype findings if turn_prototype_record.status == "answered" or "partially_answered"}}
+        - Questions file: {{Q-entry or R-entry}} added
+        - Prototype: {{session.turn_prototype_record.name + status or "(not invoked this turn)"}}
+        - CONTEXT.md: {{updated with N terms / not touched}}
+        - Decision Record: {{DR-NNN scaffolded / declined / none surfaced}}
+        - last_updated stamps: applied to {{count}} files
+        - Validation: PASS
+
+        Proceeding to readiness gate.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Write continuously, not at session end">
+      <description>
+        Per spec §6, CONTEXT.md updates are INLINE during Q↔R — not batched
+        at session end. Same principle applies to Q&A entries, research
+        synthesis, and DRs. Every turn writes its outputs to disk before
+        moving to step 6. The bundle on disk IS the handoff state; a
+        partially-written turn is recoverable, an in-memory turn is lost
+        on context death.
+      </description>
+    </section>
+
+    <section title="Edit tool, never Write">
+      <rules>
+        <rule>The research and questions files exist from ticket-orient — APPEND with Edit, never overwrite with Write</rule>
+        <rule>The ticket file's frontmatter is edited (children array, last_updated) with Edit, never overwritten</rule>
+        <rule>CONTEXT.md is appended to or updated entry-by-entry with Edit (lazy-create is the only Write operation, handled inside context-md-format skill)</rule>
+        <rule>New DR files use scaffold-decision-record.py to create the shell, then Edit to fill the body</rule>
+      </rules>
+    </section>
+
+    <section title="DR scaffolding is gated by both rules AND user approval">
+      <description>
+        The three-condition gate is a NECESSARY condition for DR creation,
+        not a sufficient one. Even if all three are true, the user must
+        explicitly approve. This catches cases where the gate technically
+        fires but the user knows context the agent does not (e.g., the
+        decision is "hard to reverse" only in theory because the company is
+        about to migrate anyway).
+      </description>
+    </section>
+
+    <section title="When step 5 has nothing to do">
+      <description>
+        A turn might be light: a quick research dispatch returns "no, X
+        does not exist", no user question, no glossary update, no DR. Even
+        then, step 5 runs — the research file gets an appended Turn entry
+        with the negative finding, the questions file gets an R-entry, and
+        last_updated is stamped. Negative findings are evidence; they
+        belong on disk.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

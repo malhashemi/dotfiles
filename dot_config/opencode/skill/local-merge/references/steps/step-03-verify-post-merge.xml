@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="local-merge" step="3" title="Verify Post-Merge State">
+
+  <step n="3" title="Verify Post-Merge State">
+
+    <substep n="3a" title="Confirm Merge Commit Is on Target">
+      <action type="script">git merge-base --is-ancestor {{merged_commit}} {{target_branch}}; echo $?</action>
+      <check if="exit code != 0">
+        <action>
+          Halt with: "Post-merge verification failed: commit
+          {{merged_commit}} is not an ancestor of {{target_branch}}. The
+          merge may have produced an unexpected state. Inspect with
+          `git log {{target_branch}} --oneline -5`."
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3b" title="Confirm Worktree Is Removed">
+      <action type="script">wt list --format=json | jq -r '.[] | select(.branch == "{{branch}}") | .path'</action>
+      <check if="output is non-empty">
+        <action>
+          wt merge should have removed the worktree as part of its
+          cleanup phase. If it survives, attempt manual removal:
+        </action>
+        <action type="script">wt remove {{branch}}</action>
+        <check if="manual remove failed">
+          <action>
+            Warn (do not halt): "Worktree {{branch}} survived wt merge
+            and could not be auto-removed. Inspect with `wt list` and
+            remove manually. Merge itself succeeded."
+          </action>
+        </check>
+      </check>
+      <action>Store {{worktree_removed}} = true if removed, false otherwise.</action>
+    </substep>
+
+  </step>
+
+</step-file>

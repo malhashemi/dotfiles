@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-investigate" step="3" title="Dispatch Waves">
+
+  <step n="3" title="Dispatch Waves">
+
+    <substep n="3a" title="Organize Sub-Questions into Waves">
+      <action>
+        Group independent sub-questions into the same wave (parallel
+        dispatch). Place a sub-question that depends on a prior finding
+        in a later wave. The common dependency is the two-stage thoughts
+        pattern: thoughts-locator (wave 1) surfaces candidate artifacts;
+        thoughts-analyzer (wave 2) reads the ones worth reading. Most
+        investigations are one or two waves.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Web-Research Approval Gate">
+      <check if="any sub-question routes to web-search-researcher AND INTERACTIVE">
+        <ask>
+          Name the sub-question(s) needing web research. Ask the user to
+          approve dispatching web-search-researcher, recommended option
+          first. If declined, drop those sub-questions and record them as
+          deferred gaps for the Open Questions section.
+        </ask>
+      </check>
+      <check if="any sub-question routes to web-search-researcher AND AUTONOMOUS">
+        <action>
+          If web_search_approved is true, keep the web sub-questions. If
+          false or absent, emit to stdout and stop:
+
+            CLARIFICATION_NEEDED: Investigation requires web research for
+            {sub-question(s)}, but web_search_approved was not set.
+            Re-dispatch with web_search_approved=true, or narrow the
+            question to internal sources.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3c" title="Dispatch Each Wave">
+      <action>
+        For each wave in order: dispatch all of the wave's child prompts
+        via the Task tool in a SINGLE message (parallel within the wave).
+        Compose each prompt per child-subagent-dispatch prompt-anatomy —
+        the sub-question alone, never the parent task's intent. Wait for
+        the whole wave to return before starting the next wave, so a
+        later wave can use earlier findings (e.g., thoughts-analyzer
+        prompts name the artifacts thoughts-locator surfaced).
+      </action>
+    </substep>
+
+    <substep n="3d" title="Validate Returns and Sharpen-Redispatch">
+      <action>
+        Inspect each child return. Redispatch any vague return ("found
+        some files", "seems like") with a sharper prompt before moving
+        on. A "no matches" return is a negative finding, not a vague one
+        — keep it; it becomes a cited finding in step 4. Collect the raw
+        findings per sub-question for synthesis.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

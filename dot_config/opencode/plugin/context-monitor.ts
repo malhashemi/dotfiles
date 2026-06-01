@@ -53,7 +53,22 @@ export const contextMonitor: Plugin = async ({ client }) => {
               parts: [
                 {
                   type: "text",
-                  text: "STOP IMMEDIATELY. Context threshold (60%) reached. Report back to parent agent that this execution is too big. Do not continue work.",
+                  text: `<critical-system-reminder priority="MAX">
+STOP IMMEDIATELY. Context utilization has crossed 60% — you are entering the unreliable zone where hallucinations increase and tool calls become malformed.
+
+MANDATORY ESCAPE-HATCH PROTOCOL:
+1. Do NOT continue the current task.
+2. Do NOT commit any in-progress work.
+3. Discard uncommitted changes: \`git checkout .\`
+4. Return to the parent agent with this exact signal:
+
+NEEDS_DECOMPOSITION
+Completed: [what you finished and committed before this point]
+Remaining: [what's left to do]
+Suggested sub-phases: [if you can identify natural break points, list them]
+
+The parent agent will decompose the work and dispatch fresh subagents. This is the correct, expected behavior — not a failure. Your job is to surface accurately, not to push through.
+</critical-system-reminder>`,
                 },
               ],
             },

@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="agent-creator" step="2" title="Template Selection">
+
+  <step n="2" title="Template Selection">
+
+    <goal>
+      Select the per-agent files that will compose this agent's source.
+      Shared structural blocks (activation, agent-activation, baseline,
+      agent-close) are auto-selected based on mode. Per-agent files are
+      filled during creation.
+    </goal>
+
+    <substep n="2a" title="Auto-Select Shared Includes">
+      <action>
+        Based on mode from Step 1, determine which SHARED files from
+        .vera/shared/ this agent will include via agent.yaml. The shared
+        blocks live in one place and are referenced by relative path —
+        not copied INTO the agent directory.
+
+        Primary agent (canonical 8-include order):
+          1. frontmatter.md                              (per-agent)
+          2. shared/activation.md                        (preamble + outer fence)
+          3. shared/baseline/context-md-awareness.md     (optional — only if agent reads CONTEXT.md)
+          4. shared/baseline/thoughts-cli-awareness.md   (optional — only if agent uses thoughts CLI)
+          5. shared/agent-activation.md                  (open tag + complete activation block)
+          6. persona.md                                  (per-agent)
+          7. menu.md                                     (per-agent)
+          8. shared/agent-close.md                       (close tag + close fence)
+
+        Subagent (canonical 7-include order):
+          1. frontmatter.md                              (per-agent)
+          2. shared/baseline/context-md-awareness.md     (optional — only if agent reads CONTEXT.md)
+          3. shared/baseline/thoughts-cli-awareness.md   (optional — only if agent uses thoughts CLI)
+          4. shared/subagent-open.md                     (&lt;subagent id="..."&gt; open tag + ```xml fence)
+          5. persona.md                                  (per-agent — 4-tag &lt;persona&gt; block)
+          6. instructions.md                             (per-agent — &lt;input-expectations&gt; + &lt;workflow&gt;)
+          7. shared/subagent-close.md                    (&lt;/subagent&gt; + ``` close fence)
+
+        Shared blocks use {{variables}} from agent.yaml for agent-specific
+        substitution (agent_id, character_name, agent_title, emoji). The
+        4-layer merge supplies {{user_name}} and {{communication_language}}
+        from the user's ~/.config/vera/config.yaml.
+      </action>
+    </substep>
+
+    <substep n="2a-bis" title="Detect Missing Project Infrastructure">
+      <action>
+        Before finalizing the includes list, verify that each referenced
+        shared/ file EXISTS in the current project. agent-creator bundles
+        canonical copies of these files at:
+          references/baselines/thoughts-cli-awareness.md
+          references/baselines/context-md-awareness.md
+          references/shared-fragments/activation.md
+          references/shared-fragments/agent-activation.md
+          references/shared-fragments/agent-close.md
+          references/shared-fragments/subagent-open.md
+          references/shared-fragments/subagent-close.md
+
+        For each include this agent will use, check if the corresponding
+        project file exists. If missing, the actual copy operation happens
+        in Step 3 (Scaffold) — for now, record which bundled references
+        will need to be materialized into the project's shared/ directory.
+
+        Use bash list operations to check existence:
+          ls .vera/shared/activation.md
+          ls .vera/shared/agent-activation.md
+          ls .vera/shared/agent-close.md
+          ls .vera/shared/subagent-open.md
+          ls .vera/shared/subagent-close.md
+          ls .vera/shared/baseline/context-md-awareness.md
+          ls .vera/shared/baseline/thoughts-cli-awareness.md
+
+        Build a {{missing_infrastructure}} list of files that need to be
+        copied from bundle to project. This list drives the copy operation
+        in Step 3.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Identify Per-Agent Files Needed">
+      <action>
+        Based on mode, determine which per-agent files this agent needs:
+
+        Primary agent (always needs):
+          - frontmatter.md — YAML frontmatter (mode, color, description, permissions)
+          - persona.md — &lt;persona&gt; block (role, identity, communication_style, principles)
+          - menu.md — &lt;menu&gt; block (skill items + MH/CH built-ins)
+
+        Subagent (always needs):
+          - frontmatter.md — YAML frontmatter (mode: subagent or all, permission map, description)
+          - persona.md — &lt;persona&gt; block (SAME 4-tag shape as primary; capability boundaries live in &lt;principles&gt;)
+          - instructions.md — &lt;input-expectations&gt; + &lt;workflow&gt; ONLY (no &lt;scope&gt; tag; no &lt;agent&gt; wrapper)
+
+        Optional baseline includes (BOTH primary and subagent):
+          - shared/baseline/context-md-awareness.md — if agent reads project glossaries
+          - shared/baseline/thoughts-cli-awareness.md — if agent uses thoughts CLI
+
+        Position of baseline includes:
+          - Primary: between shared/activation.md and shared/agent-activation.md
+          - Subagent: between frontmatter.md and persona.md
+        Rationale: baselines establish environmental context before the
+        agent's identity activates.
+      </action>
+    </substep>
+
+    <substep n="2c" title="Confirm Include Composition">
+      <template-output section="Include Composition">
+        Present the complete agent.yaml `includes:` list in build order:
+
+        Primary agent example:
+        ```yaml
+        includes:
+          - frontmatter.md
+          - shared/activation.md
+          - shared/baseline/context-md-awareness.md    # if applicable
+          - shared/baseline/thoughts-cli-awareness.md  # if applicable
+          - shared/agent-activation.md
+          - persona.md
+          - menu.md
+          - shared/agent-close.md
+        ```
+
+        Subagent example:
+        ```yaml
+        includes:
+          - frontmatter.md
+          - shared/baseline/context-md-awareness.md    # if applicable
+          - shared/baseline/thoughts-cli-awareness.md  # if applicable
+          - persona.md
+          - instructions.md
+        ```
+
+        This is the order vera-cli will concatenate at build time.
+
+        If {{missing_infrastructure}} from substep 2a-bis is non-empty,
+        confirm with the user that those bundled references will be copied
+        to the project's shared/ directory in Step 3.
+
+        [a] Adjust [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Include Order Matters">
+      <description>
+        vera-cli concatenates includes in declared order. The order defines
+        what the LLM sees first in its system prompt AND determines XML tag
+        opening/closing pairings.
+      </description>
+      <rules>
+        <rule>frontmatter.md MUST be first (provides the OpenCode YAML frontmatter at top of file)</rule>
+        <rule>shared/activation.md comes second (preamble + outer &lt;agent-activation&gt; fence — primary agents only)</rule>
+        <rule>shared/baseline/* baseline awareness fragments come BEFORE shared/agent-activation.md so the agent has baseline awareness before its identity activates</rule>
+        <rule>shared/agent-activation.md opens the &lt;agent&gt; tag and runs the activation block</rule>
+        <rule>persona.md and menu.md fill in identity inside the open &lt;agent&gt; tag</rule>
+        <rule>shared/agent-close.md MUST be last (closes the &lt;agent&gt; tag and the outer code fence)</rule>
+      </rules>
+    </section>
+
+    <section title="When to Include Optional Baseline Fragments">
+      <rules>
+        <rule>context-md-awareness: include when the agent reads CONTEXT.md or CONTEXT-MAP.md for project vocabulary. Reader-side only — separate from the context-md-format skill which is for WRITING.</rule>
+        <rule>thoughts-cli-awareness: include when the agent calls `thoughts metadata`, `thoughts validate`, `thoughts backlog`, etc. Most workflow agents that produce thoughts-tracked artifacts need this.</rule>
+        <rule>Skip baseline fragments if they add no value — fewer includes means leaner system prompt.</rule>
+      </rules>
+    </section>
+
+
+
+  </guidance>
+
+</step-file>

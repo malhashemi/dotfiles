@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-prototype" step="2" title="Prepare Prototype Location">
+
+  <step n="2" title="Prepare Prototype Location">
+
+    <goal>
+      Create the prototype directory inside the bundle. For UI prototypes,
+      detect the project's design system and load its conventions so the
+      scaffold in step 3 uses them.
+    </goal>
+
+    <substep n="2a" title="Create Prototype Directory">
+      <action type="script">mkdir -p "{{session.bundle_dir}}/prototypes/{{session.prototype_name}}"</action>
+      <action>
+        Verify the directory exists. Store as {{session.prototype_path}}.
+
+        Add a `.gitkeep` or note file inside if the convention requires it
+        (some repos require non-empty directories for git tracking). The
+        prototype directory IS tracked by git per spec §4.2 — bundles live
+        in shared/ which is committed.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Branch on Type">
+      <check if="session.branch == 'logic'">
+        <action>
+          Proceed to substep 2c (LOGIC-specific location prep is minimal).
+        </action>
+      </check>
+      <check if="session.branch == 'ui'">
+        <action>
+          Proceed to substep 2d for design-system detection.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2c" title="LOGIC Location Prep">
+      <action>
+        Detect the language ambient in the codebase from prior orientation
+        (or from a quick re-check of the repo top-level config files):
+        - package.json present -> TypeScript or JavaScript
+        - pyproject.toml or requirements.txt present -> Python (prefer with
+          PEP 723 inline metadata, runnable via `uv run`)
+        - Cargo.toml present -> Rust
+        - go.mod present -> Go
+
+        Pick ONE language for the prototype. Default to whatever is
+        dominant. Store as {{session.language}}.
+
+        For a Python prototype with external deps, use PEP 723 inline
+        metadata (matches the convention in .vera/shared/scripts/).
+        For a Node/TypeScript prototype, prefer ESM single-file
+        runnable via `bun` or `node --experimental-strip-types`.
+      </action>
+    </substep>
+
+    <substep n="2d" title="UI Design-System Detection">
+      <action>
+        Detect a design system in the project. Check (in order):
+
+        1. **Component library imports**: read package.json or pyproject.toml.
+           Common signals:
+           - @shadcn/ui, shadcn-ui -> shadcn/ui (Tailwind + Radix)
+           - @mantine/core -> Mantine
+           - @radix-ui/* -> Radix primitives
+           - @mui/material, @material-ui/core -> Material UI
+           - antd -> Ant Design
+           - chakra-ui -> Chakra UI
+           - tailwindcss -> Tailwind (style system, not component library)
+
+        2. **Config files**: presence of
+           - tailwind.config.js / tailwind.config.ts -> Tailwind
+           - styled-components -> CSS-in-JS
+           - sass/scss directories -> Sass conventions
+
+        3. **Internal design system**: look for
+           - src/ui/, src/components/, src/design-system/, packages/ui/
+           - A README or index.ts in those directories that documents
+             primitives like Button, Card, Input
+
+        4. **None detected**: proceed with vanilla HTML + minimal CSS
+           (use system fonts and a neutral palette; do NOT invent a brand
+           look)
+
+        Store as {{session.design_system}}: { kind, source_path or url, key_primitives }.
+      </action>
+    </substep>
+
+    <substep n="2e" title="Load Design System Conventions (if detected)">
+      <check if="session.design_system.kind is not 'none'">
+        <action>
+          Read 1-2 representative component files from the project's
+          design system or its docs. Capture:
+          - The primary primitives in use (Button, Card, Input, etc.)
+          - The styling approach (Tailwind classes? CSS variables? CSS-in-JS?)
+          - The naming/casing convention for class names
+
+          The prototype in step 3 will mimic these to produce evidence
+          that looks like the real product would look.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2f" title="Display Location Summary">
+      <output>
+        Prototype location prepared:
+        - Path: {{session.prototype_path}}
+        - Branch: {{session.branch}}
+        {{if logic:}}
+        - Language: {{session.language}}
+        {{if ui:}}
+        - Design system: {{session.design_system.kind or "none-detected (vanilla HTML)"}}
+
+        Proceeding to scaffold throwaway files.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Design system fidelity matters" critical="true">
+      <description>
+        A UI prototype using arbitrary styling shows what something COULD
+        look like, not what it WOULD look like in the actual product. That
+        produces misleading evidence — the user might approve a prototype
+        that, when built with the real design system, looks completely
+        different. For UI prototypes the design system check is a
+        substep, not a suggestion.
+      </description>
+      <rules>
+        <rule>If the project has shadcn/ui, the prototype uses shadcn/ui classes (or a CDN-loaded equivalent)</rule>
+        <rule>If the project has Tailwind, the prototype uses Tailwind utility classes</rule>
+        <rule>If the project has an internal design system, the prototype mimics its component naming and styling approach</rule>
+        <rule>"None detected" is fine; use neutral defaults. Do not invent a brand look</rule>
+      </rules>
+    </section>
+
+    <section title="Bundle directory containment">
+      <description>
+        Prototypes live INSIDE the bundle directory at
+        `prototypes/{name}/`. This co-locates evidence with the ticket
+        that produced it. Thoughts CLI tracks shared/ but does not
+        validate non-`.md` files; the prototype subdirectory is invisible
+        to validation.
+
+        When the bundle is archived (status: archived), the prototype
+        directory archives with it. This matches the throwaway discipline:
+        prototypes are evidence for the ticket lifecycle, not durable
+        artifacts.
+      </description>
+    </section>
+
+    <section title="When the bundle directory doesn't exist">
+      <description>
+        This skill assumes the caller (ticket-grill) is operating on a
+        bundle scaffolded by ticket-orient. If the bundle directory does
+        not exist, halt and surface the error — the prototype skill is
+        not the place to scaffold bundles.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

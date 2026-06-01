@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-scout-extern" step="2" title="Workspace and Clone">
+
+  <step n="2" title="Workspace and Clone">
+
+    <substep n="2a" title="Initialize the Workspace">
+      <action>
+        Ensure the disposable workspace exists:
+        - Create .extern/ if absent.
+        - Copy the workspace guidance for future sessions:
+          `cp {base_dir}/assets/workspace-agents.md .extern/AGENTS.md`
+          (only if not already present).
+        - Ensure .gitignore includes `.extern/` (append if missing).
+      </action>
+    </substep>
+
+    <substep n="2b" title="Clone the Repository">
+      <action>
+        Derive the directory name {org}-{repo} per
+        references/extern-catalog.md clone-naming. Shallow-clone:
+
+          git clone --single-branch --depth 1 {url} .extern/{org-repo}/
+
+        Use full history only when the study topic is the project's
+        history itself. If the clone fails (bad URL, network, auth),
+        emit to stdout and stop:
+
+          CLONE_FAILED
+          Repo: {repo}
+          Error: {git error, one line}
+
+        Reuse an existing clone in .extern/{org-repo}/ if one is already
+        present and current — do not re-clone needlessly.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

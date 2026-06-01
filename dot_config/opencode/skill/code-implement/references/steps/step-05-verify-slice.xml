@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-implement" step="5" title="I-per-slice Verification Gate">
+
+  <step n="5" title="I-per-slice Verification Gate">
+
+    <substep n="5a" title="Invoke code-verify (I-per-slice gate)">
+      <action>
+        Invoke the code-verify skill with:
+        - gate = "I-per-slice"
+        - slice_id = {{current_slice.id}}
+        - commit_sha = {{commit_sha}}
+        - worktree_path = {{worktree_path}}
+        - plan_path = {{plan_path}}
+        - bundle_dir = {{bundle_dir}}
+        - ticket_alias = {{ticket_alias}}
+        - ticket_slug = {{ticket_slug}}
+        - primary_tag = {{primary_tag}}
+
+        code-verify dispatches codesmith-validator with the per-gate
+        angle set; renders findings via
+        render-verification-report.py; returns the verdict.
+      </action>
+      <invoke-skill name="code-verify"/>
+    </substep>
+
+    <substep n="5b" title="Handle Verdict">
+      <check if="verdict == 'PROCEED'">
+        <action>
+          Reset {{decomposition_strikes[current_slice.id]}} = 0 (slice
+          completed successfully). Proceed to step 6.
+        </action>
+      </check>
+      <check if="verdict == 'BLOCKED' AND loop_back_target == 'I-phase'">
+        <action>
+          Re-dispatch worker for this same slice with the verifier's
+          findings as additional context (the worker addresses the
+          findings, re-commits). Increment a separate per-slice
+          re-implementation counter to prevent infinite loops:
+          {{reimplementation_strikes[current_slice.id]}}.
+
+          If reimplementation_strikes >= 3, abort per Lock 17.3:
+          "Slice {{slice_id}} has failed verification three times.
+          Approach is wrong. Recommend abort + planning restart."
+        </action>
+        <goto step="3"/>
+      </check>
+      <check if="verdict == 'BLOCKED' AND loop_back_target IN ('P-phase', 'S-phase')">
+        <action>
+          Loop-back to P or S. Halt this skill. Emit handoff:
+          "code-verify identified a {{P|S}}-phase problem. Loop back
+          to code-{plan|structure}, fix, then re-invoke code-implement
+          from this slice."
+
+          Plan/structure unlock requires user re-engagement.
+        </action>
+      </check>
+      <check if="verdict == 'BLOCKED' AND loop_back_target == 'D-phase'">
+        <action>
+          Per Lock 26 (fifth abort condition): D-phase loop-back in
+          execution session is an ABORT. D requires brain-surgery;
+          execution session is autonomous; these conflict.
+
+          Halt. Surface to user: "code-verify identified a D-phase
+          problem. Per Lock 26, execution-session D-loopback aborts
+          the workflow. Bundle preserved as evidence. Restart planning
+          session with the new V-finding integrated."
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

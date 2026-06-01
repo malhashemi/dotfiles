@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="agent-creator" step="5" title="Validate &amp; Complete">
+
+  <step n="5" title="Validate &amp; Complete">
+
+    <goal>
+      Validate the completed agent source files, update the manifest, run
+      the build, verify the compiled artifact, and present next steps.
+    </goal>
+
+    <substep n="5a" title="Verify File Completeness">
+      <action>
+        Check that all expected files exist in .vera/agents/{agent_id}/:
+
+        Primary agent:
+          - agent.yaml (artifact descriptor with type/id/file_name/variables/includes)
+          - frontmatter.md (YAML frontmatter as raw content)
+          - persona.md (&lt;persona&gt; block)
+          - menu.md (&lt;menu&gt; block)
+
+        Subagent:
+          - agent.yaml (artifact descriptor)
+          - frontmatter.md (YAML frontmatter with mode: subagent)
+          - instructions.md (subagent body)
+
+        For each file, verify:
+          - No remaining FILL comments (all sections filled)
+          - No TODO markers (all values set)
+          - Valid YAML syntax (for agent.yaml)
+          - Valid XML structure inside persona.md / menu.md / instructions.md
+          - frontmatter.md begins and ends with `---` lines
+      </action>
+    </substep>
+
+    <substep n="5b" title="Cross-Reference Validation">
+      <action>
+        Verify consistency across files:
+
+        1. Every skill in frontmatter.md permission map has a corresponding menu item in menu.md (primary agents)
+        2. Every menu item's skill="..." attribute matches a skill ID that exists under .vera/skills/{skill-id}/ (or is on the create list for this session)
+        3. agent.yaml includes list matches the composition agreed in Step 2
+        4. agent.yaml variables block has agent_id/character_name/agent_title/emoji (primary agents)
+        5. agent.yaml id matches the directory name and {file_name}.md basename
+        6. shared/ paths in includes resolve to actual files under .vera/shared/
+
+        Run the validator script:
+          uv run .vera/skills/agent-creator/references/scripts/validate-agent.py .vera/agents/{agent_id}/
+      </action>
+    </substep>
+
+    <substep n="5c" title="Update vera.manifest.yaml">
+      <action>
+        Add the agent's artifact entry to the appropriate build group in
+        .vera/vera.manifest.yaml. Existing build groups:
+          - ticketsmith — ticket-writing workflow
+          - codesmith   — implementation workflow
+          - prompter    — agent-authoring meta-workflow
+
+        Pick the existing build group if the agent extends one of these
+        workflows. Create a new build group if the agent is for a new
+        workflow domain.
+
+        Entry format:
+          - agents/{agent_id}/agent.yaml
+
+        For new build groups:
+          {build_group_name}:
+            artifacts:
+              - agents/{agent_id}/agent.yaml
+              - skills/{skill-1}/skill.yaml
+              ...
+      </action>
+    </substep>
+
+    <substep n="5d" title="Run Build">
+      <action>
+        Run: vera build
+
+        vera-cli compiles ALL artifacts listed in .vera/vera.manifest.yaml.
+        There is no per-agent build subcommand in this version — the
+        manifest is the build unit.
+
+        If build succeeds:
+          - Verify the compiled artifact at the configured output path
+            (typically ~/.config/opencode/agent/{agent_id}.md per
+            .vera/vera.config.yaml)
+          - Check that {{variables}} were substituted (agent_id,
+            character_name, agent_title, emoji, user_name,
+            communication_language all resolved to literal values)
+          - Spot-check the &lt;agent&gt; open tag has all four identity attributes
+          - Spot-check the menu items appear in the right order
+
+        If build fails:
+          - Read the error messages
+          - Common issues: missing include file path, wrong shared/ reference, malformed YAML in agent.yaml or frontmatter.md, unresolved {{variable}}
+          - Fix and re-run vera build
+      </action>
+    </substep>
+
+    <substep n="5e" title="Present Summary">
+      <template-output section="Completion Summary" critical="true">
+        ## Agent Created Successfully
+
+        **Source location:** `.vera/agents/{agent_id}/`
+        **Compiled artifact:** `~/.config/opencode/agent/{agent_id}.md` (or per vera.config.yaml output_dir)
+
+        **Files:**
+        - agent.yaml (artifact descriptor)
+        - frontmatter.md
+        - (persona.md + menu.md for primary, OR instructions.md for subagent)
+
+        **Identity:**
+        - ID: {agent_id}
+        - Name: {character_name}
+        - Title: {agent_title}
+        - Emoji: {emoji}
+
+        **Skills:** (list from Step 1)
+        **Build group in manifest:** {build_group_name}
+
+        **Next Steps:**
+        1. Create each skill using [CS] Create Skill (skills referenced in
+           menu.md must exist under .vera/skills/ for the agent to function)
+        2. Re-run `vera build` after each skill addition
+        3. Test the agent in OpenCode by selecting it from the agent picker
+
+        **Note:** The agent compiles cleanly even if its skills don't exist
+        yet — but invoking missing skills at runtime will surface errors.
+        Build the dependencies before testing end-to-end.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Common Build Errors">
+      <rules>
+        <rule>Missing include file → verify path under .vera/ resolves (shared/ paths must exist at .vera/shared/...)</rule>
+        <rule>YAML syntax error → check indentation, quotes, special characters in agent.yaml or frontmatter.md</rule>
+        <rule>Unresolved {{variable}} → add to agent.yaml variables block OR confirm 4-layer merge picks it up (user_name and communication_language come from ~/.config/vera/config.yaml)</rule>
+        <rule>Wrong frontmatter location → frontmatter MUST be raw markdown content in frontmatter.md, NOT nested YAML in agent.yaml (that's the legacy format)</rule>
+      </rules>
+    </section>
+
+    <section title="What Comes Next">
+      <description>
+        Creating the agent is step 1. The agent needs skills to be useful.
+        Each skill identified in Step 1 should be created using the
+        skill-creator workflow [CS]. Skills define the agent's actual
+        capabilities — without them, the agent is just a persona with an
+        empty menu.
+
+        After all skills are created and the manifest is complete, run
+        `vera build` once more to compile the full set. Then test in
+        OpenCode end-to-end: greeting, menu presentation, skill
+        invocation, completion handoff.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-orient" step="5" title="Scaffold Bundle (planning mode)" if="mode == 'planning'">
+
+  <step n="5" title="Scaffold Bundle">
+
+    <substep n="5a" title="Invoke scaffold-implementation-bundle.py">
+      <action type="script">uv run {base_dir}/scripts/scaffold-implementation-bundle.py --ticket-slug "{{ticket_slug}}" --ticket-alias "{{ticket_alias}}"</action>
+      <check if="exit code != 0">
+        <action>
+          Surface the script's stderr verbatim. Halt; the operator
+          must resolve (typically: bundle collision because the same
+          ticket was implemented on the same date — wait until
+          tomorrow or remove the existing bundle).
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5b" title="Capture Returned Paths">
+      <action>
+        Parse the JSON stdout. Store:
+        - {{bundle_dir}}
+        - {{design_path}}
+        - {{design_canonical_alias}}
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

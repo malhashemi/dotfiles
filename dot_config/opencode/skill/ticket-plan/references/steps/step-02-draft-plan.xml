@@ -1,0 +1,214 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-plan" step="2" title="Draft Writing Plan">
+
+  <step n="2" title="Draft Writing Plan">
+
+    <goal>
+      For each section in the Structure Outline, decide writing order,
+      subagent dispatch needs, length estimate. Define review
+      checkpoints.
+    </goal>
+
+    <substep n="2a" title="Decide Writing Order">
+      <action>
+        Sections-first ordering principle: write the foundational
+        sections first (Problem Statement, Behaviors, Decisions),
+        then the dependent sections (Acceptance Criteria, Out of
+        Scope, which read against the foundations).
+
+        General order heuristic:
+        1. Sections that LOCK content the others build on:
+           - Problem statement / context
+           - Decisions linked (DR references with brief summaries)
+        2. Sections that DESCRIBE the behavior:
+           - User stories / behaviors / API contracts
+           - Edge cases
+        3. Sections that CONSTRAIN:
+           - Acceptance criteria
+           - Out of scope
+           - Risk areas
+        4. Sections that REFER to other content:
+           - Open questions
+           - Future work
+           - Cross-references
+
+        If the Structure Outline uses Parts, the writing order
+        usually follows Part order (Part 1, Part 2, ...) but within
+        each Part the order still follows foundations-first within
+        that Part's section set.
+
+        Store as {{writing_order}}: list of section names in writing
+        order.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Identify Subagent Dispatch Needs">
+      <action>
+        For each section, decide whether ticket-write will need fresh
+        subagent dispatch to fill it. Common cases:
+
+        - **Already covered by research file**: no new dispatch. The
+          ticket-write step pulls from existing findings.
+        - **Needs codebase-pattern-finder**: e.g., "Test Conventions"
+          section needs to find how tests are structured in this
+          repo.
+        - **Needs codebase-locator**: e.g., "Files Touched" or
+          "Existing API Surfaces" — locate the targets.
+        - **Needs thoughts-locator + thoughts-analyzer**: e.g., a
+          section that references prior decisions or research from
+          unrelated tickets.
+        - **Needs web-search-researcher (with user approval)**: rare
+          at write-time; usually web research happens in ticket-grill.
+
+        For each section, store as {{dispatch_plan[section_name]}}:
+        {needs_dispatch: bool, subagent: <name or null>, prompt_hint: <one-line>}.
+
+        Cap: subagents per section should be 0 or 1 typically.
+        Multi-subagent dispatch per section is a sign the section
+        scope is too broad — surface as a structure concern (could
+        require loop-back to ticket-structure).
+      </action>
+    </substep>
+
+    <substep n="2c" title="Estimate Section Lengths">
+      <action>
+        Rough length estimates per section (in lines, not characters):
+
+        - Short / declarative: 10-30 lines (one-liner sections like
+          "Out of Scope" with a bullet list)
+        - Medium / explanatory: 30-100 lines (typical narrative
+          sections)
+        - Long / detailed: 100-300 lines (acceptance criteria with
+          extensive coverage; behaviors with many edge cases)
+        - Very long: 300+ lines (rare; usually indicates the section
+          should split into sub-sections)
+
+        Estimate based on the section's scope note from the Structure
+        Outline. Sum the per-section estimates for a total ticket
+        length estimate.
+
+        Cap-and-flag: if total estimate > 1500 lines, surface to the
+        user — the ticket may be too large for one document. Per spec
+        §2.3 heavy tickets can reach 1500+, but beyond that signals
+        decomposition need (which is implementation-QRDSPIV's job,
+        not ticket-writing's — log as a downstream concern).
+
+        Store as {{length_estimates}}: dict of section_name → lines.
+      </action>
+    </substep>
+
+    <substep n="2d" title="Define Review Checkpoints">
+      <action>
+        Identify pause points where ticket-write should stop for
+        user review:
+
+        - **Mandatory checkpoints**:
+          - End of every Part (for heavy tickets with Parts)
+          - End of every Critical-section (foundational sections like
+            "Decisions" or "Behaviors" that influence later sections)
+          - Before "Acceptance Criteria" is written (AC reads against
+            everything before — user should approve the foundation
+            first)
+
+        - **Optional checkpoints**:
+          - Mid-Part if a Part exceeds 400 lines
+          - After any section requiring subagent dispatch (so the
+            user can verify the subagent findings landed correctly)
+
+        Each checkpoint is a {section_position, checkpoint_type}
+        entry. Store as {{review_checkpoints}}.
+
+        For a single-Part flat ticket, mandatory checkpoints are:
+        end-of-foundational-sections (Decisions), pre-AC, end-of-ticket.
+        For multi-Part: end of each Part.
+      </action>
+    </substep>
+
+    <substep n="2e" title="Compose Plan Draft">
+      <action>
+        Assemble the Writing Plan draft. Format:
+
+        ```md
+        ## Writing Plan
+
+        **Estimated total length**: {{total_estimate}} lines
+        **Review checkpoints**: {{count}}
+
+        ### Writing order
+
+        {{numbered list: "1. Section Name — estimate: N lines. Subagent: <name or none>. Notes: <one-line>."}}
+
+        ### Review checkpoints
+
+        - After section {{N}}: {{checkpoint_type}}
+        - After section {{M}}: {{checkpoint_type}}
+        ...
+
+        ### Subagent dispatches scheduled
+
+        {{list of sections that will dispatch subagents during write,
+        with one-line purpose}}
+
+        ### Notes
+
+        {{any caveats: length flags, structural concerns, dispatch
+        risks}}
+        ```
+
+        Store as {{plan_draft}}.
+      </action>
+    </substep>
+
+    <substep n="2f" title="Display Plan Summary">
+      <output>
+        Writing plan drafted:
+        - Sections: {{count}}
+        - Estimated total length: {{total_estimate}} lines
+        - Review checkpoints: {{count}}
+        - Subagent dispatches scheduled: {{count}}
+
+        Proceeding to alignment.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Why plan subagent dispatch at write-time">
+      <description>
+        Most subagent work happened in ticket-grill. But some sections
+        of the ticket need fresh research that wasn't relevant during
+        grilling. Example: the ticket may mention an API endpoint
+        without yet listing every existing endpoint that this work
+        will touch. The "API Surface" section needs a codebase-locator
+        dispatch at write-time to enumerate them precisely.
+
+        Planning the dispatch now (in P) lets ticket-write parallelize
+        — dispatch multiple sections' research subagents at once
+        before writing begins.
+      </description>
+    </section>
+
+    <section title="Checkpoint discipline">
+      <rules>
+        <rule>Heavy tickets without checkpoints are unreviewable — the user can't hold the full ticket in head</rule>
+        <rule>Too many checkpoints fragment the writing flow; cap at one per ~300 lines of expected content</rule>
+        <rule>Always checkpoint before Acceptance Criteria — AC is the contract for downstream implementation, must be reviewed against the foundations</rule>
+        <rule>Always checkpoint at Part boundaries when Parts exist</rule>
+      </rules>
+    </section>
+
+    <section title="Length estimates are guidance, not contracts">
+      <description>
+        ticket-write treats estimates as targets. Sections that come
+        in significantly under estimate (50% under) may be missing
+        content; sections that come in significantly over (50% over)
+        may have scope creep or should split. Both are signals
+        ticket-verify will surface for review.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-verify" step="2" title="Self-Review">
+
+  <step n="2" title="Self-Review">
+
+    <goal>
+      Walk the ticket body section-by-section, comparing each section
+      to the severity ladder's example defects. Produce a self-review
+      finding report in the ladder's output format.
+    </goal>
+
+    <substep n="2a" title="Walk Each Section">
+      <action>
+        For every level-2 section in the ticket body, evaluate:
+
+        - Does the section honor its scope note from the Structure Outline?
+        - Does the section honor AGENT-BRIEF principles (durability,
+          behavioral, complete AC, explicit scope, self-sufficient,
+          decisions-not-tactics, consistency with Design Summary)?
+        - Do wiki-links resolve: for each `[[X]]` or `[[X|alias]]`, is `X`
+          (the token before any `|`) a real filename stem? An alias that
+          merely appears somewhere is NOT a resolved link.
+        - Does the section content match the relevant Q&A entries
+          (no drift from resolved questions)?
+        - Does the section honor every locked DR's decision (no
+          contradiction)?
+
+        For each defect found, compose a finding per the severity
+        ladder's output format (severity, location, finding, fix
+        recommendation, impact for Medium+).
+      </action>
+    </substep>
+
+    <substep n="2b" title="Check Frontmatter">
+      <action>
+        Run `thoughts validate {{ticket_path}}` and capture any
+        validation errors. These become Critical findings if any
+        appear (frontmatter schema violations per the ladder).
+
+        Manually verify:
+        - Both owner and researcher fields present
+        - last_updated is full ISO 8601 datetime
+        - parent and children targets are real filename stems (the token
+          before any `|`), not bare aliases
+        - status is 'draft' (will transition in step 5)
+        - aliases array has canonical alias first
+        - tags array primary tag matches the slug's primary tag
+      </action>
+    </substep>
+
+    <substep n="2c" title="Check Pre-Flight Flags">
+      <action>
+        From the load summary's pre-flight check, evaluate:
+
+        - **Foundational strikes > 0**: surface as a High finding
+          ("Foundational reversal strike >0 on entry — review for
+          accumulated incoherence even though user pushed past")
+        - **Force-exit at readiness gate**: surface as a High finding
+          ("Force-exit at readiness gate — gaps in Q↔R were
+          deliberately accepted; verify whether the ticket compensates")
+        - **Length deviation > 50%**: surface as a High finding
+          ("Section length deviation N% — review for missing content
+          or scope creep")
+      </action>
+    </substep>
+
+    <substep n="2d" title="Compose Self-Review Report">
+      <action>
+        Assemble all findings into a structured report. Format per the
+        severity ladder:
+
+        ```md
+        ## Self-Review Finding Report
+
+        **Reviewed**: {{ISO 8601 datetime}}
+        **Primary tag**: {{primary_tag}}
+        **Total findings**: {{N}} ({{C}} Critical, {{H}} High, {{M}} Medium, {{L}} Low)
+
+        ### Critical ({{N}})
+        {{findings or "_(none)_"}}
+
+        ### High ({{N}})
+        {{findings or "_(none)_"}}
+
+        ### Medium ({{N}})
+        {{findings or "_(none)_"}}
+
+        ### Low ({{N}})
+        {{findings or "_(none)_"}}
+
+        ### Self-Review Verdict
+        {{BLOCK / CONDITIONAL / PASS}}
+        ```
+
+        Store as {{self_review_report}}.
+      </action>
+    </substep>
+
+    <substep n="2e" title="Display Self-Review Summary">
+      <output>
+        Self-review complete:
+        - Total findings: {{count}}
+        - Verdict (preliminary): {{BLOCK / CONDITIONAL / PASS}}
+        - Critical: {{count}} / High: {{count}} / Medium: {{count}} / Low: {{count}}
+
+        Proceeding to reviewer subagent dispatch (conditional on primary tag).
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Walk discipline">
+      <description>
+        Walk each section SEPARATELY. A "this section is fine" finding
+        is informative but not recorded — only defects are. A clean
+        ticket produces zero findings, which is the goal.
+      </description>
+    </section>
+
+    <section title="Don't anchor on the count">
+      <rules>
+        <rule>3 findings is not better than 1 finding; the goal is "all real defects surfaced", not "find at least N"</rule>
+        <rule>Padding with Low findings to look thorough dilutes the signal</rule>
+        <rule>Splitting one issue into 3 findings to look thorough is the same dilution</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

@@ -1,81 +1,31 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "default_agent": "ticketsmith",
-  "theme": "dynamic",
-  "experimental": {
-    "disable_paste_summary": true
-  },
-  "provider": {
-    "anthropic": {
-      "models": {
-        "claude-opus-4-8": {
-          "variants": {
-            "mine": {
-              "thinking": {
-                "type": "adaptive"
-              },
-              "output_config": {
-                "effort": "max"
-              }
-            }
-          }
-        }
+  "agent": {
+    "accountant": {
+      "permission": {
+        "quickbooks*": "allow"
       }
     },
-    "google": {
-      "models": {
-        "gemini-3-pro": {
-          "options": {
-            "thinkingConfig": {
-              "thinkingBudget": 31999,
-              "includeThoughts": true
-            }
-          }
-        },
-        "gemini-3-pro-preview": {
-          "options": {
-            "thinkingConfig": {
-              "thinkingBudget": 31999,
-              "includeThoughts": true
-            }
-          }
-        },
-        "gemini-2.5-flash": {
-          "options": {
-            "thinkingConfig": {
-              "thinkingBudget": 8192
-            }
-          }
-        },
-        "gemini-2.5-pro": {
-          "options": {
-            "thinkingConfig": {
-              "thinkingBudget": 16000
-            }
-          }
-        }
+    "plan": {
+      "permission": {
+        "skill": "deny"
       }
     }
   },
+  "default_agent": "ticketsmith",
+  "experimental": {
+    "disable_paste_summary": true
+  },
   "mcp": {
-    "playwright": {
-      "type": "local",
-      "command": ["npx", "@playwright/mcp@latest"{{ if .is_headless }}, "--headless"{{ end }}, "--browser", "chromium"],
-      "enabled": true,
-      "environment": {
-        "PLAYWRIGHT_BROWSERS_PATH": "{{ .chezmoi.homeDir }}/.cache/ms-playwright"
-      }
-    },
     "brave-search": {
-      "type": "local",
       "command": ["npx", "-y", "@brave/brave-search-mcp-server"],
       "enabled": true,
       "environment": {
         "BRAVE_API_KEY": "{env:BRAVE_API_KEY}"
-      }
+      },
+      "type": "local"
     },
     "exa": {
-      "type": "local",
       "command": [
         "npx",
         "-y",
@@ -85,47 +35,50 @@
       "enabled": true,
       "environment": {
         "EXA_API_KEY": "{env:EXA_API_KEY}"
-      }
+      },
+      "type": "local"
+    },
+    "playwright": {
+      "command": ["npx", "@playwright/mcp@latest"{{ if .is_headless }}, "--headless"{{ end }}, "--browser", "chromium"],
+      "enabled": true,
+      "environment": {
+        "PLAYWRIGHT_BROWSERS_PATH": "{{ .chezmoi.homeDir }}/.cache/ms-playwright"
+      },
+      "type": "local"
     },
     "quickbooks": {
-      "type": "local",
       "command": [
         "node",
         "{{ .chezmoi.homeDir }}/.config/opencode/mcp-servers/qbo-mcp/dist/index.js"
       ],
-      "enabled": true
+      "enabled": true,
+      "type": "local"
+    }
+  },
+  "permission": {
+    "brave-search*": "deny",
+    "exa*": "deny",
+    "external_directory": "allow",
+    "lsp": "allow",
+    "playwright*": "deny",
+    "question": "allow",
+    "skill": {
+      "*": "deny",
+      "brand-palette": "ask",
+      "documents-docx": "allow",
+      "pr-review": "allow"
     }
   },
   "plugin": [
     "opencode-sessions",
-    "opencode-gemini-auth",
-    "{{ .chezmoi.homeDir }}/dev/opencode-dynamic-workflows/packages/plugin",
-    "file://{{ .chezmoi.homeDir }}/opencode-claude-oracle/plugin/claude-oracle.js"
+    "{{ .chezmoi.homeDir }}/dev/opencode-dynamic-workflows/packages/plugin"
   ],
-  "agent": {
-    "plan": {
-      "permission": {
-        "skill": "deny"
-      }
-    },
-    "accountant": {
-      "permission": {
-        "quickbooks*": "allow"
+  "provider": {
+    "anthropic": {
+      "options": {
+        "baseURL": "http://localhost:3456/v1"
       }
     }
   },
-  "permission": {
-    "external_directory": "allow",
-    "lsp": "allow",
-    "question": "allow",
-    "brave-search*": "deny",
-    "exa*": "deny",
-    "playwright*": "deny",
-    "skill": {
-      "*": "deny",
-      "documents-docx": "allow",
-      "pr-review": "allow",
-      "brand-palette": "ask"
-    }
-  }
+  "theme": "dynamic"
 }

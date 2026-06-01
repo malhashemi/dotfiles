@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-structure" step="3" title="Draft and Align" critical="true">
+
+  <step n="3" title="Draft and Align" critical="true">
+
+    <goal>
+      Present the Structure Outline draft to the user for confirmation
+      or adjustment. Loop on adjustments until the outline is locked.
+      Firm checkpoint per spec §3.3.
+    </goal>
+
+    <substep n="3a" title="Present Outline">
+      <ask>
+        Present the user with:
+
+        Structure outline proposal:
+
+        {{structure_outline_draft}}
+
+        Does this structure work for the ticket?
+
+        Options:
+        - Confirm (Recommended if it looks right): lock the outline and proceed to ticket-plan
+        - Add a section: I'll insert a section you propose
+        - Remove a section: drop a recipe section we don't need
+        - Reorder: change the section sequence
+        - Add/remove Parts: toggle the Part-grouping decision
+        - Reshape entirely: scrap the draft and propose a custom outline from scratch
+        - Loop back to ticket-design: this exposes a design gap that needs revisiting
+      </ask>
+    </substep>
+
+    <substep n="3b" title="Handle User Response">
+      <check if="user confirms">
+        <action>
+          Lock {{structure_outline_draft}} as
+          {{structure_outline_final}}. Proceed to step 4.
+        </action>
+      </check>
+
+      <check if="user adjusts (add/remove/reorder/parts-toggle)">
+        <action>
+          Apply the adjustment to the draft. Re-loop to substep 3a to
+          re-present. Cap on iterations: 5; if the outline isn't
+          locking after 5 rounds, surface this and ask the user
+          whether to switch to fully-custom mode or loop back to
+          ticket-design.
+        </action>
+        <goto step="3"/>
+      </check>
+
+      <check if="user requests full reshape">
+        <action>
+          Discard {{structure_outline_draft}}. Re-enter step 2 with
+          shape_mode = "fully-custom" forced. Draft a fresh outline.
+          Then re-loop to substep 3a.
+        </action>
+        <goto step="2"/>
+      </check>
+
+      <check if="user loops back to ticket-design">
+        <action>
+          Append a note to the questions file:
+          "Structure phase loop-back: design gap surfaced — {{specifics}}.
+          User invoked ticket-design re-entry from ticket-structure step 3."
+
+          Stamp last_updated on the questions file. Exit this skill
+          cleanly. User invokes ticket-design via menu (TD); that skill
+          will see the new note and re-align.
+
+          NOTE: Looping back to ticket-design does NOT increment
+          ticket-design's strike counter, because the loop-back is
+          STRUCTURE-DRIVEN, not a foundational reversal. The strike
+          counter only triggers on reversals of LOCKED foundational
+          decisions, not on adjustments surfaced during structuring.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3c" title="Display Alignment Status">
+      <output>
+        Structure alignment:
+        - Iterations: {{iteration_count}}
+        - Final shape: {{shape_mode}}
+        - Final section count: {{count}}
+        - Outcome: {{locked / looped-back / pending}}
+
+        {{if locked: "Proceeding to finalize and handoff."}}
+        {{if looped-back: "Skill exiting; ticket-design will handle re-alignment."}}
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Iteration cap is a soft warning, not a hard limit">
+      <description>
+        5 iterations on the outline suggests the agent is missing a
+        load-bearing concern (each adjustment is revealing a new gap).
+        At 5 rounds, surface the pattern to the user and recommend
+        either fully-custom mode or loop-back to ticket-design.
+        Continuing past 5 without escalation produces a structure that
+        keeps shifting; eventually the user will accept something that
+        doesn't actually fit.
+      </description>
+    </section>
+
+    <section title="Loop-back vs strike counter">
+      <description>
+        Looping back to ticket-design from this skill is NORMAL when a
+        structure attempt reveals a design gap. It does NOT count as
+        a foundational reversal because the user is not reversing a
+        previously-locked decision — they are surfacing a need that
+        wasn't visible in the Design Summary. ticket-design step 4
+        classifies as 'redirect_scope_ungrilled' if appropriate, which
+        does not increment strikes.
+      </description>
+    </section>
+
+    <section title="Reshape is more expensive than adjust">
+      <description>
+        Full reshape (scrap and restart) is costly — it discards work.
+        Use only when the agent realizes the recipe was the wrong
+        framework for this ticket. Most cases of "this doesn't feel
+        right" are better served by add/remove/reorder iterations on
+        the current draft.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

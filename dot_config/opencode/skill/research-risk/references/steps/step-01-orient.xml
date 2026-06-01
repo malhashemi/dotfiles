@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-risk" step="1" title="Orient">
+
+  <step n="1" title="Orient">
+
+    <substep n="1a" title="Detect Mode">
+      <action>
+        Check whether the question tool is available. Available →
+        INTERACTIVE. Absent → AUTONOMOUS. Later substeps branch on this.
+      </action>
+    </substep>
+
+    <substep n="1b" title="Validate the Approach">
+      <check if="AUTONOMOUS">
+        <action>
+          Confirm approach is present. If absent, emit to stdout and stop:
+
+            ERROR: Missing required field 'approach'. The dispatching
+            caller failed to supply what to assess for risk. No
+            reconnaissance performed.
+        </action>
+      </check>
+      <check if="INTERACTIVE">
+        <action>
+          Confirm the approach to assess — a plan, design, code path, or
+          described approach. If genuinely ambiguous, ask one clarifying
+          question via the question tool.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="1c" title="Read the Approach and Mentioned Sources First">
+      <action>
+        Read the approach FULLY now (no offset/limit) — the plan/design
+        document, the code path, or the described approach — along with
+        any files it names. You cannot assess the risk of something you
+        have not read in full. What the approach actually does shapes
+        which categories apply and what the failure modes are.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

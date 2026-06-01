@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="local-merge" step="2" title="Run wt merge">
+
+  <step n="2" title="Run wt merge">
+
+    <substep n="2a" title="Invoke wt merge">
+      <action type="script">cd {{worktree_path}} &amp;&amp; wt merge {{target_branch}}</action>
+      <check if="command failed">
+        <action>
+          Surface the wt error verbatim. Common failures:
+          - Rebase conflict (worktree has divergent commits with target;
+            user must resolve manually, then re-invoke local-merge)
+          - Pre-merge hook failed (project hooks block on test/lint
+            failure; surface the hook output)
+          - Target branch advanced during merge (rare; re-run)
+
+          Halt and do not proceed. Do NOT auto-resolve conflicts.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="2b" title="Capture Merge Output">
+      <action>
+        Parse the wt merge output for:
+        - Commit SHA on target after merge   → {{merged_commit}}
+        - Files changed count                → {{files_changed}}
+        - Insertions count                   → {{insertions}}
+        - Deletions count                    → {{deletions}}
+
+        wt merge prints these in a structured format (e.g., "auth.rs |
+        51 +++..., 2 files changed, +53"). Extract via simple regex on
+        the merge output.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

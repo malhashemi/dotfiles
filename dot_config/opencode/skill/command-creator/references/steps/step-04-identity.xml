@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="command-creator" step="4" title="Command Identity">
+
+  <step n="4" title="Command Identity">
+    
+    <goal>
+      Define the command's identity: name, description, and optional agent/argument hints.
+      The description is critical for discoverability.
+    </goal>
+
+    <substep n="4a" title="Command Name">
+      <action>
+        Confirm or refine the command name:
+        
+        Rules:
+        - Lowercase letters, numbers, hyphens only
+        - No spaces or underscores
+        - Short and memorable (1-3 words)
+        - Verb-first when possible (/commit, /review, /sync)
+      </action>
+      <ask>
+        Current name: {{command_name}}
+        
+        Is this the right name? If not, what should it be?
+        
+        Good names: /commit, /pr-review, /check-deps
+        Avoid: /do-the-thing, /x, /commit_changes
+      </ask>
+    </substep>
+
+    <substep n="4b" title="Description">
+      <action>
+        Write a clear, actionable description:
+        
+        - Start with a verb (Creates, Validates, Runs)
+        - Include key functionality
+        - Mention when to use it
+        - Keep under 100 characters for display
+      </action>
+      <ask>
+        Write a description for this command:
+        
+        Format: "[Verb] [what it does] [optional: when/how]"
+        
+        Examples:
+        - "Creates git commits with optional message or file filter"
+        - "Addresses GitHub PR review comments using the pr-review skill"
+        - "Validates YAML files for syntax and schema compliance"
+      </ask>
+    </substep>
+
+    <substep n="4c" title="Agent Assignment">
+      <action>
+        Determine if this command should be assigned to a specific agent:
+        
+        - Leave blank: Any agent can run it
+        - Specify agent: That agent handles execution
+        
+        Agent assignment (the instructions.md frontmatter `agent:`) affects
+        which agent processes the command; visibility is determined by the
+        config's `destination` ("." = global; an agent name = that agent).
+      </action>
+      <ask>
+        Should this command be assigned to a specific agent for execution?
+        
+        Examples:
+        - agent: build → Build agent handles execution
+        - (blank) → Current agent handles it
+      </ask>
+    </substep>
+
+    <substep n="4d" title="Argument Hint">
+      <action>
+        If the command accepts arguments, provide a hint:
+        
+        Format: "[required] [optional]"
+        - Square brackets for optional
+        - Angle brackets for required
+        
+        This appears in command help to guide users.
+      </action>
+      <ask>
+        Does this command accept arguments? If so, what's the hint?
+        
+        Examples:
+        - "[optional: message, files, or instructions]"
+        - "&lt;pr-number&gt;"
+        - "[path]"
+        - (leave blank if no arguments)
+      </ask>
+    </substep>
+
+    <substep n="4e" title="Save Identity">
+      <template-output section="Command Identity">
+        Write the identity into the instructions.md frontmatter (NOT
+        command-config.yaml — that is just the vera build descriptor):
+        
+        ```yaml
+        ---
+        description: {{description}}
+        {{#if argument_hint}}argument-hint: "{{argument_hint}}"{{/if}}
+        {{#if agent}}agent: {{agent}}{{/if}}
+        ---
+        ```
+        
+        [a] Refine identity [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Naming Conventions">
+      <rules>
+        <rule>Use lowercase letters, numbers, hyphens only</rule>
+        <rule>Keep short: 1-3 words (1-20 characters)</rule>
+        <rule>Verb-first when possible: /commit, /review, /validate</rule>
+        <rule>Avoid generic names: /run, /do, /process</rule>
+        <rule>Match existing patterns: /pr-review not /review-pr</rule>
+      </rules>
+      <example type="good">
+        /commit, /pr-review, /check-deps, /sync-branch
+      </example>
+      <example type="bad">
+        /do_stuff, /PR_Review, /x, /my-super-long-command-name
+      </example>
+    </section>
+
+    <section title="Description Best Practices">
+      <rules>
+        <rule>Start with a verb (Creates, Validates, Runs, Addresses)</rule>
+        <rule>Be specific about what it does</rule>
+        <rule>Keep under 100 characters</rule>
+        <rule>Mention key inputs/outputs if relevant</rule>
+      </rules>
+      <example type="good">
+        "Creates git commits with optional message, file filter, or instructions"
+        "Validates YAML files for syntax and schema compliance"
+      </example>
+      <example type="bad">
+        "A command for doing commits" (vague)
+        "This command..." (starts with "This")
+      </example>
+    </section>
+
+    <section title="Agent Assignment">
+      <description>
+        Specifying an agent routes command execution to that agent.
+        Leave blank if the current agent should handle it.
+      </description>
+      <when-to-assign>
+        <rule>Command requires specific agent capabilities</rule>
+        <rule>Command should always be handled by one agent</rule>
+        <rule>Agent has specialized tools for this task</rule>
+      </when-to-assign>
+      <example>
+        /commit → agent: build (build agent has git tools)
+        /research → (no agent, current handles it)
+      </example>
+    </section>
+
+  </guidance>
+
+</step-file>

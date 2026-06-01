@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-scout-extern" step="5" title="Cleanup and Return">
+
+  <step n="5" title="Cleanup and Return">
+
+    <substep n="5a" title="Workspace Cleanup">
+      <check if="INTERACTIVE">
+        <ask>
+          The clone in .extern/{org-repo}/ is disposable; the research is
+          already persisted. Remove the clone now?
+          - Keep (Recommended): leave it for further study this session
+          - Remove: rm -rf the clone directory
+        </ask>
+      </check>
+      <check if="AUTONOMOUS">
+        <action>
+          Leave the clone in .extern/. Autonomous cleanup is never
+          automatic — deleting without confirmation is destructive, and a
+          later step in the calling workflow may want the clone. The
+          workspace is gitignored and disposable; an explicit cleanup or
+          the next session removes it.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="5b" title="Return">
+      <check if="AUTONOMOUS">
+        <output-format>
+          Emit to stdout:
+
+          ```
+          SUCCESS
+          Document: {absolute path in the global extern store}
+          Repo: {org/repo}
+          Topic: {topic}
+          Reused: {true if prior catalog research was returned without cloning; false otherwise}
+          Clone: {".extern/{org-repo}/ (left in place)" or "not cloned (reused existing)"}
+          Key findings: {1-2 sentences, or "pattern not present in repo"}
+          ```
+        </output-format>
+      </check>
+
+      <check if="INTERACTIVE">
+        <output-format>
+          Present to the user:
+
+          ## Scout Complete
+
+          **Document**: {global store path}
+          **Repo**: {org/repo} · **Topic**: {topic}
+
+          {1-2 sentence summary of the key findings with clone-relative
+          citations, or the negative finding}
+
+          Then offer next actions:
+          - Study another topic in the same repo
+          - Compare this external pattern against our internal approach
+            (Comparative Matrix)
+        </output-format>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

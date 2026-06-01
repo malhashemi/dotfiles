@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-verify" step="2" title="Dispatch Validator">
+
+  <step n="2" title="Dispatch Validator">
+
+    <substep n="2a" title="Build Dispatch Prompt">
+      <action>
+        Compose the per-gate prompt. Required content:
+
+        - Gate name: {{gate}}
+        - Slice ID (if I-per-slice): {{slice_id}}
+        - Ticket tags: {{ticket_tags}}
+        - Bundle directory: {{bundle_dir}}
+        - Artifact paths per gate:
+          - D-review:           design_path
+          - P-review:           plan_paths
+          - I-per-slice:        plan_path + commit_sha + worktree_path
+          - final-integration:  plan_paths + worktree_path
+          - PR-review:          plan_paths + commit_sha + worktree_path
+      </action>
+    </substep>
+
+    <substep n="2b" title="Dispatch codesmith-validator">
+      <invoke-agent name="codesmith-validator" prompt="
+Verify {{gate}} gate for codesmith implementation.
+
+Gate: {{gate}}
+{{if I-per-slice: Slice: {{slice_id}}; Commit: {{commit_sha}}}}
+{{if I-per-slice or final-integration: Worktree: {{worktree_path}}}}
+
+Artifacts to read:
+{{artifact_paths_per_gate}}
+
+Ticket tags: {{ticket_tags}}
+
+Bundle directory: {{bundle_dir}}
+      "/>
+    </substep>
+
+    <substep n="2c" title="Capture Validator Output">
+      <action>
+        Capture validator's stdout. Parse JSON. Store as {{findings}}.
+        Persist to {{bundle_dir}}/findings-{{gate_id}}.json (gate_id
+        includes slice_id for I-per-slice).
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

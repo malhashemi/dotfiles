@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-orient" step="7" title="Handoff">
+
+  <step n="7" title="Handoff">
+
+    <substep n="7a" title="Emit Session State JSON">
+      <template-output section="Orient Handoff" critical="true">
+        {
+          "mode": "{{mode}}",
+          "bundle_dir": "{{bundle_dir}}",
+          "ticket_path": "{{ticket_path}}",
+          "ticket_alias": "{{ticket_alias}}",
+          "ticket_slug": "{{ticket_slug}}",
+          "primary_tag": "{{primary_tag}}",
+          "design_path": "{{design_path}}",
+          "structure_path": "{{structure_path}}",
+          "plan_paths": {{plan_paths}},
+          "research_path": "{{research_path}}",
+          "pr_mode": {{pr_mode}}
+        }
+      </template-output>
+    </substep>
+
+    <substep n="7b" title="Hand Off to Next Skill">
+      <check if="mode == 'planning'">
+        <output>
+          Orient complete. Bundle scaffolded at {{bundle_dir}}.
+          Ticket transitioned to `active`.
+
+          **Next**: invoke `code-grill` to begin the Q↔R loop. Pass
+          the session state above as context.
+        </output>
+      </check>
+      <check if="mode == 'execution'">
+        <output>
+          Orient complete. Bundle loaded from {{bundle_dir}}.
+
+          **Next**: invoke `code-implement` to begin I-phase
+          orchestration. Pass the session state above as context.
+        </output>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

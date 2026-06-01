@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="pr-cycle" step="5" title="Validate Assessment">
+
+  <step n="5" title="Validate Assessment">
+
+    <substep n="5a" title="Dispatch Second Validator Pass for Cross-Check">
+      <invoke-agent name="codesmith-validator" prompt="
+Cross-check the assessment of PR #{{pr_number}} threads.
+
+Input: {{bundle_dir}}/pr-cycle-assessment-iter-{{iteration_count}}.json
+
+For each Address / Decline / Defer decision, verify:
+- Did the first assessment actually read the code (evidence
+  required: file:line citation)?
+- Is the recommendation reasonable given the codebase reality?
+- Are there obvious errors in judgment?
+
+Output verdict:
+- APPROVED: All decisions reasonable, evidence sufficient.
+- REJECTED: One or more decisions need re-assessment. List which
+  threads + why.
+
+If REJECTED, the orchestrator will re-dispatch step 4 with the
+cross-check feedback.
+      "/>
+    </substep>
+
+    <substep n="5b" title="Branch on Verdict">
+      <check if="verdict == 'APPROVED'">
+        <action>Proceed to step 6.</action>
+      </check>
+      <check if="verdict == 'REJECTED'">
+        <action>
+          Increment {{rejection_count}}. If rejection_count > 3, exit
+          with ERROR report (validator cannot agree with itself —
+          escalate to human). Otherwise, return to step 4 with the
+          cross-check feedback added to the validator prompt.
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

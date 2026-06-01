@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-design" step="1" title="Render Design Skeleton">
+
+  <step n="1" title="Render Design Skeleton">
+
+    <substep n="1a" title="Invoke render-design-doc-skeleton.py">
+      <action type="script">uv run {base_dir}/scripts/render-design-doc-skeleton.py --design-file "{{design_path}}" --primary-tag "{{primary_tag}}" --research-file "{{research_path}}"</action>
+      <check if="exit code != 0">
+        <action>Surface stderr verbatim. Halt.</action>
+      </check>
+    </substep>
+
+    <substep n="1b" title="Initialize Strike Counter">
+      <action>Set {{strike_count}} = 0 in session state. Persists across iterations in this skill only; not carried over to subsequent sessions.</action>
+    </substep>
+
+    <substep n="1c" title="Confirm With User">
+      <output>
+        Design skeleton rendered at {{design_path}}.
+
+        Status: active. Grounded in research file: {{research_path}}.
+
+        Entering brain-surgery conversation. I'll present each of the
+        three sections in turn. Stress-test as we go — your job is to
+        push back on substantive decisions; my job is to defend them
+        or revise them.
+      </output>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-risk" step="3" title="Dispatch Category Scans">
+
+  <step n="3" title="Dispatch Category Scans">
+
+    <substep n="3a" title="Compose per-Category Scan Questions">
+      <action>
+        For each selected category, compose the scan questions that probe
+        the approach for that category's failure modes, routed per
+        references/research/child-subagent-dispatch.md:
+        - Our exposure: "does our code already exhibit {category risk
+          pattern} where this approach touches it?" → codebase-analyzer
+          / codebase-pattern-finder
+        - Prior incidents: "have we hit {category} problems like this
+          before?" → thoughts-locator (then thoughts-analyzer)
+        - Known external risks: "what are the known {category} risks /
+          CVEs / failure modes for {technique or dependency}?" →
+          web-search-researcher
+
+        Frame each scan adversarially — ask what breaks, not how it works.
+      </action>
+    </substep>
+
+    <substep n="3b" title="Web-Research Approval Gate">
+      <check if="any scan routes to web-search-researcher AND INTERACTIVE">
+        <ask>
+          Name the scans needing external/web research (known CVEs,
+          benchmarks, compliance requirements). Ask the user to approve
+          dispatching web-search-researcher, recommended option first. If
+          declined, mark those categories as assessed from internal
+          evidence only and note the limitation.
+        </ask>
+      </check>
+      <check if="any scan routes to web-search-researcher AND AUTONOMOUS">
+        <action>
+          If web_search_approved is true, keep the external scans. If
+          false or absent, emit to stdout and stop:
+
+            CLARIFICATION_NEEDED: Risk scan needs web research for
+            {category/categories}, but web_search_approved was not set.
+            Re-dispatch with web_search_approved=true, or limit to
+            internal-evidence assessment.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="3c" title="Dispatch and Validate">
+      <action>
+        Dispatch independent scans in parallel waves via the Task tool
+        (the two-stage thoughts pattern runs locator then analyzer).
+        Each prompt carries the scan question alone, never the parent
+        task's intent. Redispatch any vague return with a sharper prompt.
+        A "no instances found" return for a scanned risk is a genuine
+        finding — it lowers that risk's likelihood; keep it.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

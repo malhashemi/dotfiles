@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="extract-knowledge" step="4" title="Validate and Complete">
+
+  <step n="4" title="Validate and Complete">
+    
+    <goal>
+      Verify extracted knowledge is accurate, actionable, and useful.
+      Ensure it's ready for consumption by agents, skills, or humans.
+    </goal>
+
+    <substep n="4a" title="Accuracy Check">
+      <action>
+        Verify extracted knowledge against source material:
+        
+        - Do patterns actually appear in sources?
+        - Are examples accurate quotes/representations?
+        - Is rationale supported by evidence?
+        - Are there patterns we missed?
+      </action>
+      <ask>
+        Please review the extracted knowledge for accuracy:
+        
+        1. Does this correctly represent the source material?
+        2. Are there any errors or misinterpretations?
+        3. Did we miss any important patterns?
+      </ask>
+    </substep>
+
+    <substep n="4b" title="Actionability Check">
+      <action>
+        Apply the actionability test:
+        
+        For each pattern/convention/guideline:
+        1. Is it clear WHEN this applies?
+        2. Could someone FOLLOW it correctly?
+        3. Are there enough EXAMPLES?
+        4. Are ANTI-PATTERNS documented?
+        
+        Flag any items that fail these checks.
+      </action>
+    </substep>
+
+    <substep n="4c" title="Usefulness Check">
+      <action>
+        Consider how this knowledge will be used:
+        
+        **For Agents:**
+        - Is it structured for LLM parsing?
+        - Are there examples for few-shot learning?
+        - Are rules clear with emphasis keywords?
+        
+        **For Humans:**
+        - Is it scannable and well-organized?
+        - Is rationale included (not just rules)?
+        - Can it be referenced quickly?
+        
+        **For Skills:**
+        - Can it be loaded into skill references/?
+        - Is it self-contained?
+        - Does it integrate with existing knowledge?
+      </action>
+    </substep>
+
+    <substep n="4d" title="Determine Placement">
+      <action>
+        Decide where this knowledge should live:
+        
+        **Skill-specific:** references/ folder of a specific skill
+        - Use when knowledge only applies to one skill
+        
+        **Shared knowledge:** vera-source/knowledge/
+        - Use when knowledge applies broadly
+        
+        **Agent reference:** Agent's bundled references
+        - Use when knowledge shapes agent behavior
+      </action>
+      <ask>
+        Where should this knowledge be placed?
+        
+        1. Skill-specific (which skill?)
+        2. Shared knowledge base
+        3. Agent reference (which agent?)
+        4. Multiple locations
+      </ask>
+    </substep>
+
+    <substep n="4e" title="Save Knowledge Document">
+      <action type="script">
+        uv run {base_dir}/scripts/extract-patterns.py save {{knowledge_name}} {{output_path}}
+      </action>
+    </substep>
+
+    <substep n="4f" title="Present Completion">
+      <template-output section="Knowledge Complete">
+        ## Knowledge Extraction Complete
+        
+        ### Summary
+        **Name:** {{knowledge_name}}
+        **Type:** {{knowledge_type}}
+        **Location:** {{output_path}}
+        
+        ### Contents
+        - {{item_count}} patterns/items extracted
+        - {{example_count}} examples included
+        - {{anti_pattern_count}} anti-patterns documented
+        
+        ### Source Material
+        {{#each sources}}
+        - {{path}}
+        {{/each}}
+        
+        ### Validation
+        - Accuracy: {{accuracy_status}}
+        - Actionability: {{actionability_status}}
+        - Usefulness: {{usefulness_status}}
+        
+        [a] Edit knowledge [c] Complete
+      </template-output>
+    </substep>
+
+    <substep n="4g" title="Present Next Steps">
+      <output>
+        ## Next Steps
+        
+        1. **Review the document:**
+           {{output_path}}/knowledge.md
+        
+        2. **Integrate with skills/agents:**
+           - Add to skill references/ if skill-specific
+           - Reference in agent instructions if broadly applicable
+        
+        3. **Keep it updated:**
+           - Re-extract when source material changes significantly
+           - Add new patterns as they emerge
+        
+        4. **Usage suggestions:**
+           {{#if for_agents}}
+           - Load this knowledge when agent needs {{context}}
+           - Reference specific patterns by name
+           {{/if}}
+           {{#if for_skills}}
+           - Add to skill's references/ folder
+           - Load via references/steps/ when needed
+           {{/if}}
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+    
+    <section title="Validation Criteria">
+      <criterion name="Accuracy">
+        Knowledge faithfully represents source material.
+        No invented patterns or misquoted examples.
+      </criterion>
+      <criterion name="Completeness">
+        Major patterns are captured.
+        Examples cover common cases.
+        Anti-patterns document pitfalls.
+      </criterion>
+      <criterion name="Actionability">
+        Someone could follow these patterns correctly.
+        Enough context to adapt to specific situations.
+      </criterion>
+      <criterion name="Usability">
+        Well-organized and scannable.
+        Appropriate format for intended audience.
+      </criterion>
+    </section>
+
+    <section title="Knowledge Placement Guide">
+      <placement name="Skill references/">
+        <when>Knowledge specific to one skill's operation</when>
+        <example>XML tag reference for skill-creator</example>
+      </placement>
+      <placement name="Shared knowledge/">
+        <when>Knowledge applicable across multiple skills/agents</when>
+        <example>Prompt engineering patterns</example>
+      </placement>
+      <placement name="Agent reference">
+        <when>Knowledge that shapes agent's default behavior</when>
+        <example>Coding conventions for build agent</example>
+      </placement>
+    </section>
+
+    <section title="Maintenance">
+      <description>Knowledge needs ongoing maintenance:</description>
+      <rules>
+        <rule>Re-extract when source material changes significantly</rule>
+        <rule>Add new patterns as they emerge from practice</rule>
+        <rule>Remove or update patterns that prove incorrect</rule>
+        <rule>Track usage - unused knowledge may need improvement</rule>
+      </rules>
+    </section>
+
+  </guidance>
+
+</step-file>

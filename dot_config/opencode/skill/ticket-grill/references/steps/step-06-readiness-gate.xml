@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-grill" step="6" title="Readiness Gate">
+
+  <step n="6" title="Readiness Gate">
+
+    <goal>
+      Evaluate whether the Q↔R loop has produced enough understanding to
+      exit to the Design phase. If all five readiness criteria from QRDSPIV
+      are met, summarize and hand off to ticket-design. If any is not met,
+      loop back to step 2 for another turn.
+    </goal>
+
+    <substep n="6a" title="Evaluate the Five Criteria">
+      <action>
+        Check each criterion against the accumulated bundle state. Per
+        QRDSPIV §Q↔R Readiness Criteria and spec §3.1:
+
+        1. **The problem is clearly scoped (user confirmed)**
+           - Restatement in the ticket body matches what was grilled
+           - Scope boundaries are explicit (in-scope AND out-of-scope clear)
+           - User has confirmed scope, not just acknowledged it
+
+        2. **The current state is factually mapped (codebase, artifacts)**
+           - Research file has factual findings for every relevant code area
+           - No "we don't know if X exists" gaps remain on critical questions
+           - Subagent findings have been synthesized, not just collected
+
+        3. **Impact is understood (what artifacts need creating/modifying)**
+           - The downstream artifacts implied by this ticket are identified
+             at a high level (e.g., "this needs an ADR for the data isolation
+             pattern; a spec for team APIs; an implementation across N
+             vertical slices")
+           - Risk areas are surfaced (e.g., "auth middleware refactor will
+             touch 47 test files")
+
+        4. **Edge cases are identified (deletion, error states, permissions)**
+           - Edge cases relevant to the primary tag are enumerated and have
+             chosen answers
+           - "What happens when X is deleted?" / "What happens on permission
+             denial?" / "What's the concurrency story?" — at least asked,
+             ideally answered
+
+        5. **The agent can articulate what it knows WITHOUT being asked**
+           - Most rigorous criterion. The agent should be able to walk
+             through the scope, current state, design implications, risks,
+             and edge cases from the bundle alone, without re-reading the
+             user's original message.
+
+        For each criterion, record:
+        - PASS / NOT YET
+        - One-line evidence (e.g., "ticket body lines 12-25 cover scope;
+          out-of-scope listed in lines 30-35")
+
+        Store as {{session.readiness_check}}.
+      </action>
+    </substep>
+
+    <substep n="6b" title="Decide Loop or Exit">
+      <check if="all five criteria pass">
+        <action>
+          The loop is ready to exit. Proceed to substep 6c.
+        </action>
+      </check>
+      <check if="one or more criteria fail">
+        <action>
+          The loop continues. Proceed to substep 6d to surface the gap and
+          loop back to step 2.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="6c" title="Confirm Exit With User">
+      <ask>
+        Present the user with the readiness summary:
+
+        Readiness check ({{turn_count}} turns elapsed):
+        1. Problem scoped: PASS — {{evidence}}
+        2. Current state mapped: PASS — {{evidence}}
+        3. Impact understood: PASS — {{evidence}}
+        4. Edge cases identified: PASS — {{evidence}}
+        5. Agent can articulate unprompted: PASS — {{summary of articulation}}
+
+        Bundle artifacts:
+        - Ticket: {{session.ticket_path}} ({{ticket_body_line_count}} lines)
+        - Research: {{session.research_path}} ({{turn_count}} turn entries)
+        - Questions: {{session.questions_path}} ({{question_count}} Q&A entries)
+        - Decision Records: {{count and aliases}}
+        - CONTEXT.md updates: {{terms added this session}}
+
+        Ready to transition to Design phase (ticket-design)?
+        - Confirm (Recommended): exit Q↔R; recommend ticket-design via menu
+        - One more turn: I see a gap — describe it
+        - Pause: stop here; bundle is on disk for later resumption
+      </ask>
+      <check if="user confirms">
+        <action>
+          Proceed to substep 6e (final handoff write).
+        </action>
+      </check>
+      <check if="user requests one more turn">
+        <action>
+          Capture the gap into session state as the next turn's focus.
+          Loop back to step 2.
+        </action>
+        <goto step="2"/>
+      </check>
+      <check if="user pauses">
+        <action>
+          The bundle on disk is the handoff state. Acknowledge and exit
+          the skill without writing a handoff section to the questions
+          file beyond what step 5 already wrote. The user can resume by
+          re-invoking ticket-grill on the same bundle path.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="6d" title="Surface the Gap and Loop">
+      <ask>
+        Readiness not yet met:
+        {{for each failing criterion:}}
+        - {{criterion N}}: NOT YET — {{what's missing}}
+
+        I propose the next turn focus on: {{agent's recommended next gap}}.
+
+        - Accept (Recommended): proceed with the proposed focus
+        - Redirect: focus on a different gap; describe
+        - Force-exit: skip readiness and exit anyway (NOT RECOMMENDED — this
+          will produce an under-grilled ticket that will surface gaps in
+          ticket-design or ticket-verify)
+        - Pause: stop here; bundle is on disk for later resumption
+      </ask>
+      <check if="user accepts or redirects">
+        <action>
+          Capture the next turn's focus into session state. Loop back to step 2.
+        </action>
+        <goto step="2"/>
+      </check>
+      <check if="user force-exits">
+        <action>
+          Note the force-exit in the questions file (which criteria were
+          unmet at exit). The bundle is technically usable but flagged
+          as under-grilled. Proceed to substep 6e.
+        </action>
+      </check>
+      <check if="user pauses">
+        <action>
+          Exit the skill. Bundle on disk is the handoff state.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="6e" title="Write Readiness Summary to Worklog">
+      <action>
+        Append a Readiness Summary section to the WORKLOG file (the QRDSPIV
+        journal — not the ticket, which holds only the deliverable). Format:
+
+        ## Q↔R Readiness Summary
+
+        - Turns elapsed: {{turn_count}}
+        - Status: READY (or FORCE-EXIT with caveats)
+
+        **Scope**: {{one-paragraph restatement, refined by grilling}}
+        **Current state**: {{one-paragraph synthesis of research findings}}
+        **Impact**: {{one-paragraph downstream artifact map}}
+        **Risk areas**: {{bullet list}}
+        **Edge cases addressed**: {{bullet list}}
+        **Decision Records spawned**: {{list of DR aliases}}
+
+        Use the Edit tool on the worklog file. Then stamp last_updated:
+
+        uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{session.worklog_path}}" --note "Q↔R complete; readiness gate passed; ready for ticket-design."
+      </action>
+    </substep>
+
+    <substep n="6f" title="Present Final Handoff">
+      <template-output section="Q↔R Complete" critical="true">
+        Grilling complete. Bundle ready for Design.
+
+        **Bundle location**: {{session.bundle_dir}}
+
+        **Turns elapsed**: {{turn_count}}
+        **DRs spawned**: {{count}}
+        **CONTEXT.md updates**: {{terms_count}}
+
+        **Readiness Summary** has been written into the ticket body (see
+        the ticket file).
+
+        **Next action**: invoke the `ticket-design` skill from the
+        ticketsmith menu (cmd: TD) for the Design phase. ticket-design will
+        load this bundle, read the Readiness Summary, and run the
+        brain-surgery alignment conversation on the work to be done.
+
+        If you need to resume the Q↔R loop later (e.g., ticket-design
+        surfaces a scoping gap and loops back), re-invoke ticket-grill on
+        the same bundle path — it will pick up from the readiness state
+        and run an additional turn.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="The fifth criterion is the strict one">
+      <description>
+        Criteria 1-4 are objective checks against the bundle's content.
+        Criterion 5 — "the agent can articulate what it knows WITHOUT being
+        asked" — is the rigorous one. If the agent can only articulate the
+        work by re-reading the user's original request or by paraphrasing
+        prior Q&A, the loop is not actually done. The articulation should
+        flow from the bundle's accumulated state.
+      </description>
+    </section>
+
+    <section title="Force-exit is a defined failure mode">
+      <rules>
+        <rule>Force-exit produces an under-grilled ticket. ticket-design or ticket-verify will surface the gaps later, but at higher cost</rule>
+        <rule>Force-exit should be RARE — reserved for cases where the user has external time pressure</rule>
+        <rule>The questions file MUST record which criteria were unmet at force-exit; ticket-verify will check this</rule>
+        <rule>Do not encourage force-exit; offer it as an explicit option but recommend against it</rule>
+      </rules>
+    </section>
+
+    <section title="Loop-back is normal">
+      <description>
+        Spec §3.2 lists backward loops as permitted. ticket-design may
+        return to ticket-grill if D-phase alignment reveals a scoping gap.
+        That re-entry is handled by step 1 (load bundle) detecting prior
+        Q&A entries and resuming from the readiness gate's last failure
+        state. No special "resume mode" is needed.
+      </description>
+    </section>
+
+    <section title="Three-strike escalation is a separate concern">
+      <description>
+        Per Lock 31, when the user reverses a foundational decision after
+        D-phase alignment, a three-strike pattern escalates to abort
+        recommendation. That pattern is OWNED BY ticket-design (the
+        D-phase skill), not here — ticket-grill simply absorbs the new
+        focus and loops. The strike counter sits in ticket-design's
+        session state.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

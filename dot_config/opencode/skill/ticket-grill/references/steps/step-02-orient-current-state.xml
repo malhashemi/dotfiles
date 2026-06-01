@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-grill" step="2" title="Orient on Current State">
+
+  <step n="2" title="Orient on Current State">
+
+    <goal>
+      Before formulating new questions, take stock of what is currently known
+      and what is unknown. Identify the highest-value gap to close THIS turn.
+      This step is the loop's re-entry point — every turn restarts here.
+    </goal>
+
+    <substep n="2a" title="Inventory the Known">
+      <action>
+        List what is currently established, from the bundle and any
+        accumulated session findings:
+        - Scope facts (restatement, primary tag, slug)
+        - Glossary terms resolved in CONTEXT.md
+        - Research findings recorded in the research file
+        - Decisions locked in linked DRs
+        - Edge cases identified in prior turns
+        - User stances from prior Q&A entries
+
+        Be terse. One line per fact. The point is to identify what does NOT
+        need re-litigating, not to recite a transcript.
+      </action>
+    </substep>
+
+    <substep n="2b" title="Inventory the Unknown">
+      <action>
+        Enumerate the gaps. Categories:
+        - Scoping gaps (what the work is supposed to cover; what it is NOT)
+        - Codebase facts (how the system currently behaves; what exists)
+        - Domain facts (how similar systems handle similar problems)
+        - Decision points (alternatives with real trade-offs that need a chosen path)
+        - Edge cases (deletion behavior, error states, permissions, concurrency)
+        - Constraints (deadlines, regulatory, compatibility)
+        - Term ambiguity (words used by the user that need glossary precision)
+
+        Be honest. If a gap is "we have not even thought about X yet", surface
+        it. Suppressed unknowns become surprises during ticket-design or
+        implementation.
+      </action>
+    </substep>
+
+    <substep n="2c" title="Pick the Highest-Value Gap">
+      <action>
+        Select ONE gap to close this turn. Heuristics:
+        - Closest to scope > deeper detail (scope first)
+        - Blocks other gaps > stands alone (unblockers first)
+        - Single-question shape > multi-pronged (cheaper first, unless a multi-prong is genuinely required)
+        - User-answerable now > research-bound (don't burn subagent calls when the user can answer immediately)
+
+        Store as {{session.turn_focus}}: a one-sentence description of the
+        gap being closed this turn.
+      </action>
+    </substep>
+
+    <substep n="2d" title="Declare Mode for This Turn">
+      <action>
+        Q↔R has four sub-activities (QRDSPIV §Q↔R). Declare which the
+        current turn will primarily use:
+
+        - **Brainstorming**: vague idea -> concrete possibilities. Use when the user's request is fuzzy and needs shape before research can target it.
+        - **Research**: factual gathering. Use when the gap is "what exists" or "what do others do".
+        - **Elicitation**: targeted question to the user. Use when only the user can answer (preferences, scoping decisions, business constraints).
+        - **Prototyping**: throwaway runnable artifact (LOGIC or UI). Use when the gap is "I do not know if this is feasible" or "I do not know what this would feel like".
+
+        Most turns will use one mode dominantly; some may blend two. Store
+        as {{session.turn_mode}}.
+      </action>
+    </substep>
+
+    <substep n="2e" title="Display Turn Plan">
+      <output>
+        Turn {{turn_number}} plan:
+        - Focus: {{session.turn_focus}}
+        - Mode: {{session.turn_mode}}
+        - Known facts brought forward: {{count}}
+        - Unknowns enumerated: {{count}}
+
+        Proceeding to question formulation.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="One gap per turn">
+      <description>
+        Multi-gap turns blur subagent dispatch and dilute the user's
+        attention at the per-turn checkpoint. One focused gap per turn
+        makes the Q&A log readable and the readiness gate evaluable.
+        If two gaps are genuinely entangled (cannot answer one without the
+        other), pick the more upstream one and let the second emerge from
+        its resolution.
+      </description>
+    </section>
+
+    <section title="Hide-the-intent does NOT apply here">
+      <description>
+        Spec §3 and QRDSPIV note that "hide the intent" applies only to
+        implementation Q↔R (where the agent gathers codebase facts WITHOUT
+        reading what the spec says to change, to prevent premature
+        opinion-forming). At the ticket-writing layer the agent is open
+        about what is being grilled — the user is a participant in the
+        grilling, not a subject of it. State the focus plainly; do not
+        sandbag.
+      </description>
+    </section>
+
+    <section title="When the bundle is already rich">
+      <description>
+        On later turns, the bundle has accumulated research findings,
+        resolved Q&A entries, and possibly DRs. The "known" inventory in 2a
+        compresses these into a one-line-per-fact summary. The point is
+        not to re-prove what is already on disk; the point is to choose
+        what to investigate NEXT.
+      </description>
+    </section>
+
+    <section title="If the unknown inventory is empty">
+      <description>
+        If 2b produces no genuine unknowns AND step 6's readiness criteria
+        are all clearly met, the loop is converging. In that case the next
+        turn IS the readiness gate — skip 2c/2d and proceed straight to
+        step 6 to confirm and exit. But: do not force this early. The most
+        common failure mode is exiting Q↔R too soon, not too late.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

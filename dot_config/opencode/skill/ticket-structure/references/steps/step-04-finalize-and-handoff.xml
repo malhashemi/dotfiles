@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-structure" step="4" title="Finalize and Handoff">
+
+  <step n="4" title="Finalize and Handoff">
+
+    <goal>
+      Write the locked Structure Outline into the ticket body, stamp
+      last_updated, re-validate, present handoff to ticket-plan.
+    </goal>
+
+    <substep n="4a" title="Write Structure Outline to Worklog">
+      <action>
+        Append the Structure Outline to the worklog file. Use the
+        Edit tool. Heading: "## Structure Outline" (level 2). Placement:
+        AFTER the Design Summary section in the worklog.
+
+        The worklog journal now reads:
+        - Orient Summary (from ticket-orient)
+        - Q↔R Readiness Summary (from ticket-grill)
+        - Design Summary (from ticket-design)
+        - Structure Outline (from this skill)
+        - (later: Writing Plan and Verify Session)
+      </action>
+    </substep>
+
+    <substep n="4b" title="Stamp last_updated">
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{worklog_path}}" --note "S-phase complete; Structure Outline locked. Shape: {{shape_mode}}, sections: {{count}}, Parts: {{use_parts}}."</action>
+    </substep>
+
+    <substep n="4c" title="Re-Validate Bundle">
+      <action type="script">thoughts validate {{ticket_path}} {{research_path}} {{questions_path}} {{worklog_path}}</action>
+      <check if="validation fails">
+        <action>
+          Halt. Surface validation errors. Do NOT auto-fix.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="4d" title="Present Final Handoff">
+      <template-output section="S-Phase Complete" critical="true">
+        Structure phase complete. Bundle ready for Plan.
+
+        **Bundle location**: {{bundle_dir}}
+
+        **Structure Outline** (now in ticket body):
+
+        {{structure_outline_final}}
+
+        **Summary**:
+        - Shape mode: {{shape_mode}}
+        - Section count: {{count}}
+        - Numbered Parts: {{use_parts}}
+        - Custom additions: {{custom_additions_count}}
+        - Recipe omissions: {{custom_omissions_count}}
+
+        **Next action**: invoke `ticket-plan` from the ticketsmith
+        menu (cmd: TP) to plan HOW to fill these sections — writing
+        order, subagent batching, review checkpoints.
+
+        ticket-plan loads this Structure Outline and produces a writing
+        plan (which sections to draft together, when to pause for
+        review, etc.). That plan informs ticket-write.
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Status remains 'draft'">
+      <description>
+        Like all phases before Verify, this skill leaves the ticket at
+        status=draft. Only ticket-verify's final step transitions to
+        'ready'.
+      </description>
+    </section>
+
+    <section title="The Structure Outline is read by downstream skills">
+      <description>
+        - ticket-plan reads the section list to plan writing order and
+          subagent batching
+        - ticket-write reads the section list to know what to fill
+        - ticket-verify checks the final ticket against the outline
+          (every outlined section should be present, non-empty, and
+          honor its scope note)
+
+        Changes to the outline after this point trigger ticket-verify
+        findings — keep the outline locked from here forward unless a
+        downstream skill explicitly loops back.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

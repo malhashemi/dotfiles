@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="pr-cycle" step="8" title="Request Re-Review and Loop">
+
+  <step n="8" title="Request Re-Review and Loop">
+
+    <substep n="8a" title="Compose Re-Review Summary">
+      <action>
+        Build a markdown table summarizing this iteration's actions:
+
+        | Thread | Status | Details |
+        |--------|--------|---------|
+        | {file}:{line} | Addressed | Commit {sha} |
+        | {file}:{line} | Declined | {short rationale} |
+        | {file}:{line} | Deferred | Issue #{n} |
+      </action>
+    </substep>
+
+    <substep n="8b" title="Post Re-Review Request Comment">
+      <action type="script">gh pr comment {{pr_number}} --body "## Review Feedback Summary
+
+@gemini-code-assist All feedback has been addressed.
+
+{{summary_table}}
+
+Please re-review the changes."</action>
+    </substep>
+
+    <substep n="8c" title="Update State File">
+      <action>
+        Update {{bundle_dir}}/pr-cycle-state.md frontmatter:
+        - iteration_count: {{iteration_count + 1}}
+        - last_action_time: current ISO 8601
+        - last_action: RE_REVIEW_REQUESTED
+        - pr_number: {{pr_number}}
+        - pr_url: {{pr_url}}
+        - threads_addressed_total: cumulative
+        - threads_declined_total: cumulative
+        - threads_deferred_total: cumulative
+
+        Body includes per-iteration log:
+        ## Iteration {{iteration_count}}
+        - Threads: {{n_address}} addressed, {{n_decline}} declined, {{n_defer}} deferred
+        - Commit: {{fix_commit_sha}} (if any)
+        - Re-review requested at: {{timestamp}}
+      </action>
+    </substep>
+
+    <substep n="8d" title="Check for Context Warning">
+      <check if="context_warning_received == true">
+        <action>Exit with CONTEXT_HANDOFF report (see step 9).</action>
+      </check>
+    </substep>
+
+    <substep n="8e" title="Loop">
+      <action>Increment iteration_count. Return to step 3 (await Gemini's response).</action>
+      <goto step="3"/>
+    </substep>
+
+  </step>
+
+</step-file>

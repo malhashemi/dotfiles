@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-design" step="5" title="Identify Plans">
+
+  <step n="5" title="Identify Plans">
+
+    <substep n="5a" title="Assess Plan Count">
+      <action>
+        Review the design decisions + vertical slices. Determine:
+
+        - Single plan (default): one set of related slices that
+          implement the entire design in one coordinated effort
+        - Multi-plan: design surfaces N architecturally-distinct
+          plannable areas (NOT sub-tickets — the ticket stays one
+          ticket; the implementation produces multiple plan docs)
+
+        Criteria for multi-plan:
+        - The work splits along clear module boundaries
+        - Each split can produce a coherent plan independently
+        - The total work is large enough that splitting yields real
+          benefit (parallel-safe execution or sequential focus)
+
+        Most implementations are single-plan. Multi-plan emerges from
+        architecturally-large features or infrastructure work.
+      </action>
+    </substep>
+
+    <substep n="5b" title="Document in Design File">
+      <action>
+        Under "### Multi-plan identification" in the design doc, write
+        either:
+
+        - Single plan: "This design produces one plan covering all
+          {{N}} vertical slices."
+
+        OR
+
+        - Multi-plan:
+          "This design produces {{N}} plans:
+          - Plan 1: {{scope; which slices}}
+          - Plan 2: {{scope; which slices}}
+          - ..."
+      </action>
+    </substep>
+
+    <substep n="5c" title="Confirm With User">
+      <ask>
+        Plan identification: {{single-plan | N-plan}}.
+
+        {{rationale if multi-plan}}
+
+        - Accept (Recommended)
+        - Reconsider: I see a different split
+      </ask>
+      <check if="user accepts">
+        <action>Proceed to step 6.</action>
+      </check>
+      <check if="user reconsiders">
+        <action>Revise; re-present. Loop within step.</action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

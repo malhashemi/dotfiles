@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-orient" step="1" title="Detect Mode">
+
+  <step n="1" title="Detect Mode">
+
+    <substep n="1a" title="Ask If Not Provided">
+      <ask>
+        What are we working on?
+
+        - **Planning mode**: provide a `status: ready` ticket reference (file path or canonical alias). I'll scaffold a new implementation bundle and run Q↔R / D / S / P.
+
+        - **Execution mode**: provide an existing implementation bundle directory path (e.g., `~/thoughts/.../implementations/2026-05-19-team-workspaces/`). I'll resume from the bundle's state and run I-phase orchestration.
+
+        Paste the path or alias.
+      </ask>
+      <action>Store the input as {{raw_input}}.</action>
+    </substep>
+
+    <substep n="1b" title="Classify Input Shape">
+      <action>
+        Inspect {{raw_input}}:
+
+        - If it ends in `.md` AND the file's frontmatter has
+          `kind: ticket` → PLANNING MODE.
+        - If it is a directory AND contains a file matching
+          `design-*.md` → EXECUTION MODE.
+        - If it is a canonical alias matching `^ticket-` →
+          resolve via `thoughts metadata` shared_folder +
+          tickets/<slug>/<filename>. → PLANNING MODE.
+
+        - Otherwise: halt with: "Cannot classify input
+          {{raw_input}}. Expected a `status: ready` ticket path/alias
+          (planning mode) or an implementation bundle directory
+          (execution mode)."
+
+        Store as {{mode}} = "planning" | "execution".
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="skill-creator" step="8" title="Create Step Files">
+
+  <step n="8" title="Create Step Files" if="skill_type == 'workflow'">
+    
+    <goal>
+      Generate the individual step files based on the workflow design.
+      Each step file contains detailed instructions, guidance, and examples.
+    </goal>
+
+    <note>
+      This step only applies to workflow-type skills.
+      We create one XML file per step in references/steps/.
+    </note>
+
+    <substep n="8a" title="Generate Step Files">
+      <action for-each="step in workflow_design">
+        Create step file: .vera/skills/{{skill_id}}/references/steps/step-NN-{{slug}}.xml
+        (where NN is zero-padded step number and slug is the step's kebab-case summary)
+
+        Each step file follows the structure:
+        1. step-file wrapper with skill, step, title attributes
+        2. step element with goal, substeps, actions
+        3. guidance section with rules and examples
+        4. examples section with concrete configurations
+      </action>
+    </substep>
+
+    <substep n="8b" title="Add Guidance Sections">
+      <action for-each="step file">
+        For each step file, add relevant guidance:
+        
+        - What decisions are made in this step?
+        - What are the rules/constraints?
+        - What are good vs bad examples?
+        - What common mistakes should be avoided?
+        
+        Guidance makes the skill self-documenting and helps the LLM
+        make better decisions.
+      </action>
+    </substep>
+
+    <substep n="8c" title="Add Examples">
+      <action for-each="step file">
+        Add 2-3 concrete examples per step:
+        
+        - Example name and context
+        - Complete config/output for that example
+        - Rationale explaining WHY this is a good example
+        
+        Examples ground the instructions in reality.
+      </action>
+    </substep>
+
+    <substep n="8d" title="Review Step Files">
+      <template-output section="Step Files">
+        List created step files with per-file summary (filename, goal,
+        substep count, presence of guidance and examples).
+
+        [a] Review/edit specific files [c] Continue [y] YOLO
+      </template-output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Step File Structure">
+      <description>Every step file follows this XML structure:</description>
+      <template>
+        ```xml
+        &lt;?xml version="1.0" encoding="UTF-8"?&gt;
+        &lt;step-file skill="skill-name" step="N" title="Step Title"&gt;
+
+          &lt;step n="N" title="Step Title"&gt;
+            &lt;goal&gt;What this step accomplishes&lt;/goal&gt;
+            
+            &lt;substep n="Na" title="First Substep"&gt;
+              &lt;action&gt;What to do&lt;/action&gt;
+              &lt;ask&gt;Question for user&lt;/ask&gt;
+            &lt;/substep&gt;
+            
+            &lt;substep n="Nb" title="Second Substep"&gt;
+              &lt;template-output section="Section Name"&gt;
+                Content to save...
+                [a] Adjust [c] Continue [y] YOLO
+              &lt;/template-output&gt;
+            &lt;/substep&gt;
+          &lt;/step&gt;
+
+          &lt;guidance&gt;
+            &lt;section title="Topic"&gt;
+              &lt;rules&gt;&lt;rule&gt;Rule 1&lt;/rule&gt;&lt;/rules&gt;
+              &lt;example type="good"&gt;Good example&lt;/example&gt;
+              &lt;example type="bad"&gt;Bad example&lt;/example&gt;
+            &lt;/section&gt;
+          &lt;/guidance&gt;
+
+          &lt;examples&gt;
+            &lt;example name="Example Name"&gt;
+              &lt;context&gt;When this applies&lt;/context&gt;
+              &lt;config&gt;The actual configuration&lt;/config&gt;
+              &lt;rationale&gt;Why this is good&lt;/rationale&gt;
+            &lt;/example&gt;
+          &lt;/examples&gt;
+
+        &lt;/step-file&gt;
+        ```
+      </template>
+    </section>
+
+    <section title="Writing Good Guidance">
+      <rules>
+        <rule>Focus on decisions made in THIS step</rule>
+        <rule>Include both rules (what to do) and anti-patterns (what not to do)</rule>
+        <rule>Use good/bad example pairs to illustrate rules</rule>
+        <rule>Keep guidance actionable, not theoretical</rule>
+      </rules>
+      <example type="good">
+        "Skill names must be kebab-case and start with a verb"
+        Good: create-product-brief
+        Bad: ProductBrief (wrong case)
+      </example>
+      <example type="bad">
+        "Names should be good" (too vague, not actionable)
+      </example>
+    </section>
+
+    <section title="Writing Good Examples">
+      <rules>
+        <rule>Use real, complete examples (not fragments)</rule>
+        <rule>Include context: when/why this example applies</rule>
+        <rule>Always include rationale: WHY is this good?</rule>
+        <rule>2-3 examples per step is ideal</rule>
+        <rule>Show variety: different types, edge cases</rule>
+      </rules>
+    </section>
+
+    <section title="Substep Design">
+      <rules>
+        <rule>Each substep should do ONE thing</rule>
+        <rule>Use action for instructions</rule>
+        <rule>Use ask for user input (ALWAYS waits for response)</rule>
+        <rule>Use template-output for checkpoints</rule>
+        <rule>Substeps numbered as Na, Nb, Nc...</rule>
+      </rules>
+    </section>
+
+    <section title="File Naming Convention">
+      <rules>
+        <rule>Pattern: step-NN-slug.xml</rule>
+        <rule>NN is zero-padded step number: 01, 02, ... 08</rule>
+        <rule>slug is kebab-case summary: discovery, scaffold, validate</rule>
+      </rules>
+      <example>
+        step-01-discovery.xml
+        step-02-type.xml
+        step-03-scaffold.xml
+        step-08-validate.xml
+      </example>
+    </section>
+
+  </guidance>
+
+  <examples>
+    <example name="Discovery Step">
+      <context>First step gathering requirements</context>
+      <config>
+        &lt;step n="1" title="Discovery &amp; Context"&gt;
+          &lt;goal&gt;Understand what the user wants to create&lt;/goal&gt;
+          
+          &lt;substep n="1a" title="Gather Requirements"&gt;
+            &lt;ask&gt;What would you like to create? Please describe...&lt;/ask&gt;
+          &lt;/substep&gt;
+          
+          &lt;substep n="1b" title="Confirm Understanding"&gt;
+            &lt;template-output section="Discovery Summary"&gt;
+              Summary of requirements...
+              [a] Explore more [c] Continue
+            &lt;/template-output&gt;
+          &lt;/substep&gt;
+        &lt;/step&gt;
+      </config>
+      <rationale>
+        Standard discovery pattern: ask → confirm. Template-output creates
+        checkpoint for user to verify understanding.
+      </rationale>
+    </example>
+
+    <example name="Validation Step">
+      <context>Final step running validation</context>
+      <config>
+        &lt;step n="8" title="Validate &amp; Complete"&gt;
+          &lt;goal&gt;Run validation and present next steps&lt;/goal&gt;
+          
+          &lt;substep n="8a" title="Run Validation"&gt;
+            &lt;action type="script"&gt;uv run scripts/validate.py {{output_file}}&lt;/action&gt;
+            &lt;check if="validation fails"&gt;
+              &lt;action&gt;Fix issues and re-run&lt;/action&gt;
+            &lt;/check&gt;
+          &lt;/substep&gt;
+          
+          &lt;substep n="8b" title="Present Summary"&gt;
+            &lt;template-output section="Completion Summary" critical="true"&gt;
+              ## Created Successfully
+              Location: ...
+              Next steps: ...
+            &lt;/template-output&gt;
+          &lt;/substep&gt;
+        &lt;/step&gt;
+      </config>
+      <rationale>
+        Standard completion pattern: validate → summarize.
+        Script runs validation, summary shows what was created and next steps.
+      </rationale>
+    </example>
+  </examples>
+
+</step-file>

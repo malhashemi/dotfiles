@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-structure" step="4" title="Lock and Handoff">
+
+  <step n="4" title="Lock and Handoff">
+
+    <substep n="4a" title="Flip Structure Status to Locked">
+      <action>
+        Edit {{structure_path}} frontmatter: status: "active" → status:
+        "accepted".
+      </action>
+    </substep>
+
+    <substep n="4b" title="Update Design Children">
+      <action>
+        Edit {{design_path}} frontmatter children: add the structure
+        canonical alias.
+      </action>
+    </substep>
+
+    <substep n="4c" title="Stamp">
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{structure_path}}" --note "S-phase locked; {{plan_count}} plan(s), {{slice_count}} slice(s), {{file_count}} file(s)"</action>
+      <action type="script">uv run {base_dir}/scripts/stamp-frontmatter.py --file "{{design_path}}" --note "Linked structure: [[{{structure_canonical_alias}}]]"</action>
+    </substep>
+
+    <substep n="4d" title="Validate">
+      <action type="script">thoughts validate "{{structure_path}}" "{{design_path}}"</action>
+      <check if="validation fails">
+        <action>Halt; surface validation error.</action>
+      </check>
+    </substep>
+
+    <substep n="4e" title="Emit Handoff">
+      <template-output section="Structure Locked" critical="true">
+        S-phase complete.
+
+        - Structure: {{structure_path}} (status: accepted)
+        - Plans: {{plan_count}}
+        - Files: {{file_count}}
+        - Slices: {{slice_count}}
+
+        **Next**: invoke `code-plan` skill. It will read the structure
+        doc + design + ticket, and produce per-plan tactical steps
+        (TDD vertical: test → impl → green → verify → commit) plus
+        the Parallel-Safety Evaluation (Lock 27) determining whether
+        plans run in parallel worktrees or serialize.
+      </template-output>
+    </substep>
+
+  </step>
+
+</step-file>

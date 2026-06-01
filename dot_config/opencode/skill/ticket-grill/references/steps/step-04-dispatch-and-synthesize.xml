@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="ticket-grill" step="4" title="Dispatch and Synthesize">
+
+  <step n="4" title="Dispatch and Synthesize">
+
+    <goal>
+      Execute the turn's composition: ask the user question (if any),
+      dispatch subagents in parallel for the research agenda, perform the
+      artifact checks, then synthesize all findings into a coherent set
+      of turn-level facts.
+    </goal>
+
+    <substep n="4a" title="Ask the User Question">
+      <check if="session.user_question is not null">
+        <ask>
+          Use the Question tool. Present session.user_question:
+          - The question statement
+          - Options list with RECOMMENDED FIRST (label ending in "(Recommended)")
+          - Each option with a one-line description and trade-off
+
+          Capture the user's answer. Store as
+          {{session.turn_user_answer}}: {answer, rejected_alternatives, why_not}.
+
+          The "why_not" for each rejected alternative is the agent's
+          one-line reasoning, not the user's — the user picked one option,
+          so the agent records WHY the others were on the table but
+          rejected (this populates the Q&A log in step 5).
+        </ask>
+      </check>
+      <check if="session.user_question is null">
+        <action>
+          Skip this substep. Proceed to research dispatch.
+        </action>
+      </check>
+    </substep>
+
+    <substep n="4b" title="Load Research Dispatch Reference">
+      <action>
+        Load {{base_dir}}/references/subagent-dispatch.md to refresh the
+        researcher-dispatch model and the web-approval gate.
+      </action>
+    </substep>
+
+    <substep n="4c" title="Web Search Approval Gate">
+      <check if="session.research_agenda contains web-search-researcher">
+        <ask>
+          One item in this turn's research agenda requires external/web
+          research. Subagent: web-search-researcher.
+          Topic: {{the web research item's question}}
+
+          Approve dispatching web search?
+          - Approve (Recommended): proceed with web search
+          - Decline: fall back to codebase + thoughts/ only; note deferral in questions file
+        </ask>
+        <check if="user declines">
+          <action>
+            Remove the web-search-researcher item from
+            {{session.research_agenda}}. Note in {{session.turn_notes}} that
+            web research was deferred this turn — step 5 will log this in
+            the questions file.
+          </action>
+        </check>
+      </check>
+    </substep>
+
+    <substep n="4d" title="Dispatch researcher">
+      <invoke-agent name="researcher" prompt="
+Answer these research questions and return synthesized findings with
+citations.
+
+Questions (JSON array; each entry carries question_text, scope, an
+optional child_subagent_hint, and expected_output_shape):
+{{session.research_agenda}}
+
+web_search_approved: {{true if a web-research question survived the step
+4c approval gate, else false}}
+      "/>
+      <action>
+        Capture the returned synthesis as {{session.research_synthesis}}.
+        researcher selects the children, dispatches them in parallel,
+        validates and sharpens vague returns, and synthesizes — wait for
+        its single return.
+      </action>
+    </substep>
+
+    <substep n="4e" title="Perform Artifact Checks">
+      <action>
+        For each item in session.artifact_checks, read the file/path directly
+        using the read tool. Capture findings as part of the turn-level
+        synthesis. These are unrestricted direct reads (bundle files,
+        thoughts/ artifacts, root-level docs) per spec §7.2.
+      </action>
+    </substep>
+
+    <substep n="4f" title="Merge Turn Findings">
+      <action>
+        Combine the turn's findings into a coherent block:
+        - The user's answer (if any) -> direct quote or canonical rephrasing
+        - researcher's research synthesis ({{session.research_synthesis}})
+          -> already synthesized and cited; fold it in as-is, do not
+          re-summarize or paraphrase away its citations
+        - Each artifact check finding -> one or two sentences with citation
+
+        The merged block is what gets written to the research file in
+        step 5. It must read as factual findings — what IS — not opinions
+        about what should change. Per QRDSPIV §Q↔R: "Research is factual.
+        Gather FACTS, not opinions."
+
+        Store as {{session.turn_synthesis}}: a markdown block ready for
+        appending to the research file.
+      </action>
+    </substep>
+
+    <substep n="4g" title="Spot Resolved Terms and Decision Triggers">
+      <action>
+        Scan the turn's synthesis for:
+
+        - **Resolved terms**: did the user's answer or research clarify a
+          term that should go into CONTEXT.md? Mark
+          {{session.glossary_updates}} = list of {term, definition,
+          aliases_to_avoid}.
+
+        - **Decision triggers**: did a hard-to-reverse decision surface this
+          turn? Evaluate the three-condition gate from the
+          decision-record-format skill:
+          1. Hard to reverse?
+          2. Surprising without context?
+          3. Result of a real trade-off?
+
+          If all three are true, mark {{session.dr_candidate}} = {title,
+          context, decision, why, considered_options}. Step 5 will offer
+          the DR to the user and scaffold if approved.
+
+        These flags drive step 5's bundle updates.
+      </action>
+    </substep>
+
+    <substep n="4h" title="Display Turn Findings">
+      <output>
+        Turn {{turn_number}} findings:
+
+        - User answer: {{summary if any}}
+        - Subagents dispatched: {{count}} ({{names}})
+        - Artifact checks: {{count}}
+        - Synthesis length: {{words}} words
+
+        Flagged for step 5:
+        - Glossary updates: {{count}}
+        - DR candidate: {{title or "none"}}
+
+        Proceeding to bundle file updates.
+      </output>
+    </substep>
+
+  </step>
+
+  <guidance>
+
+    <section title="Research dispatch goes through researcher" critical="true">
+      <description>
+        All research dispatch goes through the researcher agent in a
+        single dispatch per turn carrying the research-agenda batch.
+        researcher handles child selection, parallel execution (Lock 28),
+        validation, and synthesis internally. ticket-grill composes the
+        questions and consumes the synthesis — it does not dispatch the
+        research children directly.
+      </description>
+      <rules>
+        <rule>One researcher dispatch per turn, carrying the whole research-agenda batch</rule>
+        <rule>Parallel child execution is researcher's concern, not ticket-grill's</rule>
+        <rule>One research question or four — still one researcher dispatch</rule>
+      </rules>
+    </section>
+
+    <section title="Synthesis discipline">
+      <description>
+        Research findings in the bundle's research file are FACTUAL,
+        evidence-bound, cited. They are not:
+        - Opinions ("I think we should...") — opinions belong to ticket-design
+        - Recommendations ("recommend Option A") — DRs and tickets carry these, not the research doc
+        - Raw transcripts — paste from subagents loses signal in noise
+
+        A finding looks like: "Auth middleware in src/middleware/auth.ts:42
+        extracts user_id from JWT and attaches to req.user. All 38 route
+        handlers under src/routes/ scope queries with req.user.id."
+        Not: "It looks like the auth might work via JWT? The middleware
+        seems to do something with user IDs."
+      </description>
+    </section>
+
+    <section title="When subagents return nothing useful">
+      <rules>
+        <rule>A subagent return that says "no matches found" or "unable to determine" is a factual finding — capture it</rule>
+        <rule>"X does not exist in the codebase" is information; "we don't know if X exists" is not</rule>
+        <rule>If a subagent's prompt was bad and the return is unusable, redispatch with a sharper prompt — do not paper over the gap in synthesis</rule>
+      </rules>
+    </section>
+
+    <section title="The DR three-condition gate is strict">
+      <description>
+        Most turns produce zero DR candidates. Most decisions are easy to
+        reverse, obvious, or had no real alternatives — they get logged
+        in the Q&A file but do not warrant DRs. DRs are reserved for the
+        load-bearing decisions; over-recording dilutes the signal. If in
+        doubt, defer — the next turn or ticket-design phase can promote a
+        Q&A entry to a DR if the gate truly fires.
+      </description>
+    </section>
+
+  </guidance>
+
+</step-file>

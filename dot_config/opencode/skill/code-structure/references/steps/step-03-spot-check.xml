@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="code-structure" step="3" title="Spot-Check With User">
+
+  <step n="3" title="Spot-Check With User">
+
+    <substep n="3a" title="Present Summary">
+      <ask>
+        Structure drafted at {{structure_path}}.
+
+        Summary:
+        - Plans: {{plan_count}}
+        - Total files: {{file_count}} ({{n_new}} new, {{n_modify}} modify)
+        - Total signatures: {{signature_count}}
+        - Total test files: {{test_file_count}}
+        - Total slices: {{slice_count}}
+        - AC coverage: {{ac_covered}} / {{ac_total}}
+
+        {{if ac_covered < ac_total: highlight uncovered AC}}
+
+        Your response:
+        - Accept (Recommended): proceed to lock
+        - Push back on a specific file/signature: name it + concern
+        - AC gap: loop back to code-design
+      </ask>
+      <check if="user accepts">
+        <action>Proceed to step 4.</action>
+      </check>
+      <check if="user pushes back">
+        <action>Revise the affected sections. Re-present. Loop within step.</action>
+      </check>
+      <check if="user wants loop back to design">
+        <action>
+          Halt this skill. Emit handoff: "code-structure surfaced AC
+          coverage gap. Re-invoke code-design to address. After
+          design is re-locked, re-invoke code-structure."
+        </action>
+      </check>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="research-investigate" step="5" title="Persist">
+
+  <step n="5" title="Persist">
+
+    <substep n="5a" title="Gather Metadata">
+      <action>
+        Run `thoughts metadata` to resolve owner, ISO timestamp,
+        repository, branch, commit, and shared_folder. These populate
+        the frontmatter per references/research/document-format — never
+        use placeholder values.
+      </action>
+    </substep>
+
+    <substep n="5b" title="Write the Document">
+      <action>
+        Compose the frontmatter from the metadata per
+        document-format. Prepend it to the body from step 4. Write to
+        {shared_folder}/research/ (or output_location when provided) with
+        filename YYYY-MM-DD_HH-MM-SS_{topic-slug}.md.
+      </action>
+    </substep>
+
+    <substep n="5c" title="Convert Citations to Permalinks">
+      <action>
+        Check whether the commit is pushed (branch has an upstream, or
+        is the default branch). If pushed: resolve owner/repo via
+        `gh repo view --json owner,name` and convert local file:line
+        citations to GitHub permalinks per document-format. If not
+        pushed: keep local file:line paths — a dangling permalink is
+        worse than an honest local path.
+      </action>
+    </substep>
+
+    <substep n="5d" title="Sync">
+      <action>
+        Run `thoughts sync` so the document is indexed and discoverable
+        by thoughts-locator on future investigations.
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<step-file skill="pr-cycle" step="1" title="Initialize PR Cycle State">
+
+  <step n="1" title="Initialize PR Cycle State">
+
+    <substep n="1a" title="Check for Existing State">
+      <action>
+        Check if {bundle_dir}/pr-cycle-state.md exists.
+        - If yes: this is a resumption. Load `iteration_count`,
+          `last_action_time`, `pr_number`, `pr_url` from frontmatter.
+          Skip step 2 (PR is already open). Proceed to step 3.
+        - If no: this is a first invocation. Initialize:
+          - iteration_count = 0
+          - last_action_time = current ISO 8601 timestamp
+          - pr_number = null (assigned in step 2)
+          - context_warning_received = false
+      </action>
+    </substep>
+
+    <substep n="1b" title="Capture Bundle Context">
+      <action>
+        Capture from caller inputs and `thoughts metadata`:
+        - {{bundle_dir}}, {{ticket_slug}}, {{ticket_alias}}
+        - {{branch}}, {{target_branch}}, {{worktree_path}}
+        - {{owner}}/{{repo}} (from `gh repo view --json owner,name`)
+        - {{verification_doc_path}} = {bundle_dir}/verification-YYYY-MM-DD-{ticket_slug}.md
+      </action>
+    </substep>
+
+  </step>
+
+</step-file>
