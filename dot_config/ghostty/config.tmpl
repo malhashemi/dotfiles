@@ -26,17 +26,13 @@ cursor-style-blink = true
 # Shell integration
 shell-integration = zsh
 
-# Option acts as a real Alt modifier so Herdr's alt+1..9 (switch_tab) reaches it,
-# instead of macOS composing glyphs (¡™£). Matches the kitty/wezterm setup.
+# Send Option as Alt so Herdr receives alt+1..9.
 macos-option-as-alt = true
 
 # Behavior (match wezterm: no confirm on close)
 confirm-close-surface = false
 
-# Keybinds — Ghostty as a DUMB HOST for Herdr (terminal multiplexer owns all
-# tabs/splits/spaces). `keybind = clear` wipes ALL bindings incl. defaults so
-# nothing shadows a Herdr chord; everything falls through via kitty keyboard
-# protocol. We then re-add only a minimal keep-list.
+# Herdr owns tabs, splits, and workspaces; Ghostty keeps only host actions.
 keybind = clear
 keybind = cmd+c=copy_to_clipboard
 keybind = cmd+v=paste_from_clipboard
@@ -44,8 +40,7 @@ keybind = cmd+q=quit
 keybind = cmd+equal=increase_font_size:1
 keybind = cmd+minus=decrease_font_size:1
 keybind = cmd+zero=reset_font_size
-# Config reload — REQUIRED: the theme system reloads Ghostty by sending
-# cmd+shift+, via osascript, so this must stay bound or live theming breaks.
+# Required by the theme-system reload hook.
 keybind = cmd+shift+comma=reload_config
 keybind = cmd+comma=open_config
 keybind = ctrl+q=toggle_fullscreen

@@ -36,12 +36,7 @@ delivery = "system"
 show_agent_labels_on_pane_borders = true
 agent_panel_scope = "all"
 
-# --- Herdr direct chords; host terminal = Ghostty (2026-06-06) ---
-# Additive: prefix (ctrl+b) defaults kept alongside direct chords via arrays.
-# Host requirements (Ghostty config): kitty keyboard protocol (native),
-# `keybind = clear` so Ghostty claims no chords, and macos-option-as-alt = true.
-# NOTE: WezTerm drops SHIFT+SUPER (cmd+shift) on macOS — proved broken in both
-# stable 20240203 and nightly 20260604 — which is why we moved to Ghostty.
+# Keybindings
 [keys]
 prefix = "ctrl+b"
 
@@ -52,35 +47,33 @@ toggle_sidebar = ["prefix+b", "cmd+b"]
 new_tab = ["prefix+c", "cmd+t"]
 new_workspace = ["prefix+shift+n", "cmd+n"]
 
-# Rename (cmd+shift+* works on Ghostty)
+# Rename
 rename_tab = ["prefix+shift+t", "cmd+shift+t"]
 rename_workspace = ["prefix+shift+w", "cmd+shift+r"]
 
-# Splits. herdr naming: split_vertical = side-by-side, split_horizontal = stacked.
-# cmd+d = side-by-side (matches old WezTerm muscle memory); cmd+shift+d = stacked.
+# Splits: split_vertical is side-by-side; split_horizontal is stacked.
 split_vertical = ["prefix+v", "cmd+d"]
 split_horizontal = ["prefix+minus", "cmd+shift+d"]
 
 # Close (herdr cascades pane -> tab -> workspace internally)
 close_pane = ["prefix+x", "cmd+w"]
 
-# Indexed jumps. AeroSpace owns cmd+1..9 (its workspaces), so herdr uses ctrl/alt:
+# Indexed jumps. AeroSpace owns cmd+1..9.
 #   ctrl+1..9       -> focus agent
 #   alt(option)+1..9 -> switch tab
-#   cmd+ctrl+1..9   -> switch herdr workspace (AeroSpace-free; pairs with cmd+p picker)
+#   cmd+ctrl+1..9   -> switch workspace
 focus_agent = "ctrl+1..9"
 switch_tab = ["prefix+1..9", "alt+1..9"]
 switch_workspace = "cmd+ctrl+1..9"
 
-# Workspace picker (fuzzy) + last-pane toggle. cmd+p / cmd+o are AeroSpace-free.
+# Workspace picker + last-pane toggle.
 workspace_picker = ["prefix+w", "cmd+p"]
 last_pane = "cmd+o"
 
-# Detach (server keeps agents alive). cmd+ctrl+q is the macOS lock screen and
-# cmd+shift+q is macOS log-out, so detach uses cmd+ctrl+w; prefix+q is fallback.
+# Detach avoids macOS quit/logout chords.
 detach = ["prefix+q", "cmd+ctrl+w"]
 
-# Pane navigation: ctrl+shift+arrows AND ctrl+shift+hjkl (prefix+hjkl kept)
+# Pane navigation
 focus_pane_left = ["prefix+h", "ctrl+shift+left", "ctrl+shift+h"]
 focus_pane_down = ["prefix+j", "ctrl+shift+down", "ctrl+shift+j"]
 focus_pane_up = ["prefix+k", "ctrl+shift+up", "ctrl+shift+k"]
