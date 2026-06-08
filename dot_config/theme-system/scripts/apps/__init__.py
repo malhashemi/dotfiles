@@ -28,6 +28,7 @@ from .gitui import GituiTheme
 from .zed import ZedTheme
 from .glow import GlowTheme
 from .ghostty import GhosttyTheme
+from .herdr import HerdrTheme
 from .obsidian import ObsidianTheme
 from .zellij import ZellijTheme
 from .clipboard import ClipboardTheme
@@ -68,6 +69,7 @@ def get_all_apps(config_home: Path) -> list:
         ZedTheme(config_home),
         GlowTheme(config_home),
         GhosttyTheme(config_home),
+        HerdrTheme(config_home),
         ObsidianTheme(config_home),
         ZellijTheme(config_home),
         ClipboardTheme(config_home),
@@ -95,6 +97,7 @@ __all__ = [
     "ZedTheme",
     "GlowTheme",
     "GhosttyTheme",
+    "HerdrTheme",
     "ObsidianTheme",
     "ZellijTheme",
     "ClipboardTheme",

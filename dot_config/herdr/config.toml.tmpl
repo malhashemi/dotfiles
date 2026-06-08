@@ -1,0 +1,87 @@
+onboarding = false
+
+[theme]
+name = "custom-dynamic"
+
+[theme.custom]
+panel_bg = "{{ .theme.material.surface_container | default "#1e1e2e" }}"
+surface0 = "{{ .theme.material.surface_container_low | default "#313244" }}"
+surface1 = "{{ .theme.material.surface_container_high | default "#45475a" }}"
+surface_dim = "{{ .theme.material.surface_dim | default "#181825" }}"
+overlay0 = "{{ .theme.material.outline | default "#6c7086" }}"
+overlay1 = "{{ .theme.material.outline_variant | default "#7f849c" }}"
+text = "{{ .theme.material.on_surface | default "#cdd6f4" }}"
+subtext0 = "{{ .theme.material.on_surface_variant | default "#a6adc8" }}"
+mauve = "{{ .theme.material.primary | default "#cba6f7" }}"
+blue = "{{ .theme.material.primary | default "#89b4fa" }}"
+teal = "{{ .theme.material.tertiary | default "#94e2d5" }}"
+green = "{{ .theme.material.tertiary | default "#a6e3a1" }}"
+yellow = "{{ .theme.material.secondary | default "#f9e2af" }}"
+peach = "{{ .theme.material.secondary | default "#fab387" }}"
+red = "{{ .theme.material.error | default "#f38ba8" }}"
+accent = "{{ .theme.material.primary | default "#89b4fa" }}"
+
+[update]
+channel = "stable"
+shell_mode = "auto"
+new_cwd = "follow"
+
+[ui.sound]
+enabled = true
+
+[ui.toast]
+delivery = "system"
+
+[ui]
+show_agent_labels_on_pane_borders = true
+agent_panel_scope = "all"
+
+# --- Herdr direct chords; host terminal = Ghostty (2026-06-06) ---
+# Additive: prefix (ctrl+b) defaults kept alongside direct chords via arrays.
+# Host requirements (Ghostty config): kitty keyboard protocol (native),
+# `keybind = clear` so Ghostty claims no chords, and macos-option-as-alt = true.
+# NOTE: WezTerm drops SHIFT+SUPER (cmd+shift) on macOS — proved broken in both
+# stable 20240203 and nightly 20260604 — which is why we moved to Ghostty.
+[keys]
+prefix = "ctrl+b"
+
+# Sidebar
+toggle_sidebar = ["prefix+b", "cmd+b"]
+
+# Tabs / spaces
+new_tab = ["prefix+c", "cmd+t"]
+new_workspace = ["prefix+shift+n", "cmd+n"]
+
+# Rename (cmd+shift+* works on Ghostty)
+rename_tab = ["prefix+shift+t", "cmd+shift+t"]
+rename_workspace = ["prefix+shift+w", "cmd+shift+r"]
+
+# Splits. herdr naming: split_vertical = side-by-side, split_horizontal = stacked.
+# cmd+d = side-by-side (matches old WezTerm muscle memory); cmd+shift+d = stacked.
+split_vertical = ["prefix+v", "cmd+d"]
+split_horizontal = ["prefix+minus", "cmd+shift+d"]
+
+# Close (herdr cascades pane -> tab -> workspace internally)
+close_pane = ["prefix+x", "cmd+w"]
+
+# Indexed jumps. AeroSpace owns cmd+1..9 (its workspaces), so herdr uses ctrl/alt:
+#   ctrl+1..9       -> focus agent
+#   alt(option)+1..9 -> switch tab
+#   ctrl+shift+1..9 -> switch herdr workspace (AeroSpace-free; pairs with cmd+p picker)
+focus_agent = "ctrl+1..9"
+switch_tab = ["prefix+1..9", "alt+1..9"]
+switch_workspace = "ctrl+shift+1..9"
+
+# Workspace picker (fuzzy) + last-pane toggle. cmd+p / cmd+o are AeroSpace-free.
+workspace_picker = ["prefix+w", "cmd+p"]
+last_pane = "cmd+o"
+
+# Detach (server keeps agents alive). cmd+ctrl+q is the macOS lock screen and
+# cmd+shift+q is macOS log-out, so detach uses cmd+ctrl+w; prefix+q is fallback.
+detach = ["prefix+q", "cmd+ctrl+w"]
+
+# Pane navigation: ctrl+shift+arrows AND ctrl+shift+hjkl (prefix+hjkl kept)
+focus_pane_left = ["prefix+h", "ctrl+shift+left", "ctrl+shift+h"]
+focus_pane_down = ["prefix+j", "ctrl+shift+down", "ctrl+shift+j"]
+focus_pane_up = ["prefix+k", "ctrl+shift+up", "ctrl+shift+k"]
+focus_pane_right = ["prefix+l", "ctrl+shift+right", "ctrl+shift+l"]

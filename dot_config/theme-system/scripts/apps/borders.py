@@ -46,6 +46,7 @@ options=(
   style=round
   width=6.0
   hidpi=on
+  order=above
   active_color=0xff{active_color}
   inactive_color=0xff{inactive_color}
 )
