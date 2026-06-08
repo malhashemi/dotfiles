@@ -67,10 +67,10 @@ close_pane = ["prefix+x", "cmd+w"]
 # Indexed jumps. AeroSpace owns cmd+1..9 (its workspaces), so herdr uses ctrl/alt:
 #   ctrl+1..9       -> focus agent
 #   alt(option)+1..9 -> switch tab
-#   ctrl+shift+1..9 -> switch herdr workspace (AeroSpace-free; pairs with cmd+p picker)
+#   cmd+ctrl+1..9   -> switch herdr workspace (AeroSpace-free; pairs with cmd+p picker)
 focus_agent = "ctrl+1..9"
 switch_tab = ["prefix+1..9", "alt+1..9"]
-switch_workspace = "ctrl+shift+1..9"
+switch_workspace = "cmd+ctrl+1..9"
 
 # Workspace picker (fuzzy) + last-pane toggle. cmd+p / cmd+o are AeroSpace-free.
 workspace_picker = ["prefix+w", "cmd+p"]

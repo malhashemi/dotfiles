@@ -238,8 +238,9 @@ cmd-shift-a = 'move-workspace-to-monitor --wrap-around prev'
 cmd-shift-semicolon = 'mode service'
 cmd-ctrl-r = 'reload-config'
 
-# Primary application shortcuts (matching Hyprland)
-cmd-enter = 'exec-and-forget open -a Ghostty'
+# Primary terminal shortcuts: top-level Herdr sessions, never nested.
+cmd-enter = 'exec-and-forget open -na Ghostty --args -e herdr'
+cmd-shift-enter = 'exec-and-forget open -na Ghostty --args -e herdr --remote {{ .tailscale_hosts.dev_hub }} --remote-keybindings local'
 alt-b = 'exec-and-forget open -a /Applications/Zen.app'
 
 # Secondary application shortcuts
