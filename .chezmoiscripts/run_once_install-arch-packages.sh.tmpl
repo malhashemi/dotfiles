@@ -262,6 +262,13 @@ if command -v npm &>/dev/null; then
             print_fail "npm:$pkg"
         fi
     done
+    if command -v pi &>/dev/null || npm list -g @earendil-works/pi-coding-agent &>/dev/null; then
+        print_skip "@earendil-works/pi-coding-agent"
+    elif sudo npm install -g --ignore-scripts @earendil-works/pi-coding-agent &>/dev/null; then
+        print_success "@earendil-works/pi-coding-agent"
+    else
+        print_fail "npm:@earendil-works/pi-coding-agent"
+    fi
 else
     print_info "npm not available, skipping"
 fi
