@@ -172,7 +172,7 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────────
 
 print_header "Core CLI Tools (pacman)"
-for pkg in git git-delta neovim bat eza fd ripgrep fzf zoxide jq tree unzip wget curl; do
+for pkg in git git-delta neovim bat eza fd ripgrep fzf zoxide jq tree unzip wget curl worktrunk; do
     pacman_pkg "$pkg"
 done
 
@@ -192,7 +192,13 @@ for pkg in rust go lua nodejs npm python python-pip python-pipx; do
 done
 
 print_header "Utilities (pacman)"
-for pkg in mosh ffmpeg imagemagick p7zip rclone rsync gping fastfetch figlet fribidi openssh xclip tailscale; do
+for pkg in mosh ffmpeg imagemagick 7zip rclone rsync gping fastfetch figlet fribidi openssh xclip tailscale; do
+    pacman_pkg "$pkg"
+done
+
+print_header "Language Servers (pacman)"
+for pkg in eslint-language-server svelte-language-server typescript typescript-svelte-plugin \
+           vscode-css-languageserver vscode-html-languageserver vscode-json-languageserver; do
     pacman_pkg "$pkg"
 done
 
@@ -235,6 +241,13 @@ for pkg in opencode-bin; do
     aur_pkg "$pkg"
 done
 
+{{ if not .is_headless -}}
+print_header "GUI Applications (AUR)"
+for pkg in slack-desktop; do
+    aur_pkg "$pkg"
+done
+{{ end -}}
+
 # ─────────────────────────────────────────────────────────────────────────────────
 # NPM Global Packages
 # ─────────────────────────────────────────────────────────────────────────────────
@@ -246,12 +259,21 @@ if command -v npm &>/dev/null; then
         ["typescript-language-server"]="typescript-language-server"
         ["vscode-langservers-extracted"]="vscode-html-language-server"
         ["@anthropic-ai/claude-code"]="claude"
+        ["@astrojs/language-server"]="astro-ls"
+        ["@vue/language-server"]="vue-language-server"
         ["prettier"]="prettier"
         ["eslint"]="eslint"
+        ["emmet-ls"]="emmet-ls"
+        ["agent-browser"]="agent-browser"
+        ["@mermaid-js/mermaid-cli"]="mmdc"
+        ["@schpet/linear-cli"]="linear"
+        ["fallow"]="fallow"
     )
     
     for pkg in typescript-language-server vscode-langservers-extracted \
-               @anthropic-ai/claude-code prettier eslint; do
+               @anthropic-ai/claude-code @astrojs/language-server \
+               @vue/language-server prettier eslint emmet-ls agent-browser \
+               @mermaid-js/mermaid-cli @schpet/linear-cli fallow; do
         bin="${npm_bins[$pkg]}"
         # Check if binary exists (installed via npm OR pacman/AUR)
         if command -v "$bin" &>/dev/null || npm list -g "$pkg" &>/dev/null; then

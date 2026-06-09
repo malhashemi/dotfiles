@@ -160,43 +160,10 @@ alias tvh="tv zsh-history"  # Search zsh history
 # Remote Machines
 {{- if .tailscale_enabled }}
 
-# Connect to devbox with optional session name (defaults to "dev")
-unalias devbox 2>/dev/null
-devbox() {
-    local session=${1:-dev}
-    mosh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }} -- zellij attach --create "$session"
-}
-
-# Raw mosh access without zellij
+# Raw mosh access to the dev host
 alias devhub="mosh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }}"
 
-# Delete zellij session by name (defaults to "dev")
-unalias zeldel 2>/dev/null
-zeldel() {
-    local session=${1:-dev}
-    ssh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }} "zellij delete-session $session"
-}
-
-# cmux-native devbox: agent-controllable + zellij-durable.
-# Like `devbox` (mosh+zellij) but uses `cmux ssh` so Claude/agents can drive
-# cmux from inside the session, and cmux UI splits/tabs become zellij
-# panes/tabs (via dev-hub ~/.zlogin which detects CMUX_TAB_ID changes).
-# Usage:
-#   cdevbox            -> attach to "dev" zellij session (creates if absent)
-#   cdevbox web        -> attach to "web" zellij session
-unalias cdevbox 2>/dev/null
-cdevbox() {
-    local session=${1:-dev}
-    # cmux ssh accepts no remote-command argv, so stage the desired zellij
-    # session name out-of-band. Dev-hub's ~/.zlogin consumes it on shell init.
-    ssh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }} \
-        "mkdir -p ~/.cmux && printf '%s\n' ${(q)session} > ~/.cmux/next-zellij-session" \
-        || { print -u2 "cdevbox: failed to stage session name on dev-hub"; return 1 }
-    cmux ssh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }}
-}
-
-# cmux-native bare connection (no zellij wrap, no laptop-close durability).
-# Useful for one-off agent control sessions where you don't want zellij state.
+# cmux-native bare connection for one-off agent control sessions.
 unalias cmuxbox 2>/dev/null
 cmuxbox() {
     cmux ssh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }}
