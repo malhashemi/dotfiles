@@ -20,7 +20,7 @@
 #   ✅ Atuin         - apps/atuin.py         - External file method (148 lines)
 #   ✅ CAVA          - apps/cava.py          - External file method (157 lines)
 #   ✅ Flameshot     - apps/flameshot.py     - Inline surgical swap INI (73 lines) [GUI]
-#   ✅ ncspot        - apps/ncspot.py        - Inline surgical swap TOML (154 lines)
+#   ✅ ncspot        - apps/ncspot.py        - Inline surgical swap TOML + IPC live reload (224 lines)
 #   ✅ NeoVim        - apps/nvim.py          - External file method (252 lines)
 #   ✅ Starship      - apps/starship.py      - Inline surgical swap TOML (174 lines)
 #   ✅ btop          - apps/btop.py          - External file method (201 lines)
@@ -893,11 +893,12 @@ apps:
       
     # Reload Behavior
     reload:
-      automatic: false                  # No file watching
-      method: manual                    # User must invoke reload
-      manual_command: ":reload"
+      automatic: true                   # Theme system pokes the IPC socket
+      method: ipc_socket                # send `reload` to ncspot's Unix socket
+      socket: "$XDG_RUNTIME_DIR/ncspot/ncspot.sock"
+      manual_command: ":reload"         # still works as a manual fallback
       reload_time: "< 1s"
-      notes: "Hot-reload via :reload command in ncspot. No restart needed."
+      notes: "Theme system sends `reload` over ncspot's IPC Unix socket (upstream PR #1018); ncspot re-reads config.toml and re-applies [theme] live via set_theme (PR #243). No restart, no manual command. Socket absent = quiet no-op (ncspot not running)."
     
     # Implementation Details (for Python generators)
     generator:
@@ -910,6 +911,10 @@ apps:
         - _generate_dynamic_colors
         - _generate_static_colors
         - _update_theme_section
+        - _reload_app
+        - _socket_paths
+        - _runtime_dir
+        - _send_reload
       notes: "Modular architecture: app registered in apps/__init__.py, called via app.apply_theme()"
     
     # Theme Keys (17 ncspot-specific color keys)

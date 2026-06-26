@@ -42,7 +42,7 @@ APPS_YAML = CHEZMOI_SOURCE / ".chezmoidata/apps.yaml"
 # Valid values for enum fields
 VALID_METHODS = ["builtin", "external_file", "inline", "terminal_colors"]
 VALID_FORMATS = ["lua", "lua_module", "toml", "yaml", "json", "conf", "kitty_conf"]
-VALID_RELOAD_METHODS = ["file_watch", "signal", "manual", "instant"]
+VALID_RELOAD_METHODS = ["file_watch", "signal", "manual", "instant", "ipc_socket"]
 VALID_OPACITY_METHODS = ["external_file", "inline", "compositor"]
 VALID_GENERATOR_METHODS = ["external_file", "surgical_swap", "full_template"]
 
