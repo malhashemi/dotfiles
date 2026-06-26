@@ -61,7 +61,11 @@ class HerdrTheme(BaseApp):
             "surface1": mat.get("surface_container_high", "#45475a"),
             "surface_dim": mat.get("surface_dim", "#181825"),
             "overlay0": mat.get("outline", "#6c7086"),
-            "overlay1": mat.get("outline_variant", "#7f849c"),
+            # overlay1 is Herdr's "slightly brighter overlay text" (inactive
+            # named tab labels, scroll buttons, "+"). Material outline_variant is
+            # a dark hairline/divider tone -> unreadable on the dark surface0, so
+            # use on_surface_variant (a readable muted-text tone) instead.
+            "overlay1": mat.get("on_surface_variant", "#7f849c"),
             # Text
             "text": mat.get("on_surface", "#cdd6f4"),
             "subtext0": mat.get("on_surface_variant", "#a6adc8"),
