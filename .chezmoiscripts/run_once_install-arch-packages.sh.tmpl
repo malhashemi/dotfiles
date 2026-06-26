@@ -77,12 +77,20 @@ aur_pkg() {
     if pacman -Qi "$pkg" &>/dev/null; then
         print_skip "$pkg"
     elif command -v yay &>/dev/null; then
+        if ! sudo -v; then
+            print_fail "$pkg (sudo auth)"
+            return
+        fi
         if yay -S --noconfirm --needed "$pkg" &>/dev/null; then
             print_success "$pkg"
         else
             print_fail "$pkg (AUR)"
         fi
     elif command -v paru &>/dev/null; then
+        if ! sudo -v; then
+            print_fail "$pkg (sudo auth)"
+            return
+        fi
         if paru -S --noconfirm --needed "$pkg" &>/dev/null; then
             print_success "$pkg"
         else
@@ -90,6 +98,19 @@ aur_pkg() {
         fi
     else
         print_fail "$pkg (no AUR helper)"
+    fi
+}
+
+# Install Python CLI app in an isolated pipx environment.
+pipx_pkg() {
+    local pkg="$1"
+    local bin="${2:-$1}"
+    if command -v "$bin" &>/dev/null || [[ -x "$HOME/.local/bin/$bin" ]]; then
+        print_skip "pipx:$pkg"
+    elif command -v pipx &>/dev/null && pipx install "$pkg" &>/dev/null; then
+        print_success "pipx:$pkg"
+    else
+        print_fail "pipx:$pkg"
     fi
 }
 
@@ -187,7 +208,8 @@ for pkg in btop bottom; do
 done
 
 print_header "Languages & Runtimes (pacman)"
-for pkg in rust go lua nodejs npm python python-pip python-pipx; do
+for pkg in rust go lua nodejs npm python python-pip python-pipx \
+           python-build python-installer python-wheel python-flit-core python-hatchling; do
     pacman_pkg "$pkg"
 done
 
@@ -198,12 +220,12 @@ done
 
 print_header "Language Servers (pacman)"
 for pkg in eslint-language-server svelte-language-server typescript typescript-svelte-plugin \
-           vscode-css-languageserver vscode-html-languageserver vscode-json-languageserver; do
+           vscode-css-languageserver vscode-html-languageserver vscode-json-languageserver marksman; do
     pacman_pkg "$pkg"
 done
 
 print_header "Development (pacman)"
-for pkg in base-devel cmake llvm clang docker docker-compose; do
+for pkg in base-devel cmake llvm clang docker docker-compose opencode; do
     pacman_pkg "$pkg"
 done
 
@@ -222,9 +244,12 @@ for pkg in atuin; do
 done
 
 print_header "TUI Applications (AUR)"
-for pkg in herdr-bin glow posting pacseek; do
+for pkg in herdr-bin glow pacseek; do
     aur_pkg "$pkg"
 done
+
+print_header "Python CLI Applications (pipx)"
+pipx_pkg posting posting
 
 print_header "Languages & Runtimes (AUR)"
 for pkg in bun-bin deno pnpm uv; do
@@ -232,23 +257,71 @@ for pkg in bun-bin deno pnpm uv; do
 done
 
 print_header "Language Servers (AUR)"
-for pkg in lua-language-server yaml-language-server taplo-cli marksman-bin; do
-    aur_pkg "$pkg"
-done
-
-print_header "Development (AUR)"
-for pkg in opencode-bin; do
+for pkg in lua-language-server yaml-language-server taplo-cli; do
     aur_pkg "$pkg"
 done
 
 {{ if not .is_headless -}}
+print_header "Desktop Session & Wayland (pacman)"
+for pkg in hyprland uwsm xdg-desktop-portal xdg-desktop-portal-hyprland xdg-desktop-portal-gtk \
+           greetd greetd-tuigreet quickshell swaync hyprlock hypridle awww \
+           qt5ct qt6ct qt6-wayland qt6-5compat qt6-declarative polkit-gnome; do
+    pacman_pkg "$pkg"
+done
+
+print_header "Desktop Graphics, Audio & Validation (pacman)"
+for pkg in mesa vulkan-radeon vulkan-icd-loader libva-mesa-driver linux-firmware amd-ucode \
+           vulkan-tools libva-utils mesa-utils pipewire wireplumber pipewire-pulse; do
+    pacman_pkg "$pkg"
+done
+
+print_header "Desktop Utilities (pacman)"
+for pkg in flameshot grim slurp swappy wl-clipboard cliphist thunar pavucontrol \
+           blueman network-manager-applet brightnessctl playerctl nwg-look nwg-displays \
+           gtk3 gtk4 libadwaita adw-gtk-theme gnome-themes-extra papirus-icon-theme gsettings-desktop-schemas dconf imagemagick; do
+    pacman_pkg "$pkg"
+done
+
+print_header "GUI Applications (pacman)"
+for pkg in obsidian telegram-desktop discord; do
+    pacman_pkg "$pkg"
+done
+
 print_header "GUI Applications (AUR)"
-for pkg in slack-desktop; do
+for pkg in slack-desktop wlogout zen-browser pinta; do
+    aur_pkg "$pkg"
+done
+
+print_header "Launcher: Walker + Elephant providers (AUR)"
+for pkg in walker elephant \
+           elephant-archlinuxpkgs elephant-bluetooth elephant-bookmarks elephant-calc \
+           elephant-clipboard elephant-desktopapplications elephant-files \
+           elephant-providerlist elephant-runner elephant-symbols elephant-todo \
+           elephant-unicode elephant-websearch; do
     aur_pkg "$pkg"
 done
 {{ end -}}
 
 # ─────────────────────────────────────────────────────────────────────────────────
+# Claude Code
+# ─────────────────────────────────────────────────────────────────────────────────
+
+print_header "Claude Code"
+# Migrate away from the deprecated npm global package if it's still around.
+if command -v npm &>/dev/null && npm list -g @anthropic-ai/claude-code &>/dev/null; then
+    print_info "Removing deprecated npm Claude Code package..."
+    if sudo -v && sudo npm uninstall -g @anthropic-ai/claude-code &>/dev/null; then
+        print_success "npm:@anthropic-ai/claude-code removed"
+    else
+        print_fail "npm:@anthropic-ai/claude-code removal"
+    fi
+fi
+
+# Installed from the AUR (claude-code). The official curl|bash installer's native
+# updater is buggy (0-byte binary / RAM-fill freeze), so let the AUR helper own
+# updates instead -- do NOT run `claude update`.
+aur_pkg "claude-code"
+
 # NPM Global Packages
 # ─────────────────────────────────────────────────────────────────────────────────
 
@@ -258,7 +331,6 @@ if command -v npm &>/dev/null; then
     declare -A npm_bins=(
         ["typescript-language-server"]="typescript-language-server"
         ["vscode-langservers-extracted"]="vscode-html-language-server"
-        ["@anthropic-ai/claude-code"]="claude"
         ["@astrojs/language-server"]="astro-ls"
         ["@vue/language-server"]="vue-language-server"
         ["prettier"]="prettier"
@@ -271,7 +343,7 @@ if command -v npm &>/dev/null; then
     )
     
     for pkg in typescript-language-server vscode-langservers-extracted \
-               @anthropic-ai/claude-code @astrojs/language-server \
+               @astrojs/language-server \
                @vue/language-server prettier eslint emmet-ls agent-browser \
                @mermaid-js/mermaid-cli @schpet/linear-cli fallow; do
         bin="${npm_bins[$pkg]}"

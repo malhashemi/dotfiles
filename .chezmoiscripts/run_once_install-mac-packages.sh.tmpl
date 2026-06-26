@@ -75,7 +75,6 @@ brew_cask() {
     local app_name
     case "$cask" in
         ghostty) app_name="Ghostty" ;;
-        cmux) app_name="cmux" ;;
         zen) app_name="Zen" ;;
         zed) app_name="Zed" ;;
         wezterm) app_name="WezTerm" ;;
@@ -225,7 +224,7 @@ done
 # ─────────────────────────────────────────────────────────────────────────────────
 
 print_header "GUI Applications"
-for cask in wezterm ghostty cmux neovide-app aerospace flameshot \
+for cask in wezterm ghostty neovide-app aerospace flameshot \
             docker-desktop visual-studio-code zed zen macfuse; do
     brew_cask "$cask"
 done
@@ -274,9 +273,29 @@ else
     print_info "go not available, skipping"
 fi
 
+print_header "Claude Code"
+if command -v npm &>/dev/null && npm list -g @anthropic-ai/claude-code &>/dev/null; then
+    print_info "Removing deprecated npm Claude Code package..."
+    if npm uninstall -g @anthropic-ai/claude-code &>/dev/null; then
+        print_success "npm:@anthropic-ai/claude-code removed"
+    else
+        print_fail "npm:@anthropic-ai/claude-code removal"
+    fi
+fi
+
+if command -v npm &>/dev/null && npm list -g @anthropic-ai/claude-code &>/dev/null; then
+    print_fail "claude-code official installer (npm package still present)"
+elif command -v claude &>/dev/null; then
+    print_skip "claude-code"
+elif curl -fsSL https://claude.ai/install.sh | bash -s -- stable &>/dev/null; then
+    print_success "claude-code"
+else
+    print_fail "claude-code"
+fi
+
 print_header "NPM Packages"
 if command -v npm &>/dev/null; then
-    for pkg in @anthropic-ai/claude-code prettier eslint \
+    for pkg in prettier eslint \
                @astrojs/language-server @vue/language-server \
                svelte-language-server emmet-ls playwright agent-browser \
                @mermaid-js/mermaid-cli fallow; do
