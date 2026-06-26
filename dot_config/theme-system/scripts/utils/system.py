@@ -182,8 +182,23 @@ def extract_colors_matugen(
         RuntimeError: If matugen fails to extract colors
     """
     try:
-        # Build matugen command
-        cmd = ["matugen", "image", str(wallpaper_path), "-m", mode, "--json", "hex"]
+        # Build matugen command.
+        # --dry-run keeps this hermetic: matugen only dumps the JSON palette and
+        # does NOT generate templates, run post-hooks, set the wallpaper, or run
+        # any commands. The theme-system owns all theming via its app plugins, so
+        # we never want matugen touching foreign configs (e.g. a stale ML4W
+        # ~/.config/matugen config, whose post-hooks would otherwise pollute
+        # stdout and fire unwanted reloads).
+        cmd = [
+            "matugen",
+            "image",
+            str(wallpaper_path),
+            "-m",
+            mode,
+            "--json",
+            "hex",
+            "--dry-run",
+        ]
 
         # Add contrast parameter if non-zero
         if contrast != 0.0:
@@ -192,7 +207,12 @@ def extract_colors_matugen(
         result = subprocess.run(
             cmd, check=True, capture_output=True, text=True, timeout=30
         )
-        data = json.loads(result.stdout)
+        # Be tolerant of any stray output around the JSON: decode the first JSON
+        # object and ignore trailing data.
+        start = result.stdout.find("{")
+        if start == -1:
+            raise RuntimeError("Matugen produced no JSON output")
+        data, _ = json.JSONDecoder().raw_decode(result.stdout[start:])
 
         # Extract colors for the specified mode
         colors = data.get("colors", {}).get(mode, {})

@@ -31,6 +31,15 @@ from .ghostty import GhosttyTheme
 from .herdr import HerdrTheme
 from .obsidian import ObsidianTheme
 from .clipboard import ClipboardTheme
+from .quickshell_bar import QuickshellBarTheme
+from .quickshell_wallpaper import QuickshellWallpaperTheme
+from .hyprland import HyprlandTheme
+from .gtk import GtkTheme
+from .swaync import SwayncTheme
+from .walker import WalkerTheme
+from .wlogout import WlogoutTheme
+from .hyprlock import HyprlockTheme
+from .qt import QtTheme
 
 
 def get_all_apps(config_home: Path) -> list:
@@ -71,6 +80,15 @@ def get_all_apps(config_home: Path) -> list:
         HerdrTheme(config_home),
         ObsidianTheme(config_home),
         ClipboardTheme(config_home),
+        QuickshellBarTheme(config_home),
+        QuickshellWallpaperTheme(config_home),
+        HyprlandTheme(config_home),
+        GtkTheme(config_home),
+        SwayncTheme(config_home),
+        WalkerTheme(config_home),
+        WlogoutTheme(config_home),
+        HyprlockTheme(config_home),
+        QtTheme(config_home),
     ]
 
 
@@ -98,5 +116,14 @@ __all__ = [
     "HerdrTheme",
     "ObsidianTheme",
     "ClipboardTheme",
+    "QuickshellBarTheme",
+    "QuickshellWallpaperTheme",
+    "HyprlandTheme",
+    "GtkTheme",
+    "SwayncTheme",
+    "WalkerTheme",
+    "WlogoutTheme",
+    "HyprlockTheme",
+    "QtTheme",
     "get_all_apps",
 ]

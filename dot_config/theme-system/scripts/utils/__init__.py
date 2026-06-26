@@ -1,6 +1,13 @@
 """Theme system utilities"""
 
-from .colors import hex_to_argb, opacity_to_alpha
+from .colors import (
+    hex_to_argb,
+    opacity_to_alpha,
+    hex_to_css_rgba,
+    build_css_palette,
+    build_gtk_palette,
+    build_gtk3_palette,
+)
 from .color_math import (
     hex_to_hsl,
     hsl_to_hex,
@@ -17,6 +24,7 @@ from .theme_data import (
     get_catppuccin_colors,
     is_dynamic_theme,
     get_theme_variant,
+    get_opacity,
     map_catppuccin_to_material,
 )
 
@@ -24,6 +32,10 @@ __all__ = [
     # Color utilities
     "hex_to_argb",
     "opacity_to_alpha",
+    "hex_to_css_rgba",
+    "build_css_palette",
+    "build_gtk_palette",
+    "build_gtk3_palette",
     # Color math
     "hex_to_hsl",
     "hsl_to_hex",
@@ -42,5 +54,6 @@ __all__ = [
     "get_catppuccin_colors",
     "is_dynamic_theme",
     "get_theme_variant",
+    "get_opacity",
     "map_catppuccin_to_material",
 ]

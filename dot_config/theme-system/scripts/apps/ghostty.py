@@ -266,12 +266,17 @@ palette = 15={mat.get("on_surface_variant", "#5c5f77")}"""
         self.config_file.write_text("\n".join(new_lines))
 
     def _reload_app(self) -> None:
-        """Reload running Ghostty by sending Cmd+Shift+, via osascript (macOS).
+        """Reload running Ghostty so new colors apply without a keypress.
 
-        Ghostty has no IPC reload; it only reloads when the user presses the
-        configured keybind. On macOS we simulate it via System Events. On other
-        platforms we just log a manual-reload hint.
+        Ghostty has no general IPC reload, but it reloads its configuration when
+        sent SIGUSR2 — and SIGUSR2 is the ONLY signal it treats this way (any
+        other signal crashes it). On Linux we send SIGUSR2 to the running
+        Ghostty (via its systemd user service when present, else directly). On
+        macOS we simulate the reload keybind via System Events.
         """
+        if platform.system() == "Linux":
+            self._reload_linux()
+            return
         if platform.system() != "Darwin":
             self.log_warning("Reload Ghostty: Ctrl+Shift+, (or Ctrl+Alt+R)")
             return
@@ -300,3 +305,38 @@ palette = 15={mat.get("on_surface_variant", "#5c5f77")}"""
             self.log_success("Reloaded running Ghostty")
         except (subprocess.TimeoutExpired, FileNotFoundError):
             self.log_warning("Could not auto-reload Ghostty (manual: Ctrl+Alt+R)")
+
+    def _reload_linux(self) -> None:
+        """Send SIGUSR2 to running Ghostty to reload config (best-effort).
+
+        Prefer the systemd user service when Ghostty runs under it (systemd
+        tracks the main PID — the most reliable trigger). Otherwise signal the
+        process(es) directly: SIGUSR2 is the only signal Ghostty handles as a
+        reload, and sending it to every ghostty process is harmless (each just
+        reloads). No-op if Ghostty isn't running.
+        """
+        svc = "app-com.mitchellh.ghostty.service"
+        try:
+            active = subprocess.run(
+                ["systemctl", "--user", "is-active", "--quiet", svc], timeout=3
+            )
+            if active.returncode == 0:
+                subprocess.run(
+                    ["systemctl", "--user", "reload", svc],
+                    capture_output=True,
+                    timeout=5,
+                )
+                self.log_success("Reloaded Ghostty (systemd SIGUSR2)")
+                return
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+
+        if not self.command_exists("pkill"):
+            self.log_warning("pkill not found; reload Ghostty via Ctrl+Alt+R")
+            return
+        # returncode 0 = signalled; 1 = no Ghostty running (fine).
+        result = subprocess.run(
+            ["pkill", "-USR2", "-x", "ghostty"], capture_output=True
+        )
+        if result.returncode == 0:
+            self.log_success("Reloaded Ghostty (SIGUSR2)")

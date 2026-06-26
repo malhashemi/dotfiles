@@ -23,6 +23,7 @@ class SketchybarTheme(BaseApp):
 
     # GUI-only app - skip on headless systems (macOS-only anyway)
     requires_gui = True
+    supported_platforms = ("darwin",)
 
     def __init__(self, config_home: Path):
         super().__init__("SketchyBar", config_home)

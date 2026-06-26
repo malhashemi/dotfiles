@@ -13,7 +13,14 @@ if osascript -e 'tell application "System Events" to (name of processes) contain
 fi
 {{- else }}
 pkill -USR2 wezterm 2>/dev/null || true
-# Ghostty on Linux: no IPC reload; user must press Ctrl+Shift+, or Ctrl+Alt+R.
+# Ghostty on Linux: no general IPC reload, but it reloads on SIGUSR2 (the only
+# signal it treats this way). Prefer the systemd user service (tracks the main
+# PID); otherwise signal the process(es) directly. No-op if not running.
+if systemctl --user is-active --quiet app-com.mitchellh.ghostty.service 2>/dev/null; then
+  systemctl --user reload app-com.mitchellh.ghostty.service 2>/dev/null || true
+else
+  pkill -USR2 -x ghostty 2>/dev/null || true
+fi
 {{- end }}
 
 # Note: opencode reload is handled by theme-system/scripts/apps/opencode.py

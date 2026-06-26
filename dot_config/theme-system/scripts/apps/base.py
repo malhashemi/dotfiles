@@ -1,6 +1,7 @@
 """Base class for theme-aware applications"""
 
 import subprocess
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from rich.console import Console
@@ -19,11 +20,23 @@ class BaseApp(ABC):
 
     Subclasses may override:
     - requires_gui: bool = False  # Set True for GUI-only apps
+    - wallpaper_derived: bool = False  # Set True for apps that render from the wallpaper image
     """
 
     # GUI requirement flag - override in subclasses for GUI-only apps
     # When True, app will be skipped on headless systems
     requires_gui: bool = False
+
+    # Platforms where this app integration is valid. Most app integrations are
+    # cross-platform; compositor/bar integrations should narrow this explicitly.
+    supported_platforms: tuple[str, ...] = ("darwin", "linux")
+
+    # Whether this app bakes an asset from the wallpaper IMAGE (e.g. a blurred
+    # background PNG) rather than only the color palette. A wallpaper-only
+    # refresh (a wallpaper change while a static theme is active) runs just
+    # these apps, since the palette is unchanged but the image-derived asset
+    # would otherwise go stale.
+    wallpaper_derived: bool = False
 
     def __init__(self, name: str, config_home: Path):
         """Initialize base app
@@ -52,6 +65,11 @@ class BaseApp(ABC):
                 - theme.material: Material Design 3 colors (all themes)
         """
         pass
+
+    def supports_current_platform(self) -> bool:
+        """Return True when this app integration applies to this OS."""
+        platform_name = "linux" if sys.platform.startswith("linux") else sys.platform
+        return platform_name in self.supported_platforms
 
     # File I/O utilities
 

@@ -136,49 +136,43 @@ class ZedTheme(BaseApp):
         }
 
     def _update_config(self, dark_theme: str, light_theme: str) -> None:
-        """Update settings.json with theme references
+        """Update settings.json theme refs IN PLACE, preserving comments/layout.
 
-        Note: Zed uses JSONC (JSON with comments). We strip comments for parsing
-        and write back clean JSON. Comments will be lost.
+        Zed settings are JSONC (comments + trailing commas). We parse a sanitized
+        copy only to read the current values, then patch the `theme`/`icon_theme`
+        values in the raw text so the user's comments and formatting survive.
         """
         try:
-            content = self.config_file.read_text()
-
-            # Strip single-line comments for JSON parsing
-            json_content = re.sub(r"//.*$", "", content, flags=re.MULTILINE)
+            raw = self.config_file.read_text()
 
             try:
-                config = json.loads(json_content)
+                config = json.loads(self._jsonc_to_json(raw))
             except json.JSONDecodeError as e:
                 self.log_error(f"Invalid JSON in Zed config: {e}")
                 return
 
-            # Get old values for comparison
-            old_theme = config.get("theme", {})
-            if isinstance(old_theme, str):
-                old_dark = old_theme
-                old_light = old_theme
+            old = config.get("theme")
+            if isinstance(old, dict):
+                old_dark, old_light = old.get("dark", ""), old.get("light", "")
+                mode = old.get("mode") or "system"
             else:
-                old_dark = old_theme.get("dark", "")
-                old_light = old_theme.get("light", "")
+                old_dark = old_light = old or ""
+                mode = "system"
 
-            # Update theme object
-            if not isinstance(config.get("theme"), dict):
-                config["theme"] = {}
+            theme_obj = (
+                "{\n"
+                f'    "mode": "{mode}",\n'
+                f'    "light": "{light_theme}",\n'
+                f'    "dark": "{dark_theme}"\n'
+                "  }"
+            )
 
-            config["theme"]["dark"] = dark_theme
-            config["theme"]["light"] = light_theme
-            if "mode" not in config["theme"]:
-                config["theme"]["mode"] = "system"
+            new = self._set_key(raw, "theme", theme_obj)
+            if "Catppuccin" in dark_theme:  # sync icon theme for Catppuccin only
+                new = self._set_key(new, "icon_theme", json.dumps(dark_theme))
 
-            # Sync icon_theme for Catppuccin themes
-            if "Catppuccin" in dark_theme:
-                config["icon_theme"] = dark_theme
-
-            # Write back
-            with open(self.config_file, "w") as f:
-                json.dump(config, f, indent=2)
-                f.write("\n")  # Trailing newline
+            if new != raw:
+                self.config_file.write_text(new)
 
             if old_dark != dark_theme or old_light != light_theme:
                 self.log_success(
@@ -189,3 +183,52 @@ class ZedTheme(BaseApp):
 
         except Exception as e:
             self.log_error(f"Failed to update Zed config: {e}")
+
+    @staticmethod
+    def _jsonc_to_json(text: str) -> str:
+        """Strip // and /* */ comments (string-aware) and trailing commas."""
+        out = []
+        i, n, in_str = 0, len(text), False
+        while i < n:
+            c = text[i]
+            if in_str:
+                out.append(c)
+                if c == "\\" and i + 1 < n:
+                    out.append(text[i + 1])
+                    i += 2
+                    continue
+                if c == '"':
+                    in_str = False
+                i += 1
+                continue
+            if c == '"':
+                in_str = True
+                out.append(c)
+                i += 1
+                continue
+            if c == "/" and i + 1 < n and text[i + 1] == "/":
+                while i < n and text[i] != "\n":
+                    i += 1
+                continue
+            if c == "/" and i + 1 < n and text[i + 1] == "*":
+                i += 2
+                while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
+                    i += 1
+                i += 2
+                continue
+            out.append(c)
+            i += 1
+        return re.sub(r",(\s*[}\]])", r"\1", "".join(out))
+
+    @staticmethod
+    def _set_key(text: str, key: str, value_json: str) -> str:
+        """Replace `"key": <value>` (string/flat object/array/scalar) in raw
+        JSONC text, preserving everything else. Inserts after the root brace if
+        the key is absent."""
+        pat = re.compile(
+            r'("' + re.escape(key) + r'"\s*:\s*)'
+            r'(\{[^{}]*\}|\[[^\[\]]*\]|"(?:[^"\\]|\\.)*"|true|false|null|-?[\d.]+)'
+        )
+        if pat.search(text):
+            return pat.sub(lambda m: m.group(1) + value_json, text, count=1)
+        return re.sub(r"\{", '{\n  "' + key + '": ' + value_json + ",", text, count=1)

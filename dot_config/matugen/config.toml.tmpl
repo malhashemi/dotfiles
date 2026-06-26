@@ -1,9 +1,12 @@
-# Matugen Configuration
-# Used for color extraction only - templates handled by chezmoi
-mode = "dark"
-scheme = "content"
+# Matugen configuration — color extraction only.
+#
+# The theme-system runs `matugen image <wallpaper> --json hex --dry-run` and
+# consumes the JSON palette directly; the final per-app config files are rendered
+# by chezmoi templates / the theme-system, so matugen needs no templates here.
+#
+# matugen 2.4.1 still requires BOTH a [config] and a [templates] section to parse
+# (a missing one is a hard error), so we provide them empty. Scheme defaults to
+# scheme-tonal-spot; the light/dark mode is passed on the CLI (-m).
+[config]
 
-# No templates needed - colors flow through:
-# 1. matugen extracts → cache
-# 2. theme-manager.py → theme.yaml
-# 3. chezmoi templates → final config files
+[templates]

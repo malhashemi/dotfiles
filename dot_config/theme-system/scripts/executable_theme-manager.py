@@ -14,6 +14,7 @@ Simplified commands:
 - theme status
 """
 
+import fcntl
 import json
 import os
 import subprocess
@@ -43,14 +44,21 @@ CONFIG_HOME = HOME / ".config"
 def get_chezmoi_source() -> Path:
     """Get chezmoi source directory dynamically.
 
-    Tries: 1) chezmoi source-path command, 2) XDG_DATA_HOME, 3) default
+    Tries: 1) THEME_CHEZMOI_SOURCE override, 2) chezmoi source-path command,
+    3) XDG_DATA_HOME, 4) default.
     """
+    override = os.environ.get("THEME_CHEZMOI_SOURCE")
+    if override:
+        return Path(override).expanduser()
+
     try:
         result = subprocess.run(
             ["chezmoi", "source-path"], capture_output=True, text=True, timeout=5
         )
         if result.returncode == 0:
-            return Path(result.stdout.strip())
+            source = Path(result.stdout.strip())
+            if source.exists():
+                return source
     except (subprocess.TimeoutExpired, FileNotFoundError):
         pass
 
@@ -65,7 +73,24 @@ THEME_DATA = CHEZMOI_SOURCE / ".chezmoidata/theme.yaml"
 WALLPAPER_DATA = CHEZMOI_SOURCE / ".chezmoidata/wallpaper-state.yaml"
 THEMES_DIR = CHEZMOI_SOURCE / "dot_config/theme-system/themes"
 LOCK_FILE = HOME / ".cache/theme-system-running"
+APPLIED_GEN_FILE = HOME / ".cache/theme-system-applied-gen"
 USER_DATA = CHEZMOI_SOURCE / ".chezmoidata/user.yaml"
+
+
+def _read_applied_gen() -> str:
+    """Wallpaper generation (last_updated) of the most recently applied theme."""
+    try:
+        return APPLIED_GEN_FILE.read_text().strip()
+    except OSError:
+        return ""
+
+
+def _write_applied_gen(gen: str) -> None:
+    try:
+        APPLIED_GEN_FILE.parent.mkdir(parents=True, exist_ok=True)
+        APPLIED_GEN_FILE.write_text(gen)
+    except OSError:
+        pass
 
 
 # Headless detection
@@ -133,20 +158,34 @@ def save_yaml(path: Path, data: dict):
         yaml.dump(data, f, default_flow_style=False)
 
 
-def apply_theme_to_apps(theme_data: dict) -> None:
+def apply_theme_to_apps(theme_data: dict, *, wallpaper_only: bool = False) -> None:
     """Apply theme data to all registered apps.
 
     Respects headless mode - skips GUI apps on headless systems.
 
     Args:
         theme_data: Complete theme data dictionary with 'theme' key
+        wallpaper_only: When True, only run apps that bake an asset from the
+            wallpaper image (BaseApp.wallpaper_derived) — used to refresh the
+            blurred backgrounds on a static-theme wallpaper change without
+            re-running every color app.
     """
     apps = get_all_apps(CONFIG_HOME)
     headless = is_headless()
+    platform_name = "linux" if sys.platform.startswith("linux") else sys.platform
+    environment = "headless_linux" if platform_name == "linux" and headless else platform_name
+
+    console.print(f"[dim]Theme environment: {environment}[/dim]")
 
     for app in apps:
+        if not app.supports_current_platform():
+            continue
+
         # Skip GUI apps on headless systems
         if headless and app.requires_gui:
+            continue
+
+        if wallpaper_only and not app.wallpaper_derived:
             continue
         app.apply_theme(theme_data)
 
@@ -338,13 +377,41 @@ def set(theme_type: str, opacity: int | None, variant: str | None, contrast: flo
         theme set dynamic             # Use current wallpaper
         theme set dynamic -c 0.5      # High contrast dynamic theme
     """
-    # Lock to prevent concurrent runs
-    if LOCK_FILE.exists():
-        raise click.ClickException("Theme manager already running")
+    # Crash-safe, coalescing lock: rather than dropping a request when an apply
+    # is already running (which left rapid wallpaper swaps out of sync with the
+    # latest wallpaper), block until it finishes, then skip only if this exact
+    # wallpaper generation was already applied by a concurrent run — so the most
+    # recent swap always wins, with no redundant re-applies. flock auto-releases
+    # on process exit, so a crashed apply never leaves a stale lock.
     LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
-    LOCK_FILE.touch()
+    with open(LOCK_FILE, "w") as _lock:
+        fcntl.flock(_lock, fcntl.LOCK_EX)
 
-    try:
+        gen = ""
+        if theme_type == "dynamic":
+            wp = load_yaml(WALLPAPER_DATA).get("wallpaper", {})
+            cur_opacity = (
+                opacity
+                if opacity is not None
+                else load_yaml(THEME_DATA).get("theme", {}).get("opacity", 0)
+            )
+            # Coalesce only true duplicates: the token covers everything that
+            # changes the output (wallpaper, mode, opacity, contrast), so a
+            # mode/opacity toggle on the same wallpaper is never wrongly skipped.
+            gen = "|".join(
+                str(x)
+                for x in (
+                    wp.get("last_updated", ""),
+                    wp.get("current", ""),
+                    detect_system_appearance(),
+                    cur_opacity,
+                    contrast,
+                )
+            )
+            if _read_applied_gen() == gen:
+                console.print("[dim]Already applied (no change) — skipping[/dim]")
+                return
+
         theme_data = load_yaml(THEME_DATA)
 
         # Preserve current opacity if not specified
@@ -394,8 +461,10 @@ def set(theme_type: str, opacity: int | None, variant: str | None, contrast: flo
         if user_data.get("theme_sync", {}).get("auto_push", False):
             push_to_devbox()
 
-    finally:
-        LOCK_FILE.unlink(missing_ok=True)
+        # Record the applied wallpaper generation so concurrent rapid swaps
+        # coalesce (a queued run sees its wallpaper is already applied).
+        if gen:
+            _write_applied_gen(gen)
 
 
 @cli.command()
@@ -553,6 +622,47 @@ def apply():
     apply_theme_to_apps(theme_data)
 
     console.print("[green]✅ Theme applied from state[/green]")
+
+
+@cli.command(name="refresh-backgrounds")
+def refresh_backgrounds():
+    """Re-render only the wallpaper-derived backgrounds (hyprlock, wlogout).
+
+    Used by wallpaper-manager on a wallpaper change while a STATIC theme is
+    active: the palette is fixed (colors need no regeneration), but those apps
+    bake a blurred PNG from the wallpaper image which would otherwise go stale.
+    Dynamic themes already refresh these as part of 'set dynamic'.
+
+    Linux desktop only — the wallpaper-derived apps are linux GUI apps, so this
+    is a no-op on macOS and on headless linux (the app filter skips them).
+    """
+    # Same crash-safe, coalescing lock as 'set': block on a concurrent apply,
+    # then skip if this exact wallpaper was already rendered, so rapid swaps
+    # converge on the latest with no redundant blur renders. The token is read
+    # inside the lock so a queued run sees the final wallpaper state.
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with open(LOCK_FILE, "w") as _lock:
+        fcntl.flock(_lock, fcntl.LOCK_EX)
+
+        wp = load_yaml(WALLPAPER_DATA).get("wallpaper", {})
+        # "bg"-tagged token so it never collides with the 5-field dynamic gen
+        # token that shares APPLIED_GEN_FILE.
+        gen = "|".join(
+            str(x) for x in ("bg", wp.get("last_updated", ""), wp.get("current", ""))
+        )
+        if _read_applied_gen() == gen:
+            console.print("[dim]Backgrounds already current — skipping[/dim]")
+            return
+
+        theme_data = load_yaml(THEME_DATA)
+        if not theme_data.get("theme"):
+            raise click.ClickException("No theme data found in theme.yaml.")
+
+        console.print("[blue]🖼️  Refreshing wallpaper backgrounds...[/blue]")
+        apply_theme_to_apps(theme_data, wallpaper_only=True)
+        console.print("[green]✅ Backgrounds refreshed[/green]")
+
+        _write_applied_gen(gen)
 
 
 @cli.command()

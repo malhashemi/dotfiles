@@ -69,6 +69,23 @@ def get_theme_variant(theme_data: dict) -> str:
     return theme.get("variant", "dark")
 
 
+def get_opacity(theme_data: dict) -> int:
+    """Get theme opacity percentage (0=invisible, 100=solid).
+
+    Args:
+        theme_data: Theme configuration dictionary
+
+    Returns:
+        Opacity 0-100 (defaults to 100/solid when unset)
+    """
+    theme = theme_data.get("theme", {})
+    value = theme.get("opacity", theme.get("transparency", 100))
+    try:
+        return max(0, min(100, int(value)))
+    except (TypeError, ValueError):
+        return 100
+
+
 def map_catppuccin_to_material(ctp: dict) -> dict:
     """Map Catppuccin colors to Material Design 3 schema
     
