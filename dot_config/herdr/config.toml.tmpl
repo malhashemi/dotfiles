@@ -41,6 +41,7 @@ agent_panel_scope = "all"
 prefix = "ctrl+b"
 
 # Sidebar
+{{- if eq .chezmoi.os "darwin" }}
 toggle_sidebar = ["prefix+b", "cmd+b"]
 
 # Tabs / spaces
@@ -72,9 +73,49 @@ last_pane = "cmd+o"
 
 # Detach avoids macOS quit/logout chords.
 detach = ["prefix+q", "cmd+ctrl+w"]
+{{- else }}
+toggle_sidebar = ["prefix+b", "alt+b"]
 
-# Pane navigation
-focus_pane_left = ["prefix+h", "ctrl+shift+left", "ctrl+shift+h"]
-focus_pane_down = ["prefix+j", "ctrl+shift+down", "ctrl+shift+j"]
-focus_pane_up = ["prefix+k", "ctrl+shift+up", "ctrl+shift+k"]
-focus_pane_right = ["prefix+l", "ctrl+shift+right", "ctrl+shift+l"]
+# Tabs / spaces
+new_tab = ["prefix+c", "alt+t"]
+new_workspace = ["prefix+shift+n", "alt+n"]
+
+# Rename
+rename_tab = ["prefix+shift+t", "alt+shift+t"]
+rename_workspace = ["prefix+shift+w", "alt+shift+r"]
+
+# Splits: split_vertical is side-by-side; split_horizontal is stacked.
+split_vertical = ["prefix+v", "alt+d"]
+split_horizontal = ["prefix+minus", "alt+shift+d"]
+
+# Close (herdr cascades pane -> tab -> workspace internally)
+close_pane = ["prefix+x", "alt+w"]
+
+# Indexed jumps.
+#   ctrl+1..9        -> focus agent
+#   super+1..9       -> switch tab
+#   alt+ctrl+1..9    -> switch workspace
+focus_agent = "ctrl+1..9"
+switch_tab = ["prefix+1..9", "super+1..9"]
+switch_workspace = "alt+ctrl+1..9"
+
+# Workspace picker + last-pane toggle.
+workspace_picker = ["prefix+w", "alt+p"]
+last_pane = "alt+o"
+
+detach = ["prefix+q", "alt+ctrl+w"]
+{{- end }}
+
+# Pane navigation. Adds Vim-style direct nav (alt+hjkl on Linux, cmd+hjkl on
+# macOS) alongside the existing prefix+hjkl and ctrl+shift+arrows/hjkl.
+{{- if eq .chezmoi.os "darwin" }}
+focus_pane_left = ["prefix+h", "ctrl+shift+left", "ctrl+shift+h", "cmd+h"]
+focus_pane_down = ["prefix+j", "ctrl+shift+down", "ctrl+shift+j", "cmd+j"]
+focus_pane_up = ["prefix+k", "ctrl+shift+up", "ctrl+shift+k", "cmd+k"]
+focus_pane_right = ["prefix+l", "ctrl+shift+right", "ctrl+shift+l", "cmd+l"]
+{{- else }}
+focus_pane_left = ["prefix+h", "ctrl+shift+left", "ctrl+shift+h", "alt+h"]
+focus_pane_down = ["prefix+j", "ctrl+shift+down", "ctrl+shift+j", "alt+j"]
+focus_pane_up = ["prefix+k", "ctrl+shift+up", "ctrl+shift+k", "alt+k"]
+focus_pane_right = ["prefix+l", "ctrl+shift+right", "ctrl+shift+l", "alt+l"]
+{{- end }}
