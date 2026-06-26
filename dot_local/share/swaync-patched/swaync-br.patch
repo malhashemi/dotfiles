@@ -1,0 +1,38 @@
+--- a/src/notification/notification.vala
++++ b/src/notification/notification.vala
+@@ -362,6 +362,20 @@
+                 }
+             }
+ 
++            // Some clients (e.g. WhatsApp) HTML-escape their entire notification
++            // body, so real markup arrives entity-encoded
++            // (&lt;b&gt;, &lt;br/&gt;, &amp;quot;) and gets shown as literal text.
++            // Decode one entity level so the markup parser sees real tags.
++            if ("&lt;" in text) {
++                text = text.replace ("&lt;", "<")
++                    .replace ("&gt;", ">")
++                    .replace ("&amp;", "&");
++            }
++            // Pango has no <br>; turn line-break tags into real newlines.
++            text = text.replace ("<br>", "\n")
++                .replace ("<br/>", "\n")
++                .replace ("<br />", "\n");
++
+             // Markup
+             try {
+                 Pango.AttrList ?attr = null;
+@@ -395,8 +409,12 @@
+             } catch (Error e) {
+                 stderr.printf ("Could not parse Pango markup %s: %s\n",
+                                text, e.message);
+-                // Sets the original text
+-                this.body.set_text (text);
++                // Last resort (e.g. unbalanced tags): strip the tags we support
++                // so the body shows clean text instead of literal markup.
++                this.body.set_text (text
++                    .replace ("<b>", "").replace ("</b>", "")
++                    .replace ("<i>", "").replace ("</i>", "")
++                    .replace ("<u>", "").replace ("</u>", ""));
+             }
+ 
+             this.body.set_visible (this.body.get_text ().length > 0);

@@ -1,0 +1,39 @@
+# Local PATCHED build of swaync.
+# Renders entity-encoded markup that web clients (e.g. WhatsApp) send -- e.g.
+# "&lt;b&gt;Name&lt;/b&gt;&lt;br/&gt;msg" -- as real bold + line breaks instead of
+# literal text. See swaync-br.patch. Based on the official extra/swaync PKGBUILD
+# (Maintainer: Robin Candau; Contributor: Erik Reider).
+#
+# NOTE: pinned to ${pkgver}. When extra/swaync ships a NEWER version, `pacman -Syu`
+# will replace this with the unpatched official package. Re-run build.sh (or bump
+# pkgver here) to re-apply the patch.
+
+pkgname=swaync
+_pkgname=SwayNotificationCenter
+pkgver=0.12.6
+pkgrel=99
+pkgdesc="GTK notification daemon for Sway (patched: render entity-encoded markup + <br>)"
+url="https://github.com/ErikReider/SwayNotificationCenter"
+arch=('x86_64')
+license=('GPL-3.0-only')
+depends=('gtk4' 'gtk4-layer-shell' 'libadwaita' 'glib2' 'libgee' 'json-glib' 'libpulse' 'granite7')
+makedepends=('vala' 'meson' 'git' 'scdoc' 'sassc' 'gobject-introspection' 'blueprint-compiler')
+optdepends=('gvfs: Get album art in MPRIS widget')
+source=("${_pkgname}-${pkgver}.tar.gz::${url}/archive/v${pkgver}.tar.gz"
+        "swaync-br.patch")
+sha256sums=('0c844eb5c9524f924495bd4145e5db575096de36f3ec87fb37e4c1ed6eacb897'
+            '07a3b972cfaca1e0bf15fb2197887d450f997422977d714f85e9248212a62d6f')
+
+prepare() {
+	patch -d "${_pkgname}-${pkgver}" -Np1 -i "${srcdir}/swaync-br.patch"
+}
+
+build() {
+	arch-meson "${_pkgname}-${pkgver}" build -Dscripting=true
+	ninja -C build
+}
+
+package() {
+	DESTDIR="${pkgdir}" ninja -C build install
+	install -Dm 644 "${_pkgname}-${pkgver}/README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
+}

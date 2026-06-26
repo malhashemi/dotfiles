@@ -1,0 +1,19 @@
+{{ if and (eq .chezmoi.os "linux") (not .is_headless) (lookPath "pacman") -}}
+#!/usr/bin/env bash
+# Build & install the locally-patched swaync (renders entity-encoded markup +
+# <br> from clients like WhatsApp as bold/newlines instead of literal text).
+# Runs after files are applied, so ~/.local/share/swaync-patched/ is deployed.
+# The hashes below make chezmoi re-run this whenever the patch or PKGBUILD changes.
+#   swaync-br.patch: {{ include "dot_local/share/swaync-patched/swaync-br.patch" | sha256sum }}
+#   PKGBUILD:        {{ include "dot_local/share/swaync-patched/PKGBUILD" | sha256sum }}
+set -euo pipefail
+
+build="${HOME}/.local/share/swaync-patched/build.sh"
+if [ ! -x "$build" ]; then
+    echo "swaync-patched/build.sh not found; skipping patched swaync build"
+    exit 0
+fi
+
+echo "Building locally-patched swaync (markup/<br> fix)..."
+"$build"
+{{ end -}}
