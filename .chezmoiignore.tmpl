@@ -25,10 +25,19 @@
 .config/borders/
 {{- end }}
 
-# Linux-only apps (future Hyprland/Wayland setup)
+# Linux-only apps (Hyprland/Wayland desktop)
 {{- if ne .chezmoi.os "linux" }}
-.config/hyprland/
-.config/waybar/
+.config/hypr/
+.config/quickshell/
+.config/swaync/
+.local/share/swaync-patched/
+.config/walker/
+.config/wlogout/
+.config/gtk-3.0/
+.config/gtk-4.0/
+.config/qt6ct/
+.config/systemd/user/elephant.service
+.config/systemd/user/walker.service
 {{- end }}
 
 # -----------------------------------------------------------------------------
@@ -41,12 +50,26 @@
 # GUI terminal emulators (accessed via SSH, not locally)
 .config/wezterm/
 .config/ghostty/
-.config/cmux/
 .config/neovide/
 
 # GUI applications
 .config/zed/
 .config/flameshot/
+.config/quickshell/
+
+# Wayland desktop shell components (compositor, notifications, launcher, logout, GTK)
+.config/hypr/
+.config/swaync/
+.local/share/swaync-patched/
+.config/walker/
+.config/wlogout/
+.config/gtk-3.0/
+.config/gtk-4.0/
+.config/qt6ct/
+
+# Launcher user services (Wayland GUI; no graphical session on headless)
+.config/systemd/user/elephant.service
+.config/systemd/user/walker.service
 
 # Audio/media apps (no audio output on headless)
 .config/cava/
@@ -126,6 +149,34 @@ thoughts/
 
 # Ghostty (external file method)
 .config/ghostty/colors-ghostty.conf
+
+# Quickshell bar (external file method)
+.config/quickshell/bar/colors.json
+
+# Quickshell wallpaper instance (external file method)
+.config/quickshell/wallpaper/colors.json
+
+# Hyprland (external Lua file method)
+.config/hypr/colors.lua
+
+# hyprlock (theme-system generated colors + blurred wallpaper background)
+.config/hypr/hyprlock-colors.conf
+.config/hypr/hyprlock-bg.png
+
+# GTK / swaync / walker / wlogout (external @define-color palette method)
+.config/gtk-3.0/colors.css
+.config/gtk-4.0/colors.css
+.config/gtk-3.0/settings.ini
+.config/gtk-4.0/settings.ini
+.local/share/themes/material-dynamic/
+.local/share/themes/material-dynamic-b/
+.config/swaync/colors.css
+.config/walker/colors.css
+.config/wlogout/colors.css
+.config/wlogout/background.png
+
+# Qt (qt6ct generated QPalette color scheme)
+.config/qt6ct/colors/dynamic.conf
 
 # Atuin (external file method)
 .config/atuin/themes/dynamic.toml

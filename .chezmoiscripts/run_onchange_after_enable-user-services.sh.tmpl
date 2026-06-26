@@ -1,0 +1,20 @@
+{{ if and (eq .chezmoi.os "linux") (not .is_headless) -}}
+#!/usr/bin/env bash
+# Enable the Walker + Elephant launcher user services. The unit-file hashes
+# below make chezmoi re-run this whenever the units change.
+#   elephant.service: {{ include "dot_config/systemd/user/elephant.service" | sha256sum }}
+#   walker.service:   {{ include "dot_config/systemd/user/walker.service" | sha256sum }}
+
+# Requires a running per-user systemd manager (present in a logged-in session).
+if ! systemctl --user show-environment >/dev/null 2>&1; then
+    echo "user systemd not available yet; skipping launcher service enable"
+    exit 0
+fi
+
+systemctl --user daemon-reload
+systemctl --user enable elephant.service walker.service
+# Best-effort start now (no-op/harmless if not in a graphical session yet;
+# walker.service has Restart=on-failure to recover once WAYLAND_DISPLAY is set).
+systemctl --user start elephant.service walker.service 2>/dev/null || true
+echo "✓ elephant.service + walker.service enabled"
+{{ end -}}

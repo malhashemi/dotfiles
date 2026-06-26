@@ -80,14 +80,27 @@ export VISUAL="zed --wait"
 export GOPATH="$HOME/go"
 export XDG_CONFIG_HOME="$HOME/.config"
 
+# Herdr panes run under the host terminal's PTY. When the host is Ghostty, let
+# pane applications use Ghostty's terminfo instead of Herdr's generic fallback.
+if [[ -n "$HERDR_ENV" && "$TERM_PROGRAM" == "ghostty" ]] && infocmp xterm-ghostty >/dev/null 2>&1; then
+    export TERM="xterm-ghostty"
+fi
+
 # Clipboard CLI wrapper - reads theme fresh each time for runtime theme switching
 cb() {
     [[ -f "$XDG_CONFIG_HOME/clipboard/theme" ]] && export CLIPBOARD_THEME="$(cat "$XDG_CONFIG_HOME/clipboard/theme")"
     command cb "$@"
 }
 
-# FZF Configuration (kept for compatibility with tools that still use it)
-export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow'
+# FZF shell integration
+# Ctrl-T = file picker — free across the WM/ghostty/herdr stack on both OSes.
+# Ctrl-R is reclaimed by atuin (initialized below). Alt-C (cd widget) is
+# intentionally disabled: Alt/Option+C is reserved for copy, and yazi (y) +
+# zoxide already cover directory navigation.
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --follow --exclude .git'
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+command -v fzf >/dev/null && source <(fzf --zsh)
+bindkey -r '\ec'        # unbind Alt-C (fzf-cd-widget); reserved for copy
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
 # Television is installed but kept as optional tool
@@ -162,12 +175,6 @@ alias tvh="tv zsh-history"  # Search zsh history
 
 # Raw mosh access to the dev host
 alias devhub="mosh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }}"
-
-# cmux-native bare connection for one-off agent control sessions.
-unalias cmuxbox 2>/dev/null
-cmuxbox() {
-    cmux ssh {{ .chezmoi.username }}@{{ .tailscale_hosts.dev_hub }}
-}
 {{- end }}
 
 # ============================================================================

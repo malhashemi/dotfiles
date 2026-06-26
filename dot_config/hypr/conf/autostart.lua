@@ -1,0 +1,22 @@
+hl.on("hyprland.start", function ()
+    hl.exec_cmd("hyprctl setcursor Bibata-Modern-Ice 24")
+
+    -- Environment for xdg-desktop-portal-hyprland and systemd user services.
+    hl.exec_cmd("dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP")
+    hl.exec_cmd("systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE")
+    hl.exec_cmd("systemctl --user start elephant.service walker.service")
+    hl.exec_cmd("systemctl --user start xdg-desktop-portal-hyprland xdg-desktop-portal-gtk")
+    hl.exec_cmd("bash -lc 'pgrep -f \"^/usr/lib/xdg-desktop-portal$\" >/dev/null || setsid -f /usr/lib/xdg-desktop-portal >/dev/null 2>&1'")
+
+    hl.exec_cmd("/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1")
+    hl.exec_cmd("bash -lc 'pgrep -x awww-daemon >/dev/null || exec awww-daemon --quiet'")
+    hl.exec_cmd("bash -lc 'sleep 1; awww restore || true'")
+    hl.exec_cmd("bash -lc 'pkill qs 2>/dev/null || true; exec qs -p \"$HOME/.config/quickshell/bar\"'")
+    hl.exec_cmd("bash -lc 'sleep 1; exec qs -p \"$HOME/.config/quickshell/wallpaper\"'")
+    hl.exec_cmd("~/.config/hypr/scripts/gtk.sh")
+    hl.exec_cmd("swaync")
+    hl.exec_cmd("hypridle")
+    hl.exec_cmd("wl-paste --watch cliphist store")
+    hl.exec_cmd("bash -lc 'pgrep -x kdeconnectd >/dev/null || setsid -f kdeconnectd >/dev/null 2>&1'")
+    hl.exec_cmd("~/.config/hypr/scripts/cleanup.sh")
+end)

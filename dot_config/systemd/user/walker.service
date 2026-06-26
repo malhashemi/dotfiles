@@ -1,0 +1,18 @@
+[Unit]
+Description=Walker application launcher (service mode)
+Documentation=https://github.com/abenz1267/walker
+# Walker needs its elephant backend up first, and the Wayland session env.
+After=graphical-session.target elephant.service
+Wants=elephant.service
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=walker --gapplication-service
+# If it starts before WAYLAND_DISPLAY is imported into the user env, retry until
+# the session env is ready.
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,7 @@
+/*
+ * Colors are delivered by the generated "material-dynamic" GTK theme
+ * (~/.local/share/themes/material-dynamic), NOT from here: GTK loads this user
+ * stylesheet once at startup and never re-reads it on a theme change, so colors
+ * placed here cannot live-update running apps. Keep this file for structural
+ * overrides only.
+ */

@@ -80,7 +80,7 @@ end
 config.adjust_window_size_when_changing_font_size = false
 config.automatically_reload_config = true
 config.enable_tab_bar = false
-config.font_size = {{ .preferences.terminal.font_size }}
+config.font_size = {{ if and (eq .chezmoi.os "linux") (hasKey .preferences.terminal "font_size_linux") }}{{ .preferences.terminal.font_size_linux }}{{ else }}{{ .preferences.terminal.font_size }}{{ end }}
 config.font = wezterm.font_with_fallback({
 	"{{ .preferences.terminal.font_family }}",
 	"Tajawal",  -- Arabic fallback (user's favorite)
