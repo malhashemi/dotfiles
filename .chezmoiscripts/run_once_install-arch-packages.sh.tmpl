@@ -244,7 +244,7 @@ for pkg in atuin; do
 done
 
 print_header "TUI Applications (AUR)"
-for pkg in herdr-bin glow pacseek; do
+for pkg in herdr-bin glow pacseek peaclock; do
     aur_pkg "$pkg"
 done
 
@@ -282,6 +282,13 @@ for pkg in flameshot grim slurp swappy wl-clipboard cliphist thunar pavucontrol 
     pacman_pkg "$pkg"
 done
 
+print_header "Fonts (pacman)"
+for pkg in noto-fonts noto-fonts-cjk noto-fonts-emoji noto-fonts-extra \
+           ttf-tajawal ttf-fira-sans ttf-fira-code ttf-jetbrains-mono \
+           ttf-jetbrains-mono-nerd ttf-firacode-nerd otf-font-awesome ttf-dejavu; do
+    pacman_pkg "$pkg"
+done
+
 print_header "GUI Applications (pacman)"
 for pkg in obsidian telegram-desktop discord; do
     pacman_pkg "$pkg"
@@ -291,6 +298,9 @@ print_header "GUI Applications (AUR)"
 for pkg in slack-desktop wlogout zen-browser pinta; do
     aur_pkg "$pkg"
 done
+
+print_header "Cursor theme (AUR)"
+aur_pkg "bibata-cursor-theme-bin"
 
 print_header "Launcher: Walker + Elephant providers (AUR)"
 for pkg in walker elephant \
