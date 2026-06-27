@@ -170,6 +170,12 @@ alias tvd="tv dirs"   # Quick directory search
 alias tvg="tv git-repos"  # Find git repositories
 alias tvh="tv zsh-history"  # Search zsh history
 
+{{- if eq .chezmoi.os "darwin" }}
+# macOS terminal clock — pin tty-clock to the primary accent (ANSI slot 2 =
+# the theme-system's Material primary; mirrors peaclock's green on Linux).
+alias tty-clock="tty-clock -C 2"
+{{- end }}
+
 # Remote Machines
 {{- if .tailscale_enabled }}
 

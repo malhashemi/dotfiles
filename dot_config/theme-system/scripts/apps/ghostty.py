@@ -75,39 +75,47 @@ selection-background = {mat.get("primary_container", "#45475a")}
         self.write_file(self.colors_file, content)
 
     def _get_dark_ansi(self, mat: dict) -> str:
-        """Generate ANSI palette for dark mode"""
+        """Generate ANSI palette for dark mode.
+
+        Accent placement (deliberate): primary sits on ANSI green (2/10) and
+        magenta (5/13); tertiary sits on blue (4/12) and cyan (6/14). Many TUIs
+        default to ANSI green for their accent (gping, unimatrix, the Arch
+        fastfetch logo, "success"), so green=primary surfaces the accent there.
+        The terminal cursor is themed separately via cursor-color.
+        """
         return f"""palette = 0={mat.get("outline", "#45475a")}
 palette = 1={mat.get("error", "#f38ba8")}
-palette = 2={mat.get("tertiary", "#a6e3a1")}
+palette = 2={mat.get("primary", "#89b4fa")}
 palette = 3={mat.get("secondary", "#f9e2af")}
-palette = 4={mat.get("primary", "#89b4fa")}
+palette = 4={mat.get("tertiary", "#a6e3a1")}
 palette = 5={mat.get("primary", "#cba6f7")}
 palette = 6={mat.get("tertiary", "#94e2d5")}
 palette = 7={mat.get("on_surface", "#bac2de")}
 palette = 8={mat.get("outline", "#585b70")}
 palette = 9={mat.get("error", "#f38ba8")}
-palette = 10={mat.get("tertiary", "#a6e3a1")}
+palette = 10={mat.get("primary", "#89b4fa")}
 palette = 11={mat.get("secondary", "#f9e2af")}
-palette = 12={mat.get("primary", "#89b4fa")}
+palette = 12={mat.get("tertiary", "#a6e3a1")}
 palette = 13={mat.get("primary", "#cba6f7")}
 palette = 14={mat.get("tertiary", "#94e2d5")}
 palette = 15={mat.get("on_surface_variant", "#a6adc8")}"""
 
     def _get_light_ansi(self, mat: dict) -> str:
-        """Generate ANSI palette for light mode"""
+        """Generate ANSI palette for light mode (see _get_dark_ansi for the
+        green=primary / blue=tertiary accent rationale)."""
         return f"""palette = 0={mat.get("surface_container_high", "#45475a")}
 palette = 1={mat.get("error", "#d20f39")}
-palette = 2={mat.get("tertiary", "#40a02b")}
+palette = 2={mat.get("primary", "#1e66f5")}
 palette = 3={mat.get("secondary", "#df8e1d")}
-palette = 4={mat.get("primary", "#1e66f5")}
+palette = 4={mat.get("tertiary", "#40a02b")}
 palette = 5={mat.get("primary", "#8839ef")}
 palette = 6={mat.get("tertiary", "#179299")}
 palette = 7={mat.get("on_surface", "#4c4f69")}
 palette = 8={mat.get("outline", "#6c6f85")}
 palette = 9={mat.get("error", "#d20f39")}
-palette = 10={mat.get("tertiary", "#40a02b")}
+palette = 10={mat.get("primary", "#1e66f5")}
 palette = 11={mat.get("secondary", "#df8e1d")}
-palette = 12={mat.get("primary", "#1e66f5")}
+palette = 12={mat.get("tertiary", "#40a02b")}
 palette = 13={mat.get("primary", "#8839ef")}
 palette = 14={mat.get("tertiary", "#179299")}
 palette = 15={mat.get("on_surface_variant", "#5c5f77")}"""
