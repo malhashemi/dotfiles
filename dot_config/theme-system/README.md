@@ -138,6 +138,7 @@ Wallpaper ──► matugen ──► Material Design 3 colors ──► 21 apps
 | yazi | | Flavor directory |
 | btop | | Theme file |
 | bottom | | TOML theme |
+| htop | | Inherits terminal palette (color_scheme=0) |
 | Television | | TOML theme |
 | ncspot | | Inline config |
 | CAVA | | Config file |
