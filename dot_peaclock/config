@@ -1,0 +1,12 @@
+# peaclock — tracked by chezmoi. COLOURS ONLY; peaclock's default view, size
+# and layout are left untouched.
+#
+# Named 4-bit ANSI colours (not hex) resolve through the TERMINAL's themed
+# palette, so the clock follows the active theme LIVE — no restart. In the
+# theme-system's Ghostty palette, green (slot 2) and magenta (slot 5) both map to
+# the Material primary in light and dark, so the clock tracks the primary accent
+# automatically when the wallpaper/theme changes.
+
+style text green
+style active-fg green
+style colon-fg green
