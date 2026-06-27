@@ -36,9 +36,18 @@
 .control-center {
     background-color: @window_alpha;
     border-radius: 12px;
-    background: radial-gradient(circle at 50% 250%, @window_alpha, @window_alpha_dim) padding-box,
-        linear-gradient(#FFFFFF,@on_primary) border-box;
-    border: 1px solid transparent;	
+    border: 2px solid @on_primary;
+    /* Top "light zone": horizontal dark -> bright(centre) -> dark strip over the
+       top edge, matching the quickshell popups; radial glass fill kept beneath. */
+    background-image:
+        linear-gradient(to right,
+            @on_primary 0%, @on_primary 18%,
+            @primary 35%, @primary 65%,
+            @on_primary 82%, @on_primary 100%),
+        radial-gradient(circle at 50% 250%, @window_alpha, @window_alpha_dim);
+    background-repeat: no-repeat, no-repeat;
+    background-position: top, center;
+    background-size: 100% 2px, 100% 100%;
     opacity:1;
     margin:10px;
     margin-right:18px;
@@ -300,9 +309,18 @@ trough highlight {
 .notification {
     background-color: @surface;
     border-radius: 12px;
-    background: radial-gradient(circle at 50% 250%, @primary, @surface) padding-box,
-        linear-gradient(#FFFFFF,@on_primary) border-box;
-    border: 1px solid transparent;	
+    border: 2px solid @on_primary;
+    /* Top "light zone" over the top edge (radial fill kept beneath), matching
+       the floating toasts + quickshell popups. */
+    background-image:
+        linear-gradient(to right,
+            @on_primary 0%, @on_primary 18%,
+            @primary 35%, @primary 65%,
+            @on_primary 82%, @on_primary 100%),
+        radial-gradient(circle at 50% 250%, @primary, @surface);
+    background-repeat: no-repeat, no-repeat;
+    background-position: top, center;
+    background-size: 100% 2px, 100% 100%;
     opacity:1.0;
     padding:10px;
     margin:10px 0px 0px 0px;
