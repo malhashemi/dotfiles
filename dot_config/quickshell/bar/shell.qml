@@ -923,22 +923,46 @@ ShellRoot {
                 anchors.rightMargin: root.sideMargin
                 height: root.barHeight
                 radius: 12
+                // Base is transparent; the gradient is painted ONLY in the border
+                // ring (below), so lowering theme opacity reveals the WALLPAPER —
+                // not the gradient's bright centre (the old "bar gets lighter" bug).
+                color: "transparent"
+
                 // Static gradient border matching the Hyprland window border:
                 // dark sides (on_primary) -> bright centre (primary) -> dark sides.
-                // No rotation here (that's Hyprland-only).
-                gradient: Gradient {
-                    orientation: Gradient.Horizontal
-                    GradientStop { position: 0.0;  color: root.cOnPrimary }
-                    GradientStop { position: 0.18; color: root.cOnPrimary }
-                    GradientStop { position: 0.35; color: root.cPrimary }
-                    GradientStop { position: 0.65; color: root.cPrimary }
-                    GradientStop { position: 0.82; color: root.cOnPrimary }
-                    GradientStop { position: 1.0;  color: root.cOnPrimary }
+                // Rendered to a layer and masked to the border ring so it never
+                // fills the interior behind the (alpha-transparent) background.
+                Rectangle {
+                    id: barBorderGrad
+                    anchors.fill: parent
+                    radius: parent.radius
+                    gradient: Gradient {
+                        orientation: Gradient.Horizontal
+                        GradientStop { position: 0.0;  color: root.cOnPrimary }
+                        GradientStop { position: 0.18; color: root.cOnPrimary }
+                        GradientStop { position: 0.35; color: root.cPrimary }
+                        GradientStop { position: 0.65; color: root.cPrimary }
+                        GradientStop { position: 0.82; color: root.cOnPrimary }
+                        GradientStop { position: 1.0;  color: root.cOnPrimary }
+                    }
+                    layer.enabled: true
+                    layer.effect: OpacityMask { maskSource: barBorderMask }
+                }
+                // Mask: opaque ring (the border) over a clear centre, so the gradient
+                // above is kept to the border only.
+                Rectangle {
+                    id: barBorderMask
+                    anchors.fill: parent
+                    radius: parent.radius
+                    visible: false
+                    color: "transparent"
+                    border.color: "white"
+                    border.width: root.barBorderWidth
                 }
 
-                // Inner background, inset by the border width so the gradient above
-                // shows only as a border ring. Honors theme opacity (0–100) via
-                // colour alpha (not Item.opacity) so text/icons stay crisp.
+                // Inner background. With the gradient now ring-only, the colour alpha
+                // (theme opacity 0–100) reveals the wallpaper as intended, while
+                // text/icons (children) stay crisp.
                 Rectangle {
                     id: barInner
                     anchors.fill: parent
