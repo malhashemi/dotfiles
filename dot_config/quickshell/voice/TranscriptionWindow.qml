@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import Quickshell
 import Quickshell.Wayland
 import Quickshell.Io
@@ -108,15 +109,11 @@ PanelWindow {
         }
     }
 
-    Rectangle {
+    Item {
         id: pill
         anchors.horizontalCenter: parent.horizontalCenter
         width: 460
         height: content.implicitHeight + 28   // grows to fit the transcript
-        radius: 18
-        color: Qt.rgba(Theme.surface_container.r, Theme.surface_container.g, Theme.surface_container.b, 0.94)
-        border.width: 1
-        border.color: root.stateColor()
 
         anchors.bottom: parent.bottom
         anchors.bottomMargin: root.isOpen ? root.bottomGap : -(height + 40)
@@ -124,10 +121,30 @@ PanelWindow {
             NumberAnimation { id: slideAnim; duration: 300; easing.type: Easing.OutQuint }
         }
 
+        // Soft drop shadow behind the frame (matches the bar's Calendar/Power popups).
+        RectangularShadow {
+            anchors.fill: frame
+            radius: frame.radius
+            blur: 15
+            color: Qt.rgba(0, 0, 0, 0.4)
+        }
+        // Frame matched to the quickshell bar popups: solid fill + dark border with a
+        // bright top "light zone"; the bright centre follows the HUD state colour.
+        GradientBorder {
+            id: frame
+            anchors.fill: parent
+            radius: 10
+            borderWidth: 2
+            darkColor: Theme.on_primary
+            brightColor: root.stateColor()
+            fillColor: Theme.background
+            opacity: 0.95
+        }
+
         Column {
             id: content
             anchors.centerIn: parent
-            width: parent.width - 36
+            width: parent.width - 32
             spacing: 8
 
             Row {
