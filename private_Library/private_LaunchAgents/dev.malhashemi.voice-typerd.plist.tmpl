@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- voice-typer daemon (macOS). LaunchAgent runs in the user's GUI session so
+     pbcopy / osascript / cliclick / parakeet all have access. Replaces the Linux
+     systemd unit. Load:  launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/dev.malhashemi.voice-typerd.plist
+     Reload: launchctl kickstart -k gui/$(id -u)/dev.malhashemi.voice-typerd -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>dev.malhashemi.voice-typerd</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>export PATH="$HOME/.cargo/bin:$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"; source "$HOME/.secrets" 2>/dev/null; exec "$HOME/.config/voice-typer/voice-typerd.py"</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Interactive</string>
+    <key>StandardOutPath</key>
+    <string>{{ .chezmoi.homeDir }}/Library/Logs/voice-typerd.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ .chezmoi.homeDir }}/Library/Logs/voice-typerd.log</string>
+</dict>
+</plist>

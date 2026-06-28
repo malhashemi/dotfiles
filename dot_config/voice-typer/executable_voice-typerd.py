@@ -62,8 +62,21 @@ def log(*a: object) -> None:
 
 
 def notify(summary: str, body: str = "", urgency: str = "normal") -> None:
-    """Best-effort desktop notification (libnotify/swaync) so cloud failures are
-    never silent. No-ops if notify-send is missing."""
+    """Best-effort desktop notification so cloud failures are never silent.
+    Linux: notify-send (libnotify/swaync). macOS: osascript. No-ops if the tool
+    is missing."""
+    if sys.platform == "darwin":
+        if shutil.which("osascript") is None:
+            return
+        def _esc(s: str) -> str:
+            return s.replace("\\", "\\\\").replace('"', '\\"')
+        script = f'display notification "{_esc(body)}" with title "{_esc(summary)}"'
+        try:
+            subprocess.run(["osascript", "-e", script], timeout=3,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+        return
     if shutil.which("notify-send") is None:
         return
     try:
@@ -96,7 +109,7 @@ DEFAULTS: dict = {
         "screenshot_max_width": 1200,
         "send_selection": True,
     },
-    "output": {"keep_on_clipboard": True},
+    "output": {"keep_on_clipboard": True, "method": "paste", "paste_delay_ms": 100},
     "audio": {
         "duck_while_recording": True,
         "duck_volume": 0.1,
@@ -117,6 +130,8 @@ DEFAULTS: dict = {
         "type_text": ["wtype", "-s", "120", "-d", "8", "--", "{text}"],
         "copy": ["wl-copy"],
         "paste_primary": ["wl-paste", "--primary", "--no-newline"],
+        "paste": ["~/.config/hypr/scripts/smart-clipboard.sh", "paste"],
+        "record_audio": ["pw-record", "{path}"],
     },
 }
 
@@ -584,14 +599,37 @@ def type_text(cfg: dict, text: str) -> None:
         _run(_subst(tt, text=text), timeout=30.0)
 
 
+def paste(cfg: dict) -> None:
+    """Trigger the platform paste shortcut so the focused app inserts the clipboard
+    (Linux: smart-clipboard.sh -> ALT+V in terminals / CTRL+V in GUI; macOS: Cmd+V).
+    Pasting inserts the text wholesale, sidestepping wtype's per-key capital issues."""
+    p = cfg["commands"].get("paste") or []
+    if not p:
+        return
+    argv = [os.path.expanduser(a) for a in p]
+    if shutil.which(argv[0]) is None and not os.path.exists(argv[0]):
+        log(f"paste command not found: {argv[0]}")
+        return
+    _run(argv, timeout=5.0)
+
+
 def commit_output(cfg: dict, text: str, hud: Hud) -> None:
     text = (text or "").strip()
     if not text:
         return
     hud.call("setRefined", text)
-    if cfg["output"].get("keep_on_clipboard", True):
+    out = cfg["output"]
+    if out.get("method", "paste") == "paste" and cfg["commands"].get("paste"):
+        # Copy, then paste: the app inserts the clipboard in one shot (no per-key
+        # synthesis), which is reliable for capitals/unicode. The small delay lets
+        # the clipboard manager claim the selection before the paste fires.
         copy_text(cfg, text)
-    type_text(cfg, text)
+        time.sleep(float(out.get("paste_delay_ms", 100)) / 1000.0)
+        paste(cfg)
+    else:
+        if out.get("keep_on_clipboard", True):
+            copy_text(cfg, text)
+        type_text(cfg, text)
 
 
 # ── Control socket server ────────────────────────────────────────────────────
@@ -752,16 +790,21 @@ class App:
 
     def _start_audio_dump(self) -> None:
         """Save the mic capture to a WAV (for debug listening, and required by
-        multilingual mode, which sends the audio itself to the model)."""
+        multilingual mode, which sends the audio itself to the model). Uses the
+        platform `record_audio` command from config (pw-record on Linux, ffmpeg
+        avfoundation on macOS)."""
         if not (self.cfg.get("debug", {}).get("save_recordings", False)
                 or self.session_mode == "multilingual"):
             return
-        if shutil.which("pw-record") is None:
+        rec = self.cfg["commands"].get("record_audio") or []
+        if not rec or shutil.which(rec[0]) is None:
+            if self.session_mode == "multilingual":
+                log(f"multilingual needs audio but record_audio is unavailable: {rec[:1]}")
             return
         try:
             LAST_WAV.parent.mkdir(parents=True, exist_ok=True)
             self._rec_proc = subprocess.Popen(
-                ["pw-record", str(LAST_WAV)],
+                _subst(rec, path=str(LAST_WAV)),
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             )
             log(f"saving recording -> {LAST_WAV}")

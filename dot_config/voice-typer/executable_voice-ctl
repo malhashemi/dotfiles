@@ -50,11 +50,14 @@ def main() -> int:
         return 0
     except OSError:
         pass
-    # Daemon not reachable: try to start the user service, then retry briefly.
-    subprocess.run(
-        ["systemctl", "--user", "start", "voice-typerd.service"],
-        check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    # Daemon not reachable: try to start it (launchd on macOS, systemd on Linux),
+    # then retry briefly.
+    if sys.platform == "darwin":
+        start = ["launchctl", "kickstart", f"gui/{os.getuid()}/dev.malhashemi.voice-typerd"]
+    else:
+        start = ["systemctl", "--user", "start", "voice-typerd.service"]
+    subprocess.run(start, check=False,
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(60):
         try:
             send(msg)

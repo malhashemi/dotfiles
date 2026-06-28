@@ -18,11 +18,12 @@
 # 1. Platform-Specific Exclusions
 # -----------------------------------------------------------------------------
 
-# macOS-only apps (window manager, status bar, borders)
+# macOS-only apps (window manager, status bar, borders, launchd agents)
 {{- if ne .chezmoi.os "darwin" }}
 .config/aerospace/
 .config/sketchybar/
 .config/borders/
+Library/LaunchAgents/dev.malhashemi.voice-typerd.plist
 {{- end }}
 
 # Linux-only apps (Hyprland/Wayland desktop)
@@ -38,7 +39,8 @@
 .config/qt6ct/
 .config/systemd/user/elephant.service
 .config/systemd/user/walker.service
-.config/voice-typer/
+# voice-typer config deploys on linux AND macOS; only the systemd unit is linux-only
+# (macOS uses a launchd LaunchAgent instead).
 .config/systemd/user/voice-typerd.service
 {{- end }}
 

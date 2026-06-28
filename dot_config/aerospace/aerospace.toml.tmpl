@@ -247,6 +247,18 @@ alt-o = 'exec-and-forget open -a /Applications/Obsidian.app'
 # Theme control - Random wallpaper
 cmd-shift-w = 'exec-and-forget bash -c "export PATH=\"{{ .chezmoi.homeDir }}/.cargo/bin:$PATH\" && {{ .chezmoi.homeDir }}/.config/theme-system/scripts/wallpaper-manager.py random"'
 
+# Voice dictation (voice-typer). AeroSpace fires on key-DOWN only, so these TOGGLE:
+# press once = start hands-free listening, press again = commit. (No hold-to-talk or
+# double-tap-lock on macOS.) See ~/.config/voice-typer/README.md.
+#   f7           = local (offline, Parakeet only)
+#   cmd-f7       = dictation + Gemini cleanup
+#   cmd-shift-f7 = command (Gemini acts on the spoken instruction)
+#   cmd-alt-f7   = multilingual -> English
+f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle local'
+cmd-f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle dictate'
+cmd-shift-f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle command'
+cmd-alt-f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle multilingual'
+
 # 'service' binding mode declaration.
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
 [mode.service.binding]

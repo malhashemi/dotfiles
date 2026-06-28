@@ -47,6 +47,15 @@ send_selection = true
 [output]
 # Leave the dictated text on the clipboard after typing ("emit clipboard").
 keep_on_clipboard = true
+# How dictated text reaches the focused app:
+#   "paste" - copy to the clipboard, then trigger your paste shortcut. Inserts the
+#             text in one shot, so it's reliable for capital letters / unicode and
+#             avoids wtype's per-key issues in terminals. Needs [commands].paste.
+#   "type"  - synthesize keystrokes (wtype on Linux, cliclick on macOS).
+method = "paste"
+# Wait this long (ms) after copying before pasting, so the clipboard manager has
+# claimed the selection. Only used when method = "paste".
+paste_delay_ms = 100
 
 [audio]
 # Duck the default output device (sink) to a fraction of its volume while you
@@ -90,6 +99,14 @@ window_info = ["osascript", "-e", "tell application \"System Events\" to get nam
 type_text = ["cliclick", "t:{text}"]
 copy = ["pbcopy"]
 paste_primary = []
+# record_audio: dump the mic to a WAV (multilingual uploads it). macOS uses sox's
+# `rec`, which records from the system DEFAULT input device — just set your mic as
+# the default input in System Settings > Sound > Input (no device index needed).
+record_audio = ["rec", "-q", "-c", "1", "-r", "48000", "{path}"]
+# paste: trigger the paste shortcut (used when [output].method = "paste"). On macOS
+# Cmd+V pastes in Ghostty (cmd+v) and GUI apps. Needs Accessibility permission for
+# the daemon (System Settings > Privacy & Security > Accessibility).
+paste = ["osascript", "-e", "tell application \"System Events\" to keystroke \"v\" using command down"]
 {{- else }}
 screenshot = ["grim", "{path}"]
 window_info = ["hyprctl", "activewindow", "-j"]
@@ -103,4 +120,9 @@ window_info = ["hyprctl", "activewindow", "-j"]
 type_text = ["wtype", "-s", "120", "-d", "8", "--", "{text}"]
 copy = ["wl-copy"]
 paste_primary = ["wl-paste", "--primary", "--no-newline"]
+record_audio = ["pw-record", "{path}"]
+# paste: trigger the paste shortcut (used when [output].method = "paste"). Reuses
+# the terminal-aware smart-clipboard.sh (ALT+V in terminals, CTRL+V in GUI apps,
+# via Hyprland send_shortcut) so capitals/unicode insert reliably.
+paste = ["~/.config/hypr/scripts/smart-clipboard.sh", "paste"]
 {{- end }}
