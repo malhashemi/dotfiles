@@ -1,0 +1,104 @@
+{{ if and (eq .chezmoi.os "linux") (not .is_headless) -}}
+#!/usr/bin/env bash
+# Set up the greetd + regreet (GTK) login greeter — the SYSTEM side of the login
+# stack. Delivers:
+#   - packages: greetd, greetd-regreet, cage
+#   - /var/lib/regreet-theme   user-owned dir; the theme-system regreet plugin
+#                              (apps/regreet.py) writes bg.png + regreet.css here
+#                              on every wallpaper change (no sudo — user owns it)
+#   - /etc/greetd/config.toml  greetd launches regreet inside a cage compositor
+#   - /etc/greetd/regreet.toml static greeter config (background path/font/cursor)
+#   - /etc/tmpfiles.d/regreet.conf  greeter state/log dirs
+#
+# Idempotent; re-runs whenever this script's content changes. It deliberately
+# does NOT enable greetd or disable the current display manager — that cutover is
+# a MANUAL, deliberate step (keep a TTY open as a rollback path):
+#       sudo systemctl disable sddm
+#       sudo systemctl enable greetd
+#       sudo reboot
+# Rollback from a TTY (Ctrl+Alt+F2):
+#       sudo systemctl disable --now greetd && sudo systemctl enable --now sddm && sudo reboot
+set -euo pipefail
+
+echo "==> greetd/regreet setup (system config only; does NOT switch the DM)"
+
+# Prime sudo once for the whole script.
+sudo -v
+
+# 1. Packages (idempotent). Installed here rather than in the run_once package
+#    installer — editing that would force a full, AUR-rebuilding re-run — and this
+#    run_onchange script also fires on a fresh machine's first `chezmoi apply`.
+sudo pacman -S --needed --noconfirm greetd greetd-regreet cage
+
+# 2. Greeter-readable, user-owned theme dir. The unprivileged `greeter` user only
+#    READS these files; the desktop user writes them with no sudo (owns the dir).
+sudo install -d -o "{{ .chezmoi.username }}" -g "{{ .chezmoi.username }}" -m 0755 /var/lib/regreet-theme
+
+# 3. greetd config: run regreet (GTK) inside a cage kiosk compositor. `-s` keeps
+#    VT switching available (anti-lockout); GTK_USE_PORTAL=0 avoids startup
+#    delays; --style points at the wallpaper-following stylesheet.
+sudo install -d -m 0755 /etc/greetd
+sudo tee /etc/greetd/config.toml >/dev/null <<'EOF'
+# Managed by chezmoi (.chezmoiscripts/run_onchange_after_setup-greetd.sh.tmpl).
+# Do not edit by hand.
+[terminal]
+vt = 1
+
+[default_session]
+command = "env GTK_USE_PORTAL=0 GDK_DEBUG=no-portals dbus-run-session cage -s -mlast -d -- regreet --style /var/lib/regreet-theme/regreet.css"
+user = "greeter"
+EOF
+
+# 4. Static regreet config. Colors come from the --style CSS above; this sets the
+#    background image path, fonts, cursor and power commands. The base GTK theme
+#    is Adwaita — the CSS overrides its libadwaita @define-color names so the
+#    greeter follows the matugen palette.
+sudo tee /etc/greetd/regreet.toml >/dev/null <<'EOF'
+# Managed by chezmoi (.chezmoiscripts/run_onchange_after_setup-greetd.sh.tmpl).
+# Do not edit by hand. Background + colors follow the wallpaper via the
+# theme-system regreet plugin writing into /var/lib/regreet-theme/.
+skip_selection = true
+
+[background]
+path = "/var/lib/regreet-theme/bg.png"
+fit = "Cover"
+
+[GTK]
+application_prefer_dark_theme = true
+cursor_theme_name = "Bibata-Modern-Ice"
+cursor_blink = true
+font_name = "JetBrainsMono Nerd Font 12"
+icon_theme_name = "Papirus-Dark"
+theme_name = "Adwaita"
+
+[commands]
+reboot = ["systemctl", "reboot"]
+poweroff = ["systemctl", "poweroff"]
+
+[appearance]
+greeting_msg = "Welcome back"
+EOF
+
+# 5. Greeter state/log dirs so regreet can remember the last user/session.
+sudo tee /etc/tmpfiles.d/regreet.conf >/dev/null <<'EOF'
+d /var/lib/regreet 0755 greeter greeter - -
+d /var/log/regreet 0755 greeter greeter - -
+EOF
+sudo systemd-tmpfiles --create /etc/tmpfiles.d/regreet.conf
+
+# 6. Seed the greeter theme so the first greetd login is already themed (no sudo;
+#    the dir is user-owned). Best-effort — never fail the apply over theming.
+if command -v uv >/dev/null 2>&1 && [ -d "${HOME}/.config/theme-system/scripts" ]; then
+    uv run "${HOME}/.config/theme-system/scripts/theme-manager.py" refresh-backgrounds || true
+fi
+
+# Safety net: `regreet --style` must point at a file that EXISTS, so the greeter
+# always launches even if seeding produced nothing (no wallpaper/theme yet). The
+# dir is user-owned, so no sudo is needed here. (A missing background is fine —
+# regreet just renders without one.)
+[ -f /var/lib/regreet-theme/regreet.css ] || echo "/* regreet fallback (theme not seeded yet) */" > /var/lib/regreet-theme/regreet.css
+
+echo "✓ greetd + regreet configured. Greeter theme dir: /var/lib/regreet-theme"
+echo "  greetd is NOT enabled yet. To cut over (keep a TTY open as rollback):"
+echo "    sudo systemctl disable sddm && sudo systemctl enable greetd && sudo reboot"
+{{ end -}}

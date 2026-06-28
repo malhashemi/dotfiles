@@ -40,6 +40,7 @@ from .swaync import SwayncTheme
 from .walker import WalkerTheme
 from .wlogout import WlogoutTheme
 from .hyprlock import HyprlockTheme
+from .regreet import RegreetTheme
 from .qt import QtTheme
 
 
@@ -90,6 +91,7 @@ def get_all_apps(config_home: Path) -> list:
         WalkerTheme(config_home),
         WlogoutTheme(config_home),
         HyprlockTheme(config_home),
+        RegreetTheme(config_home),
         QtTheme(config_home),
     ]
 
@@ -127,6 +129,7 @@ __all__ = [
     "WalkerTheme",
     "WlogoutTheme",
     "HyprlockTheme",
+    "RegreetTheme",
     "QtTheme",
     "get_all_apps",
 ]
