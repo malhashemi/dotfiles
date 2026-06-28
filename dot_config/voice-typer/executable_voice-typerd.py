@@ -714,6 +714,24 @@ class App:
         self._cancel("_hide_timer")
         self.live = []
         self.hud.call("reveal")
+        if self.session_mode == "multilingual":
+            # Mode 4 is Parakeet-independent by design: the language (e.g. Iraqi
+            # Arabic) is one Parakeet can't read, so the audio goes straight to
+            # Gemini. Capture with pw-record only and never start Parakeet — its
+            # Silero VAD must not be able to veto the upload (it once flagged a
+            # healthy 67s take as "no speech" and silently dropped it). No model
+            # load here, so skip the "loading" HUD state and go straight to live.
+            self._boost_mic()
+            self._start_audio_dump()
+            if self._rec_proc is None:
+                self._restore_mic()
+                self.hud.call("setState", "error")
+                self._finish_idle(0.8)
+                return
+            self.hud.call("setState", "locked" if locked else "listening")
+            self.state = LOCKED if locked else HOLD
+            self._duck()
+            return
         # Show "loading" during the (possibly ~2-3s) cold model load, then flip
         # to listening once the engine is actually capturing.
         self.hud.call("setState", "loading")
@@ -730,6 +748,17 @@ class App:
 
     def _stop_and_commit(self) -> None:
         self.hud.call("setState", "processing")
+        if self.session_mode == "multilingual":
+            # No Parakeet to stop and no transcript to wait for: finalize the WAV
+            # (pw-record) and hand it straight to the Gemini pipeline. This skips
+            # the `session`/`nospeech`/commit-timeout event gate entirely — the
+            # _preprocess_audio() trim+downsample still runs inside the pipeline.
+            self._stop_audio_dump()
+            self._restore_mic()
+            self._unduck()
+            self.state = COMMITTING
+            threading.Thread(target=self._pipeline, args=("",), daemon=True).start()
+            return
         self.engine.stop_recording()
         self._stop_audio_dump()
         self._restore_mic()
@@ -980,12 +1009,16 @@ class App:
                     log(f"utterance: {ev[1]}")
                     self.hud.call("setRaw", " ".join(self.live))
             elif kind == "session":
-                if self.state == COMMITTING:
+                # Mode 4 drives its own pipeline on stop (Parakeet-independent);
+                # ignore any transcript a warm engine emits so we never double-fire.
+                if self.session_mode != "multilingual" and self.state == COMMITTING:
                     log(f"transcript: {ev[1]}")
                     self._cancel("_commit_timer")
                     threading.Thread(target=self._pipeline, args=(ev[1],), daemon=True).start()
             elif kind == "nospeech":
-                if self.state == COMMITTING:
+                # Mode 4 must never be aborted by Parakeet's Silero VAD — that was
+                # the bug. Only the local/dictate/command modes honor "no speech".
+                if self.session_mode != "multilingual" and self.state == COMMITTING:
                     log("no speech detected")
                     self.hud.call("setRaw", "")
                     self.hud.call("setState", "idle")
@@ -1010,7 +1043,9 @@ class App:
                     log("idle: shutting down warm model")
                     self.engine.shutdown()
             elif kind == "engine_exit":
-                if self.state in (HOLD, PENDING_LOCK, LOCKED, COMMITTING):
+                # A warm Parakeet dying mid-take only matters when Parakeet is the
+                # input path; mode 4 records via pw-record, so don't let it abort.
+                if self.session_mode != "multilingual" and self.state in (HOLD, PENDING_LOCK, LOCKED, COMMITTING):
                     self.hud.call("setState", "error")
                     self._finish_idle()
 
