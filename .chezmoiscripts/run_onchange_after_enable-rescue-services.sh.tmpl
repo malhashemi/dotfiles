@@ -1,0 +1,79 @@
+{{ if eq .chezmoi.os "linux" -}}
+#!/usr/bin/env bash
+# Enable the ways INTO a Linux box — remote (SSH, restricted to Tailscale) on every
+# host, plus local rescue consoles on desktops.
+#
+# EVERY Linux host:
+#   - sshd.service  → remote access over the tailnet. This is the PRIMARY way into
+#       a HEADLESS box, and the remote rollback for a DESKTOP if its graphical
+#       login (greetd) ever breaks. Arch ships sshd.service (a persistent daemon),
+#       not sshd.socket. (tailscaled itself is enabled by the package installer.)
+#   - SSH firewalled to Tailscale only: a DEDICATED nftables table drops tcp/22 on
+#       every interface except tailscale0 (and lo). policy accept + no flush, so it
+#       restricts SSH and NOTHING else — the distro's default `inet filter` ruleset
+#       and Docker's `ip`-family tables are left untouched. SKIPPED (SSH left open)
+#       when tailscale0 isn't up yet, so you can't lock yourself out of a box that
+#       isn't on the tailnet (e.g. a fresh VPS reached over public SSH).
+#
+# DESKTOP (non-headless) hosts also get local rescue consoles — with SDDM gone, a
+# working TTY is the only LOCAL rollback if greetd fails to start:
+#   - getty@tty2.service / getty@tty3.service  → Ctrl+Alt+F2 / Ctrl+Alt+F3.
+#       Enabled EXPLICITLY (statically wired into getty.target.wants) instead of
+#       trusting autovt/logind to spawn a getty on VT-switch (unreliable here).
+#
+# Re-runs only when this script's content changes; every action is idempotent
+# (`enable --now`, so it's live immediately, not just on next boot).
+set -euo pipefail
+
+echo "==> enabling remote access (sshd, Tailscale-only){{ if not .is_headless }} + local rescue consoles{{ end }}"
+
+# Prime sudo once for the whole script.
+sudo -v
+
+# sshd must exist before we enable it. openssh is also in the package installer;
+# (re)installed here so this is self-contained on a fresh apply regardless of
+# script ordering. --needed is a no-op once it's present.
+sudo pacman -S --needed --noconfirm openssh
+
+# Remote access / rescue over the tailnet — every Linux host.
+sudo systemctl enable --now sshd.service
+echo "  ✓ sshd — ssh {{ .chezmoi.username }}@<tailnet-host>"
+
+# Restrict SSH to the Tailscale interface. Gated on tailscale0 EXISTING so we never
+# lock ourselves out of a box that isn't on the tailnet yet — bring up Tailscale,
+# then `chezmoi apply` again. Fail-open by design: if anything errors, SSH stays
+# reachable rather than dropping you.
+if ip link show tailscale0 >/dev/null 2>&1; then
+    sudo pacman -S --needed --noconfirm nftables
+    sudo tee /etc/nftables.conf >/dev/null <<'EOF'
+#!/usr/bin/nft -f
+# Managed by chezmoi (.chezmoiscripts/run_onchange_after_enable-rescue-services.sh.tmpl).
+# Do not edit by hand.
+#
+# SSH reachable only over Tailscale. A DEDICATED table with `policy accept` — it
+# restricts SSH and NOTHING else, and never flushes, so the distro's default
+# `inet filter` ruleset and Docker's `ip`-family tables are left untouched. The
+# add/delete/redefine prelude makes reloading idempotent.
+add table inet ssh_guard
+delete table inet ssh_guard
+table inet ssh_guard {
+  chain input {
+    type filter hook input priority filter; policy accept;
+    tcp dport 22 iifname != { "lo", "tailscale0" } drop comment "SSH: Tailscale-only"
+  }
+}
+EOF
+    sudo systemctl enable --now nftables.service
+    sudo nft -f /etc/nftables.conf
+    echo "  ✓ SSH firewalled to Tailscale only (tcp/22 dropped off tailscale0)"
+else
+    echo "  ⚠ tailscale0 not up — SSH left open (firewall skipped to avoid lockout)."
+    echo "    Bring up Tailscale, then re-run: chezmoi apply"
+fi
+{{ if not .is_headless }}
+# Local rescue consoles — desktops only (the greetd-rollback path). Always-on and
+# autovt-independent.
+sudo systemctl enable --now getty@tty2.service getty@tty3.service
+echo "  ✓ rescue consoles — Ctrl+Alt+F2 / Ctrl+Alt+F3"
+{{- end }}
+{{ end -}}
