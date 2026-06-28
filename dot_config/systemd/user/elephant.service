@@ -2,6 +2,10 @@
 [Unit]
 Description=Elephant
 After=graphical-session.target
+# Restart cleanly with the session (matches walker.service). Without this,
+# elephant outlives a compositor restart and its clipboard wl-paste watcher dies
+# without being respawned, freezing walker's clipboard history.
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
