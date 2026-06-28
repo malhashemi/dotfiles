@@ -1,0 +1,18 @@
+[Unit]
+Description=Flameshot screenshot daemon
+Documentation=https://flameshot.org
+# Keep the flameshot daemon resident so the screenshot keybind (`flameshot gui`)
+# pops up instantly instead of cold-starting each time, and the tray entry is
+# available. Keyed off the uwsm-activated graphical-session.target so it inherits
+# WAYLAND_DISPLAY (same pattern as elephant/walker/voice-typerd).
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/flameshot
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

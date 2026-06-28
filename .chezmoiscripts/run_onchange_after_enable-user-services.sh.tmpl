@@ -1,10 +1,11 @@
 {{ if and (eq .chezmoi.os "linux") (not .is_headless) -}}
 #!/usr/bin/env bash
-# Enable the Walker + Elephant launcher and voice-typer user services. The
-# unit-file hashes below make chezmoi re-run this whenever the units change.
+# Enable the Walker + Elephant launcher, voice-typer and flameshot user services.
+# The unit-file hashes below make chezmoi re-run this whenever the units change.
 #   elephant.service:    {{ include "dot_config/systemd/user/elephant.service" | sha256sum }}
 #   walker.service:      {{ include "dot_config/systemd/user/walker.service" | sha256sum }}
 #   voice-typerd.service: {{ include "dot_config/systemd/user/voice-typerd.service" | sha256sum }}
+#   flameshot.service:   {{ include "dot_config/systemd/user/flameshot.service" | sha256sum }}
 
 # Requires a running per-user systemd manager (present in a logged-in session).
 if ! systemctl --user show-environment >/dev/null 2>&1; then
@@ -16,9 +17,9 @@ systemctl --user daemon-reload
 # swaync.service is shipped by the swaync package (D-Bus activated). Enable it so
 # notifications start with the session via graphical-session.target instead of via
 # autostart.lua — avoids the double-start. (No hash line: not a repo-tracked unit.)
-systemctl --user enable elephant.service walker.service voice-typerd.service swaync.service
+systemctl --user enable elephant.service walker.service voice-typerd.service swaync.service flameshot.service
 # Best-effort start now (no-op/harmless if not in a graphical session yet;
 # the services have Restart=on-failure to recover once WAYLAND_DISPLAY is set).
-systemctl --user start elephant.service walker.service voice-typerd.service swaync.service 2>/dev/null || true
-echo "✓ elephant + walker + voice-typerd + swaync user services enabled"
+systemctl --user start elephant.service walker.service voice-typerd.service swaync.service flameshot.service 2>/dev/null || true
+echo "✓ elephant + walker + voice-typerd + swaync + flameshot user services enabled"
 {{ end -}}
