@@ -1,0 +1,19 @@
+[Unit]
+Description=voice-typer local dictation daemon (Parakeet + pi)
+Documentation=https://github.com/lucataco/parakeet-cli
+# Needs the Wayland session env (grim/wtype/wl-copy/hyprctl/qs) imported into the
+# user manager, which Hyprland autostart does via systemctl --user import-environment.
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+# parakeet lives in ~/.cargo/bin; pi/wtype/grim/wl-copy/qs/hyprctl in /usr/bin.
+Environment=PATH=%h/.cargo/bin:%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+# Source ~/.secrets so OPENAI_API_KEY reaches `pi` (file is `export NAME=...`).
+ExecStart=/bin/bash -c 'source %h/.secrets 2>/dev/null; exec %h/.config/voice-typer/voice-typerd.py'
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

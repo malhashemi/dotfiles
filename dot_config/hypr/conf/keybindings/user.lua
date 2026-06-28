@@ -86,6 +86,23 @@ hl.bind(mainMod .. " + CTRL + R", hl.dsp.exec_cmd("hyprctl reload"), { descripti
 -- which maps alt+shift+d -> split_horizontal. The old "toggle animations" action
 -- (HYPRSCRIPTS/toggle-animations.sh) lived here; rebind it to a free chord if wanted.
 hl.bind("CTRL + PRINT", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/screenshot.sh"), { description = "Take a screenshot" })
+
+-- Voice dictation (voice-typer): hold to talk (release sends); double-tap to lock
+-- hands-free listening, press again to commit. See ~/.config/voice-typer.
+--   F7        = local only — Parakeet transcript typed verbatim (instant, offline)
+--   CTRL+F7   = dictation — Parakeet -> Gemini cleanup (OCR + selection context)
+--   SHIFT+F7  = command   — Gemini acts on the spoken instruction, types the result
+--   ALT+F7    = multilingual — speak Iraqi Arabic and/or English -> English (audio -> Gemini)
+-- (Mac will map CMD+F7 to multilingual.)
+local VOICE_CTL = "~/.config/voice-typer/voice-ctl"
+hl.bind("F7", hl.dsp.exec_cmd(VOICE_CTL .. " down local"), { description = "Voice dictation local (push-to-talk)" })
+hl.bind("F7", hl.dsp.exec_cmd(VOICE_CTL .. " up local"), { release = true, description = "Voice dictation local (release)" })
+hl.bind("CTRL + F7", hl.dsp.exec_cmd(VOICE_CTL .. " down dictate"), { description = "Voice dictation + AI cleanup (push-to-talk)" })
+hl.bind("CTRL + F7", hl.dsp.exec_cmd(VOICE_CTL .. " up dictate"), { release = true, description = "Voice dictation + AI cleanup (release)" })
+hl.bind("SHIFT + F7", hl.dsp.exec_cmd(VOICE_CTL .. " down command"), { description = "Voice command (push-to-talk)" })
+hl.bind("SHIFT + F7", hl.dsp.exec_cmd(VOICE_CTL .. " up command"), { release = true, description = "Voice command (release/run)" })
+hl.bind("ALT + F7", hl.dsp.exec_cmd(VOICE_CTL .. " down multilingual"), { description = "Voice multilingual -> English (push-to-talk)" })
+hl.bind("ALT + F7", hl.dsp.exec_cmd(VOICE_CTL .. " up multilingual"), { release = true, description = "Voice multilingual (release)" })
 hl.bind(mainMod .. " + " .. secMod .. " + G", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/gamemode.sh"),
     { description = "Toggle game mode" })
 hl.bind(mainMod .. " + CTRL + Q", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/wlogout.sh"), { description = "Open power menu" })

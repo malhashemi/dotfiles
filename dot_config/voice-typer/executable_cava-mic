@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Run cava on the default PipeWire *source* (mic) in raw mode for the voice HUD.
+# cava's own `source = auto` uses the default sink monitor (speakers), so we
+# resolve the input source explicitly and substitute it into a runtime config.
+set -euo pipefail
+
+src="$(pactl get-default-source 2>/dev/null || true)"
+run="${XDG_RUNTIME_DIR:-$HOME/.config/voice-typer/run}"
+mkdir -p "$run"
+cfg="$run/cava-mic.conf"
+sed "s|@SOURCE@|${src}|" "$HOME/.config/voice-typer/cava-mic.conf" >"$cfg"
+
+exec cava -p "$cfg"

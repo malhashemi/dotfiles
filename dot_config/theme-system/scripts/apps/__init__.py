@@ -33,6 +33,7 @@ from .obsidian import ObsidianTheme
 from .clipboard import ClipboardTheme
 from .quickshell_bar import QuickshellBarTheme
 from .quickshell_wallpaper import QuickshellWallpaperTheme
+from .quickshell_voice import QuickshellVoiceTheme
 from .hyprland import HyprlandTheme
 from .gtk import GtkTheme
 from .swaync import SwayncTheme
@@ -82,6 +83,7 @@ def get_all_apps(config_home: Path) -> list:
         ClipboardTheme(config_home),
         QuickshellBarTheme(config_home),
         QuickshellWallpaperTheme(config_home),
+        QuickshellVoiceTheme(config_home),
         HyprlandTheme(config_home),
         GtkTheme(config_home),
         SwayncTheme(config_home),
@@ -118,6 +120,7 @@ __all__ = [
     "ClipboardTheme",
     "QuickshellBarTheme",
     "QuickshellWallpaperTheme",
+    "QuickshellVoiceTheme",
     "HyprlandTheme",
     "GtkTheme",
     "SwayncTheme",

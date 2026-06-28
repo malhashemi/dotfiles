@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""voice-ctl — tiny client that forwards F7 press/release to voice-typerd.
+
+Usage: voice-ctl {down|up|toggle}
+Hyprland binds:
+  hl.bind("F7", hl.dsp.exec_cmd("~/.config/voice-typer/voice-ctl down"))
+  hl.bind("F7", hl.dsp.exec_cmd("~/.config/voice-typer/voice-ctl up"), { release = true })
+macOS (aerospace): binding -> voice-ctl toggle
+"""
+
+import os
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+
+def control_sock() -> Path:
+    base = os.environ.get("XDG_RUNTIME_DIR")
+    d = Path(base) / "voice-typer" if base else Path.home() / ".config/voice-typer/run"
+    return d / "control.sock"
+
+
+def send(cmd: str) -> None:
+    s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    s.settimeout(2.0)
+    try:
+        s.connect(str(control_sock()))
+        s.sendall(cmd.encode())
+        try:
+            s.recv(16)
+        except OSError:
+            pass
+    finally:
+        s.close()
+
+
+def main() -> int:
+    cmd = sys.argv[1].strip().lower() if len(sys.argv) > 1 else "toggle"
+    if cmd not in ("down", "up", "toggle"):
+        print(f"voice-ctl: unknown command {cmd!r} (use down|up|toggle)", file=sys.stderr)
+        return 2
+    # Optional 2nd arg selects the session mode:
+    #   local (Parakeet only) | dictate (+Gemini cleanup) | command | multilingual
+    mode = sys.argv[2].strip().lower() if len(sys.argv) > 2 else "dictate"
+    msg = f"{cmd} {mode}"
+    try:
+        send(msg)
+        return 0
+    except OSError:
+        pass
+    # Daemon not reachable: try to start the user service, then retry briefly.
+    subprocess.run(
+        ["systemctl", "--user", "start", "voice-typerd.service"],
+        check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+    )
+    for _ in range(60):
+        try:
+            send(msg)
+            return 0
+        except OSError:
+            time.sleep(0.1)
+    print("voice-ctl: could not reach voice-typerd", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -196,7 +196,7 @@ for pkg in felixkratz/formulae/borders felixkratz/formulae/sketchybar wallpaper;
 done
 
 print_header "Utilities"
-for pkg in mosh ffmpeg imagemagick p7zip sevenzip unzip rclone clipboard \
+for pkg in mosh ffmpeg imagemagick p7zip sevenzip unzip rclone clipboard cliclick \
            speedtest-cli gping fastfetch figlet toilet cmatrix tty-clock fribidi; do
     brew_pkg "$pkg"
 done
@@ -254,6 +254,24 @@ if command -v cargo &>/dev/null; then
             print_fail "cargo:$pkg"
         fi
     done
+    # parakeet-cli: local CPU speech-to-text for voice-typer (git source, pinned tag).
+    if command -v parakeet &>/dev/null; then
+        print_skip "parakeet-cli"
+    elif cargo install --git https://github.com/lucataco/parakeet-cli --tag v0.1.5 --locked &>/dev/null; then
+        print_success "parakeet-cli"
+    else
+        print_fail "cargo:parakeet-cli"
+    fi
+    # Parakeet model weights (INT8, ~620MB) — required at runtime by voice-typer.
+    if command -v parakeet &>/dev/null; then
+        if [[ -f "$HOME/Library/Application Support/parakeet/models/parakeet-tdt-0.6b-v3/encoder-model.int8.onnx" ]]; then
+            print_skip "parakeet model"
+        elif parakeet download &>/dev/null; then
+            print_success "parakeet model"
+        else
+            print_fail "parakeet model"
+        fi
+    fi
 else
     print_info "cargo not available, skipping"
 fi

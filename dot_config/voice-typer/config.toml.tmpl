@@ -1,0 +1,106 @@
+# voice-typer configuration (managed by chezmoi: config.toml.tmpl).
+# Behavior/runtime for the local dictation daemon (voice-typerd.py).
+
+[model]
+# pi model for the smart/intent layer, in provider/id form. thinking: off|minimal|low|medium|high
+# gemini-2.5-flash: ~3s round-trip, vision-capable, uses GEMINI_API_KEY.
+# Alternatives: google/gemini-3.5-flash, google/gemini-flash-latest.
+# NOTE: openai-codex/gpt-5.5 works but had ~8min latency (codex cold-start) — unusable here.
+name = "google/gemini-2.5-flash"
+thinking = "off"
+
+[stt]
+# Audio input device substring; empty = system default source (e.g. your Jabra).
+device = ""
+# Parakeet model dir; empty = parakeet default (~/.local/share/parakeet/models/parakeet-tdt-0.6b-v3).
+model_dir = ""
+# VAD tuning for locked/continuous mode (hold mode flushes on release regardless).
+silence_ms = 1500
+vad_threshold = 0.5
+# Keep the Parakeet model warm; shut it down after this many idle seconds (0 = never).
+idle_shutdown_secs = 900
+# Pre-warm the model when the daemon starts instead of lazily on first use.
+prewarm = false
+
+[activation]
+# Hold shorter than tap_ms is treated as a tap (candidate for double-tap → lock).
+tap_ms = 250
+# Window to detect the second tap of a double-tap.
+double_tap_ms = 350
+# How long to wait for a transcript after stopping before giving up.
+commit_timeout_secs = 12
+
+[context]
+# Screen context for the smart layer:
+#   "ocr"        - local tesseract OCR of the active window -> text (cheap, no vision, private)
+#   "screenshot" - downscaled active-window image -> vision model
+#   "none"       - send no screen context
+screen_context = "ocr"
+ocr_lang = "eng"
+ocr_max_chars = 6000
+# Capture only the active window (Linux/grim) instead of the whole desktop.
+screenshot_active_window = true
+# screenshot mode only: downscale to this max width (px) as JPEG. 0 = full PNG.
+screenshot_max_width = 1200
+send_selection = true
+
+[output]
+# Leave the dictated text on the clipboard after typing ("emit clipboard").
+keep_on_clipboard = true
+
+[audio]
+# Duck the default output device (sink) to a fraction of its volume while you
+# talk, then restore it.
+duck_while_recording = true
+duck_volume = 0.1
+# Boost the mic (default source) while recording for cleaner capture, restore
+# after. 1.0 = 100%. Going above 1.0 amplifies but can clip/distort.
+boost_mic_while_recording = true
+mic_boost_volume = 1.0
+
+[multilingual]
+# Alt+F7 sends your audio to the cloud model. Before upload, normalize it with
+# ffmpeg: downsample to 16 kHz mono (Gemini downsamples anyway — ~6x smaller) and
+# strip long pauses (fewer audio tokens; avoids the size limit on long takes).
+preprocess = true
+trim_silence = true
+# Audio quieter than this (dBFS, negative) counts as silence. The boosted Jabra
+# noise floor sits above -50, so -40 actually trims pauses. Less negative (e.g.
+# -35) = more aggressive; more negative (e.g. -45) = gentler.
+silence_threshold_db = -40
+# Only remove silent gaps at least this long (seconds); keeps natural pauses.
+silence_min_secs = 1.0
+
+[debug]
+# Save the most recent recording to ~/.cache/voice-typer/last-recording.wav
+# (overwritten each time) so you can play it back (pw-play) and verify the mic +
+# audio quality. Set false to disable.
+save_recordings = true
+
+[hud]
+enabled = true
+
+# Platform-specific external commands as argv arrays. {text}/{path} are substituted.
+# 'copy' receives the text on stdin. 'window_info' should emit JSON (.class/.title)
+# or a bare app-name string. Empty array = feature disabled on this platform.
+[commands]
+{{- if .is_mac }}
+screenshot = ["screencapture", "-x", "{path}"]
+window_info = ["osascript", "-e", "tell application \"System Events\" to get name of first application process whose frontmost is true"]
+type_text = ["cliclick", "t:{text}"]
+copy = ["pbcopy"]
+paste_primary = []
+{{- else }}
+screenshot = ["grim", "{path}"]
+window_info = ["hyprctl", "activewindow", "-j"]
+# wtype reliability (clipboard always has the full text; these tune the *typed* output):
+#   -s 120 : after creating its virtual keyboard, wait 120ms so the focused app
+#            registers it before the first key.
+#   -d 8   : 8ms between keystrokes (~70 chars/s) so a fast burst doesn't overrun the
+#            wtype -> Ghostty -> Herdr -> app pipe and drop characters (esp. the first).
+# If a leading char is still dropped, raise -s, slow -d, or add a throwaway Shift tap:
+#   ["wtype","-M","shift","-m","shift","-s","120","-d","8","--","{text}"]
+type_text = ["wtype", "-s", "120", "-d", "8", "--", "{text}"]
+copy = ["wl-copy"]
+paste_primary = ["wl-paste", "--primary", "--no-newline"]
+{{- end }}

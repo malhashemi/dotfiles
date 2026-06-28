@@ -276,7 +276,7 @@ for pkg in mesa vulkan-radeon vulkan-icd-loader libva-mesa-driver linux-firmware
 done
 
 print_header "Desktop Utilities (pacman)"
-for pkg in flameshot grim slurp swappy wl-clipboard cliphist thunar pavucontrol \
+for pkg in flameshot grim slurp swappy wl-clipboard wtype cava tesseract tesseract-data-eng libnotify cliphist thunar pavucontrol \
            blueman network-manager-applet brightnessctl playerctl nwg-look nwg-displays \
            gtk3 gtk4 libadwaita adw-gtk-theme gnome-themes-extra papirus-icon-theme gsettings-desktop-schemas dconf imagemagick; do
     pacman_pkg "$pkg"
@@ -392,6 +392,26 @@ if command -v cargo &>/dev/null; then
             print_fail "cargo:$pkg"
         fi
     done
+{{- if not .is_headless }}
+    # parakeet-cli: local CPU speech-to-text for voice-typer (git source, pinned tag).
+    if command -v parakeet &>/dev/null; then
+        print_skip "parakeet-cli"
+    elif cargo install --git https://github.com/lucataco/parakeet-cli --tag v0.1.5 --locked &>/dev/null; then
+        print_success "parakeet-cli"
+    else
+        print_fail "cargo:parakeet-cli"
+    fi
+    # Parakeet model weights (INT8, ~620MB) — required at runtime by voice-typer.
+    if command -v parakeet &>/dev/null; then
+        if [[ -f "$HOME/.local/share/parakeet/models/parakeet-tdt-0.6b-v3/encoder-model.int8.onnx" ]]; then
+            print_skip "parakeet model"
+        elif parakeet download &>/dev/null; then
+            print_success "parakeet model"
+        else
+            print_fail "parakeet model"
+        fi
+    fi
+{{- end }}
 else
     print_info "cargo not available, skipping"
 fi

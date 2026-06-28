@@ -38,6 +38,8 @@
 .config/qt6ct/
 .config/systemd/user/elephant.service
 .config/systemd/user/walker.service
+.config/voice-typer/
+.config/systemd/user/voice-typerd.service
 {{- end }}
 
 # -----------------------------------------------------------------------------
@@ -70,6 +72,8 @@
 # Launcher user services (Wayland GUI; no graphical session on headless)
 .config/systemd/user/elephant.service
 .config/systemd/user/walker.service
+.config/voice-typer/
+.config/systemd/user/voice-typerd.service
 
 # Audio/media apps (no audio output on headless)
 .config/cava/
@@ -87,8 +91,9 @@
 .git/
 .DS_Store
 
-# Repo-level files (not dotfiles)
-README.md
+# Repo-level files (not dotfiles). README.md is root-anchored so per-app READMEs
+# under .config/ (e.g. voice-typer) still deploy.
+/README.md
 justfile
 Brewfile
 
@@ -155,6 +160,10 @@ thoughts/
 
 # Quickshell wallpaper instance (external file method)
 .config/quickshell/wallpaper/colors.json
+
+# Quickshell voice HUD instance (external file method) + voice-typer runtime
+.config/quickshell/voice/colors.json
+.config/voice-typer/run/
 
 # Hyprland (external Lua file method)
 .config/hypr/colors.lua
