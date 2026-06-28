@@ -264,7 +264,7 @@ done
 {{ if not .is_headless -}}
 print_header "Desktop Session & Wayland (pacman)"
 for pkg in hyprland uwsm xdg-desktop-portal xdg-desktop-portal-hyprland xdg-desktop-portal-gtk \
-           greetd greetd-tuigreet quickshell swaync hyprlock hypridle awww \
+           greetd greetd-regreet cage quickshell swaync hyprlock hypridle awww \
            qt5ct qt6ct qt6-wayland qt6-5compat qt6-declarative polkit-gnome; do
     pacman_pkg "$pkg"
 done
