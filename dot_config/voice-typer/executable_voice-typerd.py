@@ -617,6 +617,15 @@ def commit_output(cfg: dict, text: str, hud: Hud) -> None:
     text = (text or "").strip()
     if not text:
         return
+    # Durable copy of every committed dictation, independent of the clipboard and
+    # the clipboard-history managers (which can race and silently drop a transient
+    # value). Lets `voice-ctl paste-last` re-insert the last result on demand even
+    # if the live clipboard has since moved on.
+    try:
+        LAST_RESPONSE.parent.mkdir(parents=True, exist_ok=True)
+        LAST_RESPONSE.write_text(text)
+    except OSError as e:
+        log(f"could not persist last response: {e}")
     hud.call("setRefined", text)
     out = cfg["output"]
     if out.get("method", "paste") == "paste" and cfg["commands"].get("paste"):
@@ -948,8 +957,32 @@ class App:
         commit_output(self.cfg, cleaned, self.hud)
         return "ok"
 
+    def _paste_last(self) -> None:
+        """Type the last committed dictation straight from the durable
+        last-response.txt via wtype — never touching the clipboard, so whatever
+        you currently have copied is preserved. Triggered by CTRL+ALT+V
+        (voice-ctl paste-last). The short delay lets the chord's CTRL+ALT lift
+        before wtype injects; otherwise the held modifiers would corrupt the
+        characters (and CTRL+<key> in a terminal could fire control codes)."""
+        try:
+            text = LAST_RESPONSE.read_text().strip()
+        except OSError:
+            text = ""
+        if not text:
+            log("paste-last: no saved dictation yet")
+            notify("Voice paste", "No saved dictation yet")
+            return
+        time.sleep(0.2)
+        log(f"paste-last -> {text[:80]!r}")
+        type_text(self.cfg, text)
+
     # --- event handling ---
     def on_ctl(self, cmd: str, mode: str = "dictate") -> None:
+        if cmd == "paste-last":
+            # Re-insert the last dictation from disk; independent of the recording
+            # state machine, so run it off-thread and return.
+            threading.Thread(target=self._paste_last, daemon=True).start()
+            return
         if cmd not in ("down", "up", "toggle"):
             log(f"unknown control command: {cmd}")
             return

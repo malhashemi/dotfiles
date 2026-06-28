@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """voice-ctl — tiny client that forwards F7 press/release to voice-typerd.
 
-Usage: voice-ctl {down|up|toggle}
+Usage: voice-ctl {down|up|toggle|paste-last}
+  paste-last re-types the last committed dictation from the durable
+  ~/.cache/voice-typer/last-response.txt (no clipboard involved).
 Hyprland binds:
   hl.bind("F7", hl.dsp.exec_cmd("~/.config/voice-typer/voice-ctl down"))
   hl.bind("F7", hl.dsp.exec_cmd("~/.config/voice-typer/voice-ctl up"), { release = true })
+  hl.bind("CTRL + ALT + V", hl.dsp.exec_cmd("~/.config/voice-typer/voice-ctl paste-last"), { release = true })
 macOS (aerospace): binding -> voice-ctl toggle
 """
 
@@ -38,8 +41,8 @@ def send(cmd: str) -> None:
 
 def main() -> int:
     cmd = sys.argv[1].strip().lower() if len(sys.argv) > 1 else "toggle"
-    if cmd not in ("down", "up", "toggle"):
-        print(f"voice-ctl: unknown command {cmd!r} (use down|up|toggle)", file=sys.stderr)
+    if cmd not in ("down", "up", "toggle", "paste-last"):
+        print(f"voice-ctl: unknown command {cmd!r} (use down|up|toggle|paste-last)", file=sys.stderr)
         return 2
     # Optional 2nd arg selects the session mode:
     #   local (Parakeet only) | dictate (+Gemini cleanup) | command | multilingual

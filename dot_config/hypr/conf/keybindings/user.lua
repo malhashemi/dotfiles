@@ -93,6 +93,7 @@ hl.bind("CTRL + PRINT", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/screenshot.sh"), { desc
 --   CTRL+F7   = dictation — Parakeet -> Gemini cleanup (OCR + selection context)
 --   SHIFT+F7  = command   — Gemini acts on the spoken instruction, types the result
 --   ALT+F7    = multilingual — speak Iraqi Arabic and/or English -> English (audio -> Gemini)
+--   CTRL+ALT+V = re-type the LAST dictation from disk (no clipboard; survives a clipboard miss)
 -- (Mac will map CMD+F7 to multilingual.)
 local VOICE_CTL = "~/.config/voice-typer/voice-ctl"
 hl.bind("F7", hl.dsp.exec_cmd(VOICE_CTL .. " down local"), { description = "Voice dictation local (push-to-talk)" })
@@ -103,6 +104,9 @@ hl.bind("SHIFT + F7", hl.dsp.exec_cmd(VOICE_CTL .. " down command"), { descripti
 hl.bind("SHIFT + F7", hl.dsp.exec_cmd(VOICE_CTL .. " up command"), { release = true, description = "Voice command (release/run)" })
 hl.bind("ALT + F7", hl.dsp.exec_cmd(VOICE_CTL .. " down multilingual"), { description = "Voice multilingual -> English (push-to-talk)" })
 hl.bind("ALT + F7", hl.dsp.exec_cmd(VOICE_CTL .. " up multilingual"), { release = true, description = "Voice multilingual (release)" })
+-- Re-type the last dictation from ~/.cache/voice-typer/last-response.txt straight via
+-- wtype (no clipboard). release-bind so CTRL+ALT have lifted before the daemon types.
+hl.bind("CTRL + ALT + V", hl.dsp.exec_cmd(VOICE_CTL .. " paste-last"), { release = true, description = "Voice: re-type last dictation (wtype, no clipboard)" })
 hl.bind(mainMod .. " + " .. secMod .. " + G", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/gamemode.sh"),
     { description = "Toggle game mode" })
 hl.bind(mainMod .. " + CTRL + Q", hl.dsp.exec_cmd(HYPRSCRIPTS .. "/wlogout.sh"), { description = "Open power menu" })
