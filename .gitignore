@@ -22,10 +22,8 @@ node_modules/
 .pytest_cache
 thoughts/
 
-# External repositories directory (ignore cloned repos, track documentation and scripts)
-.extern/*
-!.extern/AGENTS.md
-!.extern/scripts/
+# External repositories directory (no longer tracked — treated as local-only)
+.extern/
 __pycache__/
 
 # Temporary Directory
@@ -34,3 +32,6 @@ tmp/
 # Runtime theme state (auto-generated, machine-specific)
 .chezmoidata/theme.yaml
 .chezmoidata/wallpaper-state.yaml
+
+# OpenCode local artifact (node_modules / package.json / bun.lock already ignored in .opencode/.gitignore)
+.opencode/package-lock.json
