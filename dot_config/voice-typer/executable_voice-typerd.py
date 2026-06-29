@@ -593,7 +593,105 @@ def copy_text(cfg: dict, text: str) -> None:
         log(f"copy failed: {e}")
 
 
+# ── macOS in-process keystroke injection (Accessibility) ─────────────────────
+# The macOS daemon runs as Python.app (a launchd LaunchAgent). Child-process
+# injectors (cliclick, osascript -> System Events) do NOT inherit Python.app's
+# Accessibility grant and are silently dropped, and a bare CLI tool can't reliably
+# be added to the Accessibility list on current macOS. So here we emit the key
+# events IN-PROCESS via CoreGraphics CGEvent (ctypes, no extra deps): the events
+# are posted by Python.app itself — the process that actually holds the grant.
+# Everything below is guarded by sys.platform == "darwin"; Linux never touches it
+# and keeps using the configured wtype / wl-copy / smart-clipboard.sh commands.
+_IS_MACOS = sys.platform == "darwin"
+_MAC_CG: object = None  # cached (CoreGraphics, CoreFoundation, ctypes) tuple, or False
+
+_KCG_HID_TAP = 0              # kCGHIDEventTap
+_KCG_FLAG_COMMAND = 0x100000  # kCGEventFlagMaskCommand
+_KVK_ANSI_V = 9              # virtual keycode for the 'v' key
+
+
+def _mac_cg():
+    """Lazily bind the CoreGraphics CGEvent symbols. Returns a (cg, cf, ctypes)
+    tuple, or None if unavailable (caller falls back to the configured command)."""
+    global _MAC_CG
+    if _MAC_CG is not None:
+        return _MAC_CG or None
+    try:
+        import ctypes
+        from ctypes import c_bool, c_ulong, c_uint16, c_uint32, c_uint64, c_void_p, POINTER
+        cg = ctypes.CDLL(
+            "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
+        )
+        cf = ctypes.CDLL(
+            "/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation"
+        )
+        cg.CGEventCreateKeyboardEvent.restype = c_void_p
+        cg.CGEventCreateKeyboardEvent.argtypes = [c_void_p, c_uint16, c_bool]
+        cg.CGEventPost.argtypes = [c_uint32, c_void_p]
+        cg.CGEventSetFlags.argtypes = [c_void_p, c_uint64]
+        cg.CGEventKeyboardSetUnicodeString.argtypes = [c_void_p, c_ulong, POINTER(c_uint16)]
+        cf.CFRelease.argtypes = [c_void_p]
+        _MAC_CG = (cg, cf, ctypes)
+    except Exception as e:  # noqa: BLE001 — any failure -> fall back to command path
+        log(f"macOS inject: CoreGraphics unavailable ({e}); using configured command")
+        _MAC_CG = False
+        return None
+    return _MAC_CG
+
+
+def _mac_send_cmd_v() -> bool:
+    """Post Cmd+V in-process (clipboard already holds the text). True on success."""
+    h = _mac_cg()
+    if not h:
+        return False
+    cg, cf, _ = h
+    try:
+        for down in (True, False):
+            ev = cg.CGEventCreateKeyboardEvent(None, _KVK_ANSI_V, down)
+            if not ev:
+                return False
+            cg.CGEventSetFlags(ev, _KCG_FLAG_COMMAND)
+            cg.CGEventPost(_KCG_HID_TAP, ev)
+            cf.CFRelease(ev)
+        return True
+    except Exception as e:  # noqa: BLE001 — never let injection crash the daemon
+        log(f"macOS inject (cmd+v) failed: {e}")
+        return False
+
+
+def _mac_type_text(text: str) -> bool:
+    """Type a unicode string in-process (no clipboard). True on success. Posts the
+    WHOLE string in a single keyboard event via CGEventKeyboardSetUnicodeString —
+    posting one character per event in a tight loop overruns the HID queue and only
+    the first few land. Full unicode via UTF-16 code units (handles surrogate pairs)."""
+    h = _mac_cg()
+    if not h:
+        return False
+    cg, cf, ctypes = h
+    try:
+        utf16 = text.encode("utf-16-le")
+        n = len(utf16) // 2
+        if n == 0:
+            return True
+        buf = (ctypes.c_uint16 * n).from_buffer_copy(utf16)
+        for down in (True, False):
+            ev = cg.CGEventCreateKeyboardEvent(None, 0, down)
+            if not ev:
+                return False
+            cg.CGEventKeyboardSetUnicodeString(ev, n, buf)
+            cg.CGEventPost(_KCG_HID_TAP, ev)
+            cf.CFRelease(ev)
+        return True
+    except Exception as e:  # noqa: BLE001
+        log(f"macOS inject (type) failed: {e}")
+        return False
+
+
 def type_text(cfg: dict, text: str) -> None:
+    # macOS: inject in-process (Python.app holds the Accessibility grant; a spawned
+    # cliclick does not). Falls back to the configured command if CGEvent fails.
+    if _IS_MACOS and _mac_type_text(text):
+        return
     tt = cfg["commands"].get("type_text") or []
     if tt:
         _run(_subst(tt, text=text), timeout=30.0)
@@ -603,6 +701,10 @@ def paste(cfg: dict) -> None:
     """Trigger the platform paste shortcut so the focused app inserts the clipboard
     (Linux: smart-clipboard.sh -> ALT+V in terminals / CTRL+V in GUI; macOS: Cmd+V).
     Pasting inserts the text wholesale, sidestepping wtype's per-key capital issues."""
+    # macOS: post Cmd+V in-process (see _mac_send_cmd_v). Fall back to the configured
+    # command only if the in-process path is unavailable.
+    if _IS_MACOS and _mac_send_cmd_v():
+        return
     p = cfg["commands"].get("paste") or []
     if not p:
         return

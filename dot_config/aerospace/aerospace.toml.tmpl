@@ -251,13 +251,13 @@ cmd-shift-w = 'exec-and-forget bash -c "export PATH=\"{{ .chezmoi.homeDir }}/.ca
 # press once = start hands-free listening, press again = commit. (No hold-to-talk or
 # double-tap-lock on macOS.) See ~/.config/voice-typer/README.md.
 #   f7           = local (offline, Parakeet only)
-#   cmd-f7       = dictation + Gemini cleanup
-#   cmd-shift-f7 = command (Gemini acts on the spoken instruction)
-#   cmd-alt-f7   = multilingual -> English
+#   cmd-f7       = multilingual -> English
+#   cmd-shift-f7 = dictation + Gemini cleanup
+#   cmd-alt-f7   = command (Gemini acts on the spoken instruction)
 f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle local'
-cmd-f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle dictate'
-cmd-shift-f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle command'
-cmd-alt-f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle multilingual'
+cmd-f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle multilingual'
+cmd-shift-f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle dictate'
+cmd-alt-f7 = 'exec-and-forget {{ .chezmoi.homeDir }}/.config/voice-typer/voice-ctl toggle command'
 
 # 'service' binding mode declaration.
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes

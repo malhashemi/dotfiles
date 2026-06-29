@@ -103,10 +103,11 @@ paste_primary = []
 # `rec`, which records from the system DEFAULT input device — just set your mic as
 # the default input in System Settings > Sound > Input (no device index needed).
 record_audio = ["rec", "-q", "-c", "1", "-r", "48000", "{path}"]
-# paste: trigger the paste shortcut (used when [output].method = "paste"). On macOS
-# Cmd+V pastes in Ghostty (cmd+v) and GUI apps. Needs Accessibility permission for
-# the daemon (System Settings > Privacy & Security > Accessibility).
-paste = ["osascript", "-e", "tell application \"System Events\" to keystroke \"v\" using command down"]
+# paste: trigger Cmd+V via cliclick. cliclick posts key events directly (CGEvent), so it
+# works under the launchd daemon once cliclick has Accessibility — whereas an osascript/
+# System Events keystroke is silently dropped for launchd-spawned processes. The clipboard
+# still holds the text (method = "paste"), so capitals/unicode insert reliably.
+paste = ["cliclick", "kd:cmd", "t:v", "ku:cmd"]
 {{- else }}
 screenshot = ["grim", "{path}"]
 window_info = ["hyprctl", "activewindow", "-j"]
