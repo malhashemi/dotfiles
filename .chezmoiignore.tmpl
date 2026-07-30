@@ -23,7 +23,6 @@
 .config/aerospace/
 .config/sketchybar/
 .config/borders/
-Library/LaunchAgents/dev.malhashemi.voice-typerd.plist
 {{- end }}
 
 # Linux-only apps (Hyprland/Wayland desktop)
@@ -40,8 +39,9 @@ Library/LaunchAgents/dev.malhashemi.voice-typerd.plist
 .config/systemd/user/elephant.service
 .config/systemd/user/walker.service
 .config/systemd/user/flameshot.service
-# voice-typer config deploys on linux AND macOS; only the systemd unit is linux-only
-# (macOS uses a launchd LaunchAgent instead).
+# voice-typer is Linux-only: macOS dictation moved to a third-party app
+# (the macOS launchd agent + F7 chords + parakeet install were retired).
+.config/voice-typer/
 .config/systemd/user/voice-typerd.service
 {{- end }}
 
