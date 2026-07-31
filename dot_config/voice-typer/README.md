@@ -111,8 +111,8 @@ downsamples anyway — ~6× smaller) and long pauses are trimmed.
 |-----|---------|---------|
 | `enabled` | `true` | Show the quickshell HUD. Auto-disables if `qs` is absent. |
 
-### `[commands]` — platform tools (argv arrays; `{text}`/`{path}` substituted)
-Per-OS (Linux vs macOS) in the template. Linux defaults: `screenshot=grim`,
+### `[commands]` — external tools (argv arrays; `{text}`/`{path}` substituted)
+Defaults: `screenshot=grim`,
 `window_info=hyprctl activewindow -j`, `type_text=wtype -s 120 -d 8 -- {text}`,
 `copy=wl-copy`, `paste_primary=wl-paste --primary --no-newline`.
 - `type_text` `-s 120` = wait after creating the virtual keyboard so the first key
@@ -147,4 +147,5 @@ on the first hotkey if not already running.
 `parakeet-cli` (+ model via `parakeet download`), `pi`, `wtype`, `wl-clipboard`,
 `grim`, `tesseract`(+`tesseract-data-eng`), `ffmpeg`, `cava`, `imagemagick`,
 `quickshell`, `libnotify`, PipeWire (`pw-record`/`wpctl`). All in the chezmoi Arch
-installer. macOS support is in progress (see the port note in the thoughts repo).
+installer. Linux-only: on macOS a third-party dictation app is used instead
+(the experimental macOS port was retired).

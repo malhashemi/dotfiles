@@ -8,7 +8,6 @@ Hyprland binds:
   hl.bind("F7", hl.dsp.exec_cmd("~/.config/voice-typer/voice-ctl down"))
   hl.bind("F7", hl.dsp.exec_cmd("~/.config/voice-typer/voice-ctl up"), { release = true })
   hl.bind("CTRL + ALT + V", hl.dsp.exec_cmd("~/.config/voice-typer/voice-ctl paste-last"), { release = true })
-macOS (aerospace): binding -> voice-ctl toggle
 """
 
 import os
@@ -53,13 +52,8 @@ def main() -> int:
         return 0
     except OSError:
         pass
-    # Daemon not reachable: try to start it (launchd on macOS, systemd on Linux),
-    # then retry briefly.
-    if sys.platform == "darwin":
-        start = ["launchctl", "kickstart", f"gui/{os.getuid()}/dev.malhashemi.voice-typerd"]
-    else:
-        start = ["systemctl", "--user", "start", "voice-typerd.service"]
-    subprocess.run(start, check=False,
+    # Daemon not reachable: start it via systemd, then retry briefly.
+    subprocess.run(["systemctl", "--user", "start", "voice-typerd.service"], check=False,
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(60):
         try:

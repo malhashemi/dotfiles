@@ -51,7 +51,7 @@ keep_on_clipboard = true
 #   "paste" - copy to the clipboard, then trigger your paste shortcut. Inserts the
 #             text in one shot, so it's reliable for capital letters / unicode and
 #             avoids wtype's per-key issues in terminals. Needs [commands].paste.
-#   "type"  - synthesize keystrokes (wtype on Linux, cliclick on macOS).
+#   "type"  - synthesize keystrokes (wtype).
 method = "paste"
 # Wait this long (ms) after copying before pasting, so the clipboard manager has
 # claimed the selection. Only used when method = "paste".
@@ -89,26 +89,10 @@ save_recordings = true
 [hud]
 enabled = true
 
-# Platform-specific external commands as argv arrays. {text}/{path} are substituted.
+# External commands as argv arrays. {text}/{path} are substituted.
 # 'copy' receives the text on stdin. 'window_info' should emit JSON (.class/.title)
-# or a bare app-name string. Empty array = feature disabled on this platform.
+# or a bare app-name string. Empty array = feature disabled.
 [commands]
-{{- if .is_mac }}
-screenshot = ["screencapture", "-x", "{path}"]
-window_info = ["osascript", "-e", "tell application \"System Events\" to get name of first application process whose frontmost is true"]
-type_text = ["cliclick", "t:{text}"]
-copy = ["pbcopy"]
-paste_primary = []
-# record_audio: dump the mic to a WAV (multilingual uploads it). macOS uses sox's
-# `rec`, which records from the system DEFAULT input device — just set your mic as
-# the default input in System Settings > Sound > Input (no device index needed).
-record_audio = ["rec", "-q", "-c", "1", "-r", "48000", "{path}"]
-# paste: trigger Cmd+V via cliclick. cliclick posts key events directly (CGEvent), so it
-# works under the launchd daemon once cliclick has Accessibility — whereas an osascript/
-# System Events keystroke is silently dropped for launchd-spawned processes. The clipboard
-# still holds the text (method = "paste"), so capitals/unicode insert reliably.
-paste = ["cliclick", "kd:cmd", "t:v", "ku:cmd"]
-{{- else }}
 screenshot = ["grim", "{path}"]
 window_info = ["hyprctl", "activewindow", "-j"]
 # wtype reliability (clipboard always has the full text; these tune the *typed* output):
@@ -126,4 +110,3 @@ record_audio = ["pw-record", "{path}"]
 # the terminal-aware smart-clipboard.sh (ALT+V in terminals, CTRL+V in GUI apps,
 # via Hyprland send_shortcut) so capitals/unicode insert reliably.
 paste = ["~/.config/hypr/scripts/smart-clipboard.sh", "paste"]
-{{- end }}
