@@ -1,4 +1,55 @@
 {
+  "catalog": [
+    {
+      "id": "claude-fable-5-1",
+      "name": "Claude Fable 5.1",
+      "provider": "claude",
+      "pickerSuffix": "[1m]"
+    },
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5",
+      "provider": "claude",
+      "pickerSuffix": "[1m]"
+    },
+    {
+      "id": "gpt-6-astra",
+      "name": "GPT-6 Astra",
+      "provider": "codex",
+      "t3Custom": true,
+      "efforts": ["low", "medium", "high", "xhigh", "max"]
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "name": "GPT-5.6 Sol",
+      "provider": "codex",
+      "t3Custom": true,
+      "efforts": ["low", "medium", "high", "xhigh", "max"]
+    },
+    {
+      "id": "grok-4.6",
+      "name": "Grok 4.6",
+      "provider": "grok",
+      "t3Custom": true,
+      "efforts": ["low", "medium", "high", "xhigh"]
+    }
+  ],
+  "claudeFamilyDefaults": {
+    "FABLE": "claude-fable-5-1",
+    "OPUS": "claude-opus-5",
+    "SONNET": "claude-sonnet-5",
+    "HAIKU": "claude-haiku-4-5"
+  },
+  "additionalClaudeRoutes": [
+    "claude-fable-5",
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-opus-4-5",
+    "claude-sonnet-5",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5"
+  ],
   "providers": {
     "codex": "gpt-6-astra",
     "claude": "claude-fable-5-1",

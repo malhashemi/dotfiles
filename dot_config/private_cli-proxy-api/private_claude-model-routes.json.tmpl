@@ -1,0 +1,11 @@
+{{- $models := include "dot_config/private_ai-setup/models.json" | fromJson -}}
+{{- $routes := dict -}}
+{{- range $model := $models.catalog -}}
+  {{- if eq $model.provider "claude" -}}
+    {{- $_ := set $routes $model.id $model.id -}}
+  {{- end -}}
+{{- end -}}
+{{- range $id := $models.additionalClaudeRoutes -}}
+  {{- $_ := set $routes $id $id -}}
+{{- end -}}
+{{ $routes | toPrettyJson }}

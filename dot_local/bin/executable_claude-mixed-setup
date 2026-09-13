@@ -498,8 +498,6 @@ def planned_t3(machine):
         for entry in proposed.get('environment', []):
             if entry['name'] == 'ANTHROPIC_MODEL':
                 entry['value'] = models['providers']['claude']
-            elif entry['name'] == 'ANTHROPIC_DEFAULT_FABLE_MODEL':
-                entry['value'] = 'claude-' + name[-1] + '/' + models['providers']['claude']
         if name not in instances:
             proposed['enabled'] = name[-1] in accounts
             instances[name] = proposed

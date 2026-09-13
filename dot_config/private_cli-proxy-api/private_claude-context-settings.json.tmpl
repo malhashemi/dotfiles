@@ -1,0 +1,9 @@
+{{- $models := include "dot_config/private_ai-setup/models.json" | fromJson -}}
+{{- $options := list -}}
+{{- range $model := $models.catalog -}}
+  {{- $id := printf "%s%s" $model.id (get $model "pickerSuffix" | default "") -}}
+  {{- $options = append $options (dict "model" $id "label" $model.name) -}}
+{{- end -}}
+{{- $env := dict "CLAUDE_CODE_MAX_CONTEXT_TOKENS" "500000" "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY" "0" -}}
+{{- $picker := dict "replaceBuiltInOptions" true "options" $options -}}
+{{ dict "env" $env "modelPicker" $picker | toPrettyJson }}

@@ -1,0 +1,30 @@
+{{- $models := include "dot_config/private_ai-setup/models.json" | fromJson -}}
+{{- $profiles := dict -}}
+{{- $custom := list -}}
+{{- $labels := dict "low" "Low" "medium" "Medium" "high" "High" "xhigh" "Extra High" "max" "Max" -}}
+{{- range $model := $models.catalog -}}
+  {{- if (get $model "t3Custom") -}}
+    {{- $options := list -}}
+    {{- range $level := $model.efforts -}}
+      {{- $options = append $options (dict "id" $level "label" (default (title $level) (index $labels $level))) -}}
+    {{- end -}}
+    {{- $descriptor := dict "id" "effort" "label" "Reasoning" "type" "select" "options" $options -}}
+    {{- $capabilities := dict "optionDescriptors" (list $descriptor) -}}
+    {{- $custom = append $custom (dict "slug" $model.id "name" (printf "%s · shared" $model.name) "capabilities" $capabilities) -}}
+  {{- end -}}
+{{- end -}}
+{{- $names := dict "a" "Personal" "b" "Work" -}}
+{{- range $slot := list "a" "b" -}}
+  {{- $env := list (dict "name" "ANTHROPIC_MODEL" "value" $models.providers.claude "sensitive" false) -}}
+  {{- range $family := list "FABLE" "OPUS" "SONNET" "HAIKU" -}}
+    {{- $target := printf "claude-%s/%s" $slot (index $models.claudeFamilyDefaults $family) -}}
+    {{- $env = append $env (dict "name" (printf "ANTHROPIC_DEFAULT_%s_MODEL" $family) "value" $target "sensitive" false) -}}
+  {{- end -}}
+  {{- $fast := printf "claude-%s/%s" $slot $models.claudeFamilyDefaults.HAIKU -}}
+  {{- $env = append $env (dict "name" "ANTHROPIC_SMALL_FAST_MODEL" "value" $fast "sensitive" false) -}}
+  {{- $env = append $env (dict "name" "CLAUDE_MIXED_ACCOUNT" "value" $slot "sensitive" false) -}}
+  {{- $config := dict "binaryPath" "@HOME@/.local/bin/claude-t3-mixed" "homePath" "@HOME@/.claude-t3-mixed" "customModels" $custom "launchArgs" "" "autoCompactWindow" "" -}}
+  {{- $profile := dict "driver" "claudeAgent" "displayName" (printf "Claude %s · Mixed" (index $names $slot)) "environment" $env "enabled" false "config" $config -}}
+  {{- $_ := set $profiles (printf "claude-mixed-%s" $slot) $profile -}}
+{{- end -}}
+{{ $profiles | toPrettyJson }}

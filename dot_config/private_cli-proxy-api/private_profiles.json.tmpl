@@ -1,0 +1,2 @@
+{{- $models := include "dot_config/private_ai-setup/models.json" | fromJson -}}
+{{ dict "openai" $models.providers.codex "grok" $models.providers.grok | toPrettyJson }}

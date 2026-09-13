@@ -11,6 +11,7 @@
     ".claude/scripts/claude-workflow-status",
     ".claude/skills/codex-computer-use/SKILL.md",
     ".claude/statusline.sh",
+    ".config/ai-setup/MODEL-RELEASES.md",
     ".config/ai-setup/README.md",
     ".config/ai-setup/bootstrap.json",
     ".config/ai-setup/cli-preferences.json",
