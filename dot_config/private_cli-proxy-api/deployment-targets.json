@@ -8,6 +8,7 @@
     ".claude-t3-mixed/skills",
     ".claude-t3-mixed/workflows/mixed-review.js",
     ".claude/CLAUDE.md",
+    ".claude/scripts/claude-workflow-status",
     ".claude/skills/codex-computer-use/SKILL.md",
     ".config/cli-proxy-api/PORTABILITY.md",
     ".config/cli-proxy-api/claude-context-settings.json",
@@ -26,7 +27,6 @@
     ".local/bin/claude-proxy",
     ".local/bin/claude-t3-mixed",
     ".local/bin/claude-work",
-    ".local/bin/claude-workflow-status",
     ".local/bin/cpapi",
     ".config/cli-proxy-api/machine.json",
     ".config/cli-proxy-api/t3-preferences.json"

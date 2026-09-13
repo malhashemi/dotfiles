@@ -177,7 +177,7 @@ those logins locally too if using them for default tasks, titles or Git text.
 CLIProxyAPI login does not automatically sign those separate clients in.
 
 Ordinary terminal use is available through `claude-personal` and `claude-work`.
-For an on-demand workflow snapshot, run `claude-workflow-status <session-directory> <workflow-id>`;
+For an on-demand workflow snapshot, run `~/.claude/scripts/claude-workflow-status <session-directory> <workflow-id>`;
 the session directory contains `subagents/` and `workflows/`. Add `--json` for
 metadata suitable for filtering. The command reads nested agent activity, never
 stops agents, and treats seven minutes of inactivity as a reason to inspect rather
