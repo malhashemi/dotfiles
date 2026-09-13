@@ -136,7 +136,7 @@ For existing machines, inspect the AI package's scoped diff before applying it;
 then preview any T3 changes with `claude-mixed-setup --t3-diff`. The helper merges
 selected preferences only when explicitly requested and T3 is closed.
 
-See [AI setup, Bitwarden and maintenance](dot_config/private_cli-proxy-api/PORTABILITY.md)
+See [AI setup, Bitwarden and maintenance](dot_config/private_ai-setup/README.md)
 for installation, login and pairing steps.
 
 ---

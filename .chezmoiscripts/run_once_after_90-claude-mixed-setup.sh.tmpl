@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 # Bootstrap: {{ include "dot_local/bin/executable_claude-mixed-setup" | sha256sum }}
-# Defaults: {{ include "dot_config/private_cli-proxy-api/defaults.json" | sha256sum }}
-# Preferences: {{ include "dot_config/private_cli-proxy-api/t3-preferences.json" | sha256sum }}
-# Model defaults: {{ include "dot_config/private_cli-proxy-api/model-defaults.json" | sha256sum }}
-# CLI preferences: {{ include "dot_config/private_cli-proxy-api/cli-preferences.json" | sha256sum }}
-# Keybindings: {{ include "dot_config/private_cli-proxy-api/t3-keybindings.json" | sha256sum }}
-# Profiles: {{ include "dot_config/private_cli-proxy-api/t3-profiles.json" | sha256sum }}
+# Defaults: {{ include "dot_config/private_ai-setup/bootstrap.json" | sha256sum }}
+# Preferences: {{ include "dot_config/private_ai-setup/t3/preferences.json" | sha256sum }}
+# Model defaults: {{ include "dot_config/private_ai-setup/models.json" | sha256sum }}
+# CLI preferences: {{ include "dot_config/private_ai-setup/cli-preferences.json" | sha256sum }}
+# Keybindings: {{ include "dot_config/private_ai-setup/t3/keybindings.json" | sha256sum }}
+# Profiles: {{ include "dot_config/private_ai-setup/t3/profiles.json" | sha256sum }}
 {{- $ai := get . "ai" | default dict }}
 # Enabled: {{ get $ai "enabled" | default false }}
 # Role: {{ get (get . "machine" | default dict) "role" | default "desktop" }}

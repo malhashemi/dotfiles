@@ -1,14 +1,58 @@
 # Shared AI setup: macOS and Arch Linux
 
+## Directory map
+
+This directory contains installation and preference inputs. Applications do not
+read it directly: `claude-mixed-setup` reads these files and merges selected values
+into each application's own settings. There is no background synchronization.
+
+| File | Purpose | Used when |
+| --- | --- | --- |
+| `models.json` | Shared model choices, reasoning effort and Codex service tier | CLI and T3 preference merges |
+| `cli-preferences.json` | Shared Claude and Grok preferences | CLI preference merge |
+| `t3/preferences.json` | Shared server, desktop, browser and model-menu preferences | T3 preference merge |
+| `t3/profiles.json` | Personal/Work provider definitions and custom model options | T3 preference merge |
+| `t3/keybindings.json` | Shared shortcuts with platform-specific modifiers | T3 preference merge |
+| `bootstrap.json` | Seed configuration for a new proxy and fallback T3 CLI version | Installation |
+| `machine.json` | This machine's role, hosts and remote-access choices, rendered from local chezmoi answers | Setup and connection commands |
+| `deployment-targets.json` | Explicit file list for a targeted AI setup rollout | Deployment planning |
+
+### Where the effective settings live
+
+Paths below are relative to each machine's home directory.
+
+| Application | Files it actually reads |
+| --- | --- |
+| Claude, including both Mixed profiles | `~/.claude/settings.json` and `~/.claude/CLAUDE.md`; Mixed launch overrides come from the proxy directory |
+| Codex | `~/.codex/config.toml` |
+| Grok | `~/.grok/config.toml` |
+| T3 server: providers, models, title/Git-text generation and server behavior | `~/.t3/userdata/settings.json` |
+| T3 desktop preferences | `~/.t3/userdata/client-settings.json` |
+| T3 keyboard shortcuts | `~/.t3/userdata/keybindings.json` |
+| T3 window and desktop connection settings | `~/.t3/userdata/desktop-settings.json`; window geometry stays local |
+| CLIProxyAPI and its launchers | `~/.config/cli-proxy-api/`; see its [runtime guide](../cli-proxy-api/README.md) |
+
+Edit the chezmoi source for portable changes, then deploy only the relevant input
+files and helper. Preview with `claude-mixed-setup --cli-diff` or `--t3-diff`, then
+use the corresponding `--apply-cli-changes` or `--apply-t3-changes`. Updating an
+input file alone does not change an existing app's settings. Close T3 before
+applying its preferences; start new CLI sessions to use updated defaults.
+Direct changes inside an app stay local until deliberately captured in these
+portable inputs. A later preference merge reapplies the selected shared keys.
+
+The helper is `~/.local/bin/claude-mixed-setup`. The proxy directory holds live
+connection settings and credentials, while private historical backups belong
+under `~/.local/share/claude-archives/`, outside the public dotfiles repository.
+
 ## What chezmoi owns
 
 The public source contains the approved `CLAUDE.md`, computer-use skill, shared
 links, model routes, context budgets, agents, workflow, CLI launchers and setup
-helper. `t3-preferences.json` contains the selected shared preferences; the helper
+helper. `t3/preferences.json` contains the selected shared preferences; the helper
 merges them into the app's local settings. Actual Claude, proxy and T3 session
 files are generated locally and are never copied into the repository.
 
-`model-defaults.json` is the shared source for model choices and effort levels.
+`models.json` is the shared source for model choices and effort levels.
 It drives T3's conversation, title and Git-text defaults, Mixed model selectors,
 and standalone Codex/Grok defaults. Astra and Sol use extra high; Fable uses
 high; Opus uses extra high; Grok uses medium. Standard Codex service tier is
@@ -51,7 +95,7 @@ working budget is 500K; this package does not change Codex's own context setting
 
 The public template is `.chezmoi.toml.tmpl`. Answers live in the machine's
 `~/.config/chezmoi/chezmoi.toml`; the generated
-`~/.config/cli-proxy-api/machine.json` passes only required machine configuration
+`~/.config/ai-setup/machine.json` passes only required machine configuration
 to the setup helper. Changes to these local values do not require editing the
 public repository. To change a saved answer, use `chezmoi edit-config`, then
 preview the affected targets. To ask again for a particular imported value,
@@ -121,7 +165,7 @@ The existing OS package bootstrap supplies Python, Node/npm, Tailscale and the
 package manager. The AI hook installs missing CLIProxyAPI, Claude, Codex, Grok
 Build and T3 components. Existing installations are preserved. T3's user-local
 CLI initially matches an installed desktop version when detectable, otherwise
-it uses the pin in `defaults.json`. Package upgrades remain explicit.
+it uses the pin in `bootstrap.json`. Package upgrades remain explicit.
 
 | Role | Proxy | T3 |
 | --- | --- | --- |
@@ -166,7 +210,7 @@ order are retained.
 
 Browser preferences, load balancing, appearance, sidebar behaviour, confirmation
 settings, Git/worktree defaults and source-control writing style are portable.
-`t3-keybindings.json` keeps shared shortcuts and uses Control for thread digits
+`t3/keybindings.json` keeps shared shortcuts and uses Control for thread digits
 on macOS and the platform modifier on Linux. User-added shortcuts survive.
 Keybindings belong to the server, including on a headless host; client appearance
 preferences are applied only to desktop roles.
