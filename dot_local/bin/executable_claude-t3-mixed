@@ -43,6 +43,9 @@ def prepare(args, slot):
     if slot not in accounts:
         raise ValueError('Connect this subscription first: cpapi login claude-' + slot)
 
+    # Keep local proxy credentials out of the shared Claude preferences and argv.
+    os.environ.update(json.loads((ROOT / 'claude-settings.json').read_text())['env'])
+
     # The SDK supplies --settings for thinking, auto-compaction and Ultracode.
     # Preserve those values while adding account-specific native model overrides.
     retained = []

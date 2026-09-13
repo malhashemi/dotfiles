@@ -234,7 +234,6 @@ def launch_mixed(args, slot):
     env = os.environ.copy()
     env['CLAUDE_CONFIG_DIR'] = str(Path.home() / '.claude-t3-mixed')
     env['CLAUDE_MIXED_ACCOUNT'] = slot
-    env.update(json.loads((Path(env['CLAUDE_CONFIG_DIR']) / 'settings.json').read_text())['env'])
     routes = json.loads((ROOT / 'claude-model-routes.json').read_text())
     for family, canonical in [('FABLE', 'claude-fable-5-1'), ('OPUS', 'claude-opus-5'),
                               ('SONNET', 'claude-sonnet-5'), ('HAIKU', 'claude-haiku-4-5')]:

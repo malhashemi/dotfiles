@@ -81,11 +81,9 @@ def ensure_runtime():
         **read_json(ROOT / 'claude-context-settings.json')['env'],
     }
     write_new(ROOT / 'claude-settings.json', json_text({'env': env}))
-    global_settings = read_json(HOME_DIR / '.claude/settings.json', {})
-    global_settings.pop('model', None)
-    global_settings.update(defaults['mixed'])
-    global_settings['env'] = {**global_settings.get('env', {}), **env}
-    write_new(MIXED / 'settings.json', json_text(global_settings))
+    # Chezmoi links the mixed home's settings to this single preference file.
+    # Seed defaults only on first setup; existing user settings remain authoritative.
+    write_new(HOME_DIR / '.claude/settings.json', json_text(defaults['mixed']))
     write_new(ROOT / 'claude-accounts.json', '{}\n')
     (HOME_DIR / '.claude/plugins').mkdir(parents=True, exist_ok=True)
 

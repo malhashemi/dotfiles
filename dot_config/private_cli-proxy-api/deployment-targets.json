@@ -4,6 +4,7 @@
     ".claude-t3-mixed/agents/grok-specialist.md",
     ".claude-t3-mixed/agents/openai-specialist.md",
     ".claude-t3-mixed/plugins",
+    ".claude-t3-mixed/settings.json",
     ".claude-t3-mixed/skills",
     ".claude-t3-mixed/workflows/mixed-review.js",
     ".claude/CLAUDE.md",

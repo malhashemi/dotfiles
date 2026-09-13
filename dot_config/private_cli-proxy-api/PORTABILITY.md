@@ -8,6 +8,15 @@ helper. `t3-preferences.json` contains the selected shared preferences; the help
 merges them into the app's local settings. Actual Claude, proxy and T3 session
 files are generated locally and are never copied into the repository.
 
+Personal and Work share `~/.claude/settings.json` through a symlink in
+`~/.claude-t3-mixed/`. Edit the global file for shared preferences. The launcher
+loads proxy credentials from the private `~/.config/cli-proxy-api/claude-settings.json`;
+account routing and context budgets remain launch settings. First setup seeds a
+missing global settings file with the workflow defaults and preserves an existing
+one. On existing machines, back up the old mixed settings file and review its
+preference differences before applying the symlink; retain wanted preferences in
+the global file. Apply the updated launchers together with the symlink.
+
 Sonnet and Haiku retain their real model identities. Their use is prohibited by
 the instructions rather than redirected to another model. The current GPT/Grok
 working budget is 500K; this package does not change Codex's own context settings.
