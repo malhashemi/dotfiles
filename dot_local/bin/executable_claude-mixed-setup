@@ -16,6 +16,7 @@ import tempfile
 import time
 import re
 import plistlib
+import tomllib
 from urllib.parse import urlparse
 
 HOME_DIR = Path.home()
@@ -46,6 +47,147 @@ def read_json(path, fallback=None):
 
 def json_text(value):
     return json.dumps(value, indent=2, ensure_ascii=False) + '\n'
+
+
+def merge_preferences(current, selected):
+    result = copy.deepcopy(current)
+    for key, value in selected.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = merge_preferences(result[key], value)
+        else:
+            result[key] = copy.deepcopy(value)
+    return result
+
+
+def model_defaults():
+    return read_json(ROOT / 'model-defaults.json')
+
+
+def model_selection(provider):
+    defaults = model_defaults()
+    model = defaults['providers'][provider]
+    options = [{'id': 'reasoningEffort', 'value': defaults['effort'][model]}]
+    if provider == 'codex':
+        options.append({'id': 'serviceTier', 'value': defaults['codexServiceTier']})
+    return {'instanceId': provider, 'model': model, 'options': options}
+
+
+def merge_toml(text, selected):
+    """Edit selected scalar settings, preserving all other TOML and comments.
+
+    Validate the complete parsed result, so unusual TOML formatting can never
+    silently change an unrelated table, credential or project trust record.
+    """
+    before = tomllib.loads(text)
+    expected = merge_preferences(before, selected)
+    lines = text.splitlines(True)
+
+    def update(table, key, value):
+        nonlocal lines
+        start, end = 0, len(lines)
+        headers = [(i, line.strip().split('#', 1)[0].strip()) for i, line in enumerate(lines)
+                   if line.lstrip().startswith('[')]
+        if table:
+            found = [i for i, header in headers if header == '[' + table + ']']
+            if not found:
+                lines.extend(['\n[' + table + ']\n'])
+                start = len(lines)
+            else:
+                start = found[0] + 1
+            end = next((i for i, _ in headers if i >= start), len(lines))
+        else:
+            end = headers[0][0] if headers else len(lines)
+        assignment = key + ' = ' + json.dumps(value, ensure_ascii=False) + '\n'
+        pattern = re.compile(r'^\s*(?:' + re.escape(key) + r'|"' + re.escape(key) + r'"|\x27' + re.escape(key) + r'\x27)\s*=')
+        for i in range(start, end):
+            if pattern.match(lines[i]):
+                lines[i] = assignment
+                return
+        lines.insert(end, assignment)
+
+    if lines and not lines[-1].endswith('\n'):
+        lines[-1] += '\n'
+    def visit(values, table=''):
+        for key, value in values.items():
+            if isinstance(value, dict):
+                visit(value, '.'.join(filter(None, (table, key))))
+            else:
+                update(table, key, value)
+
+    visit(selected)
+    result = ''.join(lines)
+    if tomllib.loads(result) != expected:
+        raise ValueError('Unusual TOML layout needs a targeted manual merge; no file was changed.')
+    return result
+
+
+def planned_cli():
+    preferences = read_json(ROOT / 'cli-preferences.json')
+    models = model_defaults()
+    path = HOME_DIR / '.claude/settings.json'
+    current = path.read_text() if path.exists() else ''
+    existing = json.loads(current) if current else {}
+    mixed_path = MIXED / 'settings.json'
+    legacy = read_json(mixed_path, {}) if not mixed_path.is_symlink() else {}
+    # Keep legacy launch credentials private; never move them into global settings.
+    inherited = {k: v for k, v in legacy.items() if k not in ('env', 'modelOverrides')}
+    common = merge_preferences(preferences['claude'], {
+        'model': models['providers']['claude'] + '[1m]',
+        'effortLevel': models['effort'][models['providers']['claude']],
+    })
+    proposed = merge_preferences(merge_preferences(inherited, existing), common)
+    changes = [(path, current, json_text(proposed))]
+    if legacy.get('env'):
+        connection = ROOT / 'claude-settings.json'
+        old = connection.read_text() if connection.exists() else ''
+        new = merge_preferences({'env': legacy['env']}, json.loads(old) if old else {})
+        changes.append((connection, old, json_text(new)))
+    codex = models['providers']['codex']
+    grok = models['providers']['grok']
+    for relative, selected in [
+        ('.codex/config.toml', {'model': codex, 'model_reasoning_effort': models['effort'][codex],
+                                'service_tier': models['codexServiceTier']}),
+        ('.grok/config.toml', merge_preferences(preferences.get('grok', {}), {
+            'models': {'default': grok, 'default_reasoning_effort': models['effort'][grok]}})),
+    ]:
+        path = HOME_DIR / relative
+        current = path.read_text() if path.exists() else ''
+        changes.append((path, current, merge_toml(current, selected)))
+    return [(p, a, b) for p, a, b in changes if a != b]
+
+
+def print_cli_diff():
+    for path, before, after in planned_cli():
+        parse = tomllib.loads if path.suffix == '.toml' else json.loads
+        print_t3_diff([(path, parse(before) if before else {}, parse(after))])
+    path = MIXED / 'settings.json'
+    if not path.is_symlink() or path.resolve() != (HOME_DIR / '.claude/settings.json').resolve():
+        print('Mixed settings: preserve preferences above, archive the old file, then link to ~/.claude/settings.json.')
+
+
+def configure_cli(allow_existing=False):
+    changes = [(p, a, b) for p, a, b in planned_cli() if allow_existing or not p.exists()]
+    archive = HOME_DIR / '.local/share/claude-archives' / ('preferences-' + secrets.token_hex(6))
+    for path, before, _ in changes:
+        if (path.read_text() if path.exists() else '') != before:
+            raise ValueError('CLI preferences changed during planning; retry the preview.')
+    for path, before, after in changes:
+        if before:
+            write_new(archive / path.relative_to(HOME_DIR), before)
+        temp = path.with_name(path.name + '.mixed-setup-' + secrets.token_hex(4))
+        write_new(temp, after)
+        temp.replace(path)
+    link = MIXED / 'settings.json'
+    target = HOME_DIR / '.claude/settings.json'
+    if allow_existing and (not link.is_symlink() or link.resolve() != target.resolve()):
+        if link.exists():
+            write_new(archive / 'mixed-settings.json', link.read_text())
+        link.parent.mkdir(parents=True, exist_ok=True)
+        temp = link.with_name('settings.link-' + secrets.token_hex(4))
+        temp.symlink_to('../.claude/settings.json')
+        temp.replace(link)
+    if changes:
+        print('Saved selected CLI preferences. Backups:', archive if archive.exists() else 'not needed')
 
 
 def ensure_runtime():
@@ -81,9 +223,8 @@ def ensure_runtime():
         **read_json(ROOT / 'claude-context-settings.json')['env'],
     }
     write_new(ROOT / 'claude-settings.json', json_text({'env': env}))
-    # Chezmoi links the mixed home's settings to this single preference file.
-    # Seed defaults only on first setup; existing user settings remain authoritative.
-    write_new(HOME_DIR / '.claude/settings.json', json_text(defaults['mixed']))
+    # First setup seeds missing preferences; existing files require explicit merge.
+    configure_cli()
     write_new(ROOT / 'claude-accounts.json', '{}\n')
     (HOME_DIR / '.claude/plugins').mkdir(parents=True, exist_ok=True)
 
@@ -154,7 +295,7 @@ def t3_install_version():
     return read_json(ROOT / 'defaults.json')['t3_version']
 
 
-def install_t3_server():
+def install_t3_server(update=False):
     node = shutil.which('node')
     npm = shutil.which('npm')
     if not node or not npm:
@@ -164,25 +305,97 @@ def install_t3_server():
     compatible = (parts[0] == 22 and parts >= (22, 16, 0)) or (parts[0] == 23 and parts >= (23, 11, 0)) or parts >= (24, 10, 0)
     if not compatible:
         raise ValueError('T3 requires Node ^22.16, ^23.11, or >=24.10; update Node before continuing.')
-    if shutil.which('t3'):
+    if shutil.which('t3') and not update:
         return
     prefix = HOME_DIR / '.local/share/t3-cli'
+    if update and shutil.which('t3') and not Path(shutil.which('t3')).resolve().is_relative_to(prefix):
+        raise ValueError('T3 CLI is managed outside this setup; update it using its original installer.')
     package = prefix / 'node_modules/t3/package.json'
-    if not package.exists():
-        npm_major = int(run([npm, '--version'], capture_output=True, text=True).stdout.split('.')[0])
-        if npm_major >= 12:
-            write_new(prefix / 'package.json', json_text({
-                'private': True,
-                'allowScripts': {'node-pty': True, 'msgpackr-extract': True},
-            }))
-        run([npm, 'install', '--prefix', prefix, '--no-audit', '--no-fund',
-             't3@' + t3_install_version()])
+    if update or not package.exists():
+        # npm 11 also supports script approvals. Keep the allowlist scoped to
+        # this new private runtime; older npm versions ignore the metadata.
+        write_new(prefix / 'package.json', json_text({
+            'private': True,
+            'allowScripts': {'node-pty': True, 'msgpackr-extract': True},
+        }))
+        target = t3_install_version()
+        # Desktop CLI follows its app. Headless updates use the current release.
+        if update and machine_settings().get('role') == 'headless':
+            target = run([npm, 'view', 't3', 'version'], capture_output=True, text=True).stdout.strip()
+            if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', target):
+                raise ValueError('npm returned an invalid T3 release version.')
+        run([npm, 'install', '--prefix', prefix, '--no-audit', '--no-fund', 't3@' + target])
     executable = prefix / 'node_modules/.bin/t3'
     if not executable.exists():
         raise ValueError('T3 package installed without its expected executable; inspect the installation.')
     BIN.mkdir(parents=True, exist_ok=True)
     if not os.path.lexists(BIN / 't3'):
         (BIN / 't3').symlink_to(executable)
+
+
+def tool_update_plan(machine):
+    """Use each installed binary's owner instead of creating competing installs."""
+    commands, packages, casks, formulas = [], set(), set(), set()
+    binaries = [('codex', 'codex'), ('grok', 'grok-build'), ('claude', 'claude-code'),
+                ('cliproxyapi' if shutil.which('cliproxyapi') else 'cli-proxy-api', 'cliproxyapi')]
+    for binary, brew_name in binaries:
+        executable = shutil.which(binary)
+        if not executable:
+            raise ValueError(binary + ' is missing; run --install first.')
+        real = Path(executable).resolve()
+        if sys.platform == 'linux':
+            owner = subprocess.run(['pacman', '-Qqo', str(real)], capture_output=True, text=True)
+            if owner.returncode == 0:
+                packages.add(owner.stdout.strip())
+                continue
+        if binary == 'codex' and real.is_relative_to(HOME_DIR / '.codex/packages/standalone'):
+            commands.append([executable, 'update'])
+        elif binary == 'grok' and real.is_relative_to(HOME_DIR / '.grok'):
+            commands.append([executable, 'update', '--stable'])
+        elif binary == 'claude' and real.is_relative_to(HOME_DIR / '.local/share/claude'):
+            commands.append([executable, 'update'])
+        elif sys.platform == 'darwin':
+            (formulas if brew_name == 'cliproxyapi' else casks).add(brew_name)
+        else:
+            raise ValueError('Unknown installer for ' + str(real) + '; no guessed updater will be run.')
+    if sys.platform == 'darwin':
+        if machine.get('role') != 'headless':
+            casks.add('t3-code')
+        commands.insert(0, ['brew', 'update'])
+        if formulas:
+            commands.append(['brew', 'upgrade', *sorted(formulas)])
+        if casks:
+            commands.append(['brew', 'upgrade', '--cask', *sorted(casks)])
+    elif sys.platform == 'linux' and Path('/etc/arch-release').exists():
+        helper = shutil.which('yay') or shutil.which('paru')
+        if not helper:
+            raise ValueError('Tool updates require yay or paru for package-owned installations.')
+        if machine.get('role') != 'headless':
+            packages.add('t3code-bin')
+        # Arch requires a full system upgrade when refreshing repository packages.
+        # This is an explicit maintenance action, never part of chezmoi apply.
+        if packages:
+            commands.append([helper, '-Syu', '--needed', *sorted(packages)])
+    else:
+        raise ValueError('Tool updates support macOS and Arch Linux.')
+    return commands
+
+
+def update_tools(machine, preview=False):
+    commands = tool_update_plan(machine)
+    if preview:
+        for command in commands:
+            print(json_text(command).strip())
+        print('Then update the setup-owned T3 CLI; update the headless service with that CLI version.')
+        return
+    if t3_running():
+        raise ValueError('Finish active work and close T3 or stop its service before explicit tool maintenance.')
+    for command in commands:
+        run(command)
+    install_t3_server(update=True)
+    if machine.get('role') == 'headless' and (HOME_DIR / '.config/systemd/user/t3code.service').exists():
+        run([BIN / 't3', 'service', 'update'])
+    print('Tool maintenance complete. Running provider processes need a new session to use updated binaries.')
 
 
 def setup_service(fresh_proxy=False, headless=False):
@@ -273,16 +486,64 @@ def planned_t3(machine):
     instances = result.setdefault('providerInstances', {})
     profiles = json.loads((ROOT / 't3-profiles.json').read_text().replace('@HOME@', str(HOME_DIR)))
     accounts = read_json(ROOT / 'claude-accounts.json', {})
+    models = model_defaults()
     for name, proposed in profiles.items():
+        for model in proposed['config'].get('customModels', []):
+            effort = models['effort'].get(model['slug'])
+            for descriptor in model.get('capabilities', {}).get('optionDescriptors', []):
+                if descriptor['id'] == 'effort' and effort:
+                    for option in descriptor['options']:
+                        option['isDefault'] = option['id'] == effort
+        for entry in proposed.get('environment', []):
+            if entry['name'] == 'ANTHROPIC_MODEL':
+                entry['value'] = models['providers']['claude']
+            elif entry['name'] == 'ANTHROPIC_DEFAULT_FABLE_MODEL':
+                entry['value'] = 'claude-' + name[-1] + '/' + models['providers']['claude']
         if name not in instances:
             proposed['enabled'] = name[-1] in accounts
             instances[name] = proposed
+        else:
+            # Only the shared model catalog and routing variables are owned here.
+            # Preserve local paths, launch arguments, credentials and extra models.
+            instance = instances[name]
+            if instance.get('driver') != proposed['driver']:
+                raise ValueError('Provider ' + name + ' uses a different driver; review before merging.')
+            config = instance.setdefault('config', {})
+            shared = {m['slug']: m for m in proposed['config']['customModels']}
+            custom = config.setdefault('customModels', [])
+            for i, model in enumerate(custom):
+                if model['slug'] in shared:
+                    custom[i] = merge_preferences(model, shared.pop(model['slug']))
+            custom.extend(shared.values())
+            env = instance.setdefault('environment', [])
+            shared_env = {e['name']: e for e in proposed['environment']}
+            for i, entry in enumerate(env):
+                if entry['name'] in shared_env:
+                    env[i] = shared_env.pop(entry['name'])
+            env.extend(shared_env.values())
     for name in ('codex', 'grok'):
         # Keep existing provider-specific credentials, paths and enablement.
         instances.setdefault(name, {'driver': name, 'enabled': True,
                                    'config': {'binaryPath': name}, 'environment': []})
-    result.update(preferences['server'])
+    result = merge_preferences(result, preferences['server'])
+    for field, provider in models['t3'].items():
+        result[field] = model_selection(provider)
     changes = [(path, current, result)]
+    # Keybindings are server-backed, including on a headless environment.
+    path = state / 'keybindings.json'
+    current = read_json(path, [])
+    result = copy.deepcopy(current)
+    modifier = 'ctrl' if sys.platform == 'darwin' else 'mod'
+    bindings = json.loads((ROOT / 't3-keybindings.json').read_text().replace('@THREAD_MOD@', modifier))
+    identities = {(b['command'], b.get('when', ''), b['key']) for b in bindings}
+    # Remove only the old platform's digit shortcut; retain user-added shortcuts.
+    result = [b for b in result if not (
+        b['command'].startswith('thread.jump.') and re.fullmatch(r'(ctrl|mod)\+[1-9]', b['key'])
+        and (b['command'], b.get('when', ''), b['key']) not in identities)]
+    for binding in bindings:
+        if binding not in result:
+            result.append(copy.deepcopy(binding))
+    changes.append((path, current, result))
     if machine.get('role') != 'headless':
         path = state / 'client-settings.json'
         current = read_json(path, {})
@@ -307,6 +568,8 @@ def planned_t3(machine):
 
 def changed_values(before, after):
     """Diff only changed keys, excluding untouched provider secrets/state."""
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return before, after
     old, new = {}, {}
     for key in before.keys() | after.keys():
         if before.get(key) == after.get(key):
@@ -325,15 +588,34 @@ def changed_values(before, after):
     return old, new
 
 
+def redact_settings(value):
+    if isinstance(value, list):
+        return [redact_settings(v) for v in value]
+    if not isinstance(value, dict):
+        return value
+    safe_env = ('ANTHROPIC_MODEL', 'ANTHROPIC_SMALL_FAST_MODEL', 'CLAUDE_MIXED_ACCOUNT')
+    if 'name' in value and 'value' in value:
+        name = value['name']
+        if name not in safe_env and not name.startswith('ANTHROPIC_DEFAULT_'):
+            return {**value, 'value': '<local value>'}
+    result = {}
+    for key, item in value.items():
+        if key == 'env' or re.search(r'token|secret|password|api.?key|authorization', key, re.I):
+            result[key] = '<local value>'
+        else:
+            result[key] = redact_settings(item)
+    return result
+
+
 def print_t3_diff(changes):
     if not changes:
         print('Selected T3 settings already match.')
     for path, before, after in changes:
         old, new = changed_values(before, after)
         print(''.join(difflib.unified_diff(
-            json_text(old).splitlines(True), json_text(new).splitlines(True),
-            fromfile=path.name + ' current selected settings',
-            tofile=path.name + ' proposed selected settings')), end='')
+            json_text(redact_settings(old)).splitlines(True), json_text(redact_settings(new)).splitlines(True),
+            fromfile=str(path.relative_to(HOME_DIR)) + ' current selected settings',
+            tofile=str(path.relative_to(HOME_DIR)) + ' proposed selected settings')), end='')
 
 
 def configure_t3(machine, allow_existing=False):
@@ -352,12 +634,12 @@ def configure_t3(machine, allow_existing=False):
     originals = {p: p.read_bytes() if p.exists() else None for p, _, _ in writable}
     # Check all targets before any writes, then again immediately before each replacement.
     for path, before, _ in writable:
-        if read_json(path, {}) != before:
+        if read_json(path, [] if isinstance(before, list) else {}) != before:
             raise ValueError('T3 settings changed during planning. No settings changed.')
     written = []
     try:
         for path, before, after in writable:
-            if t3_running() or read_json(path, {}) != before:
+            if t3_running() or read_json(path, [] if isinstance(before, list) else {}) != before:
                 raise ValueError('T3 started or its settings changed during the merge.')
             if originals[path] is not None:
                 write_new(archive / path.name, originals[path].decode())
@@ -461,10 +743,23 @@ def main():
     action.add_argument('--t3-diff', action='store_true')
     action.add_argument('--apply-t3-changes', action='store_true')
     action.add_argument('--connections', action='store_true')
+    action.add_argument('--cli-diff', action='store_true', help='Preview shared Claude, Codex and Grok preferences.')
+    action.add_argument('--apply-cli-changes', action='store_true', help='Back up and merge selected CLI preferences.')
+    action.add_argument('--update-plan', action='store_true', help='Show installer-specific tool update commands.')
+    action.add_argument('--update-tools', action='store_true', help='Explicit maintenance; Arch includes a full system upgrade.')
     parser.add_argument('--headless', action='store_true', help='Override the saved role for this invocation.')
     args = parser.parse_args()
     machine = machine_settings(args.headless)
     os.umask(0o077)
+    if args.update_plan or args.update_tools:
+        update_tools(machine, preview=args.update_plan)
+        return
+    if args.cli_diff:
+        print_cli_diff()
+        return
+    if args.apply_cli_changes:
+        configure_cli(allow_existing=True)
+        return
     if args.t3_diff:
         print_t3_diff(planned_t3(machine))
         return

@@ -8,14 +8,32 @@ helper. `t3-preferences.json` contains the selected shared preferences; the help
 merges them into the app's local settings. Actual Claude, proxy and T3 session
 files are generated locally and are never copied into the repository.
 
+`model-defaults.json` is the shared source for model choices and effort levels.
+It drives T3's conversation, title and Git-text defaults, Mixed model selectors,
+and standalone Codex/Grok defaults. Astra and Sol use extra high; Fable uses
+high; Opus uses extra high; Grok uses medium. Standard Codex service tier is
+explicit. Session or project overrides still work. Codex's context window and
+auto-compaction settings are not changed.
+
+`cli-preferences.json` contains shared Claude behaviour, attribution suppression,
+the human-only `code-review` setting, and Grok display preferences. The status-line
+script is shared and needs Bash, Git and jq from the OS bootstrap. Existing hooks,
+plugin installations, MCP connections, notification integrations, project trust
+records and credentials remain local. TOML merges preserve unrelated content and
+validate the complete result before writing.
+
 Personal and Work share `~/.claude/settings.json` through a symlink in
 `~/.claude-t3-mixed/`. Edit the global file for shared preferences. The launcher
 loads proxy credentials from the private `~/.config/cli-proxy-api/claude-settings.json`;
 account routing and context budgets remain launch settings. First setup seeds a
 missing global settings file with the workflow defaults and preserves an existing
 one. On existing machines, back up the old mixed settings file and review its
-preference differences before applying the symlink; retain wanted preferences in
-the global file. Apply the updated launchers together with the symlink.
+preference differences before applying the symlink. `--apply-cli-changes` merges
+legacy Mixed preferences into the global file, preserves its existing preferences
+where they conflict, then applies the selected shared defaults and archives the old
+Mixed file before linking it. Legacy proxy environment values remain in the private
+connection settings. Deploy the updated launchers and preference inputs first;
+perform this migration before applying the chezmoi-managed symlink.
 
 Sonnet and Haiku retain their real model identities. Their use is prohibited by
 the instructions rather than redirected to another model. The current GPT/Grok
@@ -128,7 +146,9 @@ apply across unrelated dotfile drift.
 ```sh
 claude-mixed-setup                   # read-only summary
 claude-mixed-setup --install         # use the saved role and remote-access choice
-claude-mixed-setup --t3-diff          # selected changes only
+claude-mixed-setup --cli-diff         # selected Claude/Codex/Grok changes only
+claude-mixed-setup --apply-cli-changes
+claude-mixed-setup --t3-diff          # selected T3 changes only
 # Close T3; on a headless host, stop its service after active work finishes.
 claude-mixed-setup --apply-t3-changes
 # Reopen T3 or start its headless service when finished.
@@ -138,10 +158,38 @@ On first setup, missing settings files are created with shared preferences.
 Existing files are left alone by `--install`; explicit preference application
 makes a private backup and merges only selected keys. Model identities, existing
 provider environments, credentials, other providers, project-specific state,
-window geometry, and platform-specific shortcuts are preserved. Existing
-Personal/Work provider configuration is not replaced.
+window geometry, and unrelated shortcuts are preserved. Existing Personal/Work
+paths, launch arguments, extra custom models and private environment variables
+are preserved; shared model catalog entries and routing variables are refreshed.
 Shared favorites are added only when missing; locally added favorites and their
 order are retained.
+
+Browser preferences, load balancing, appearance, sidebar behaviour, confirmation
+settings, Git/worktree defaults and source-control writing style are portable.
+`t3-keybindings.json` keeps shared shortcuts and uses Control for thread digits
+on macOS and the platform modifier on Linux. User-added shortcuts survive.
+Keybindings belong to the server, including on a headless host; client appearance
+preferences are applied only to desktop roles.
+
+Close the desktop app, or finish active work and stop the headless service, before
+applying T3 preferences. Desktop preferences are held in memory and can otherwise
+overwrite a file edit. The helper checks for concurrent file changes and keeps
+private backups. Never use a broad chezmoi apply for this migration.
+
+Tool maintenance is a separate, explicit operation:
+
+```sh
+claude-mixed-setup --update-plan
+# Finish active work and close T3 / stop its headless service first.
+claude-mixed-setup --update-tools
+```
+
+The updater uses the existing installation owner: Codex/Grok's native updater
+for standalone installations, Homebrew for its installations, and yay/paru for
+Arch packages. Arch updates include a full system upgrade to avoid unsupported
+partial upgrades. The T3 CLI follows the installed desktop version; headless
+maintenance uses the current npm release and updates the installed service.
+No package upgrades run automatically during chezmoi apply.
 
 Installation is repeatable: existing gateway keys and subscriptions survive;
 running services are not restarted and existing packages are not upgraded.

@@ -21,11 +21,5 @@
     },
     "force-model-prefix": true
   },
-  "mixed": {
-    "alwaysThinkingEnabled": true,
-    "effortLevel": "high",
-    "disableWorkflows": false,
-    "workflowSizeGuideline": "small"
-  },
   "t3_version": "0.0.40"
 }

@@ -1,0 +1,37 @@
+{
+  "claude": {
+    "alwaysThinkingEnabled": true,
+    "tui": "fullscreen",
+    "skipDangerousModePermissionPrompt": true,
+    "skipWorkflowUsageWarning": true,
+    "theme": "dark",
+    "verbose": true,
+    "crossSessionInbound": "accept",
+    "inputNeededNotifEnabled": true,
+    "disableWorkflows": false,
+    "workflowSizeGuideline": "small",
+    "skillOverrides": {
+      "code-review": "user-invocable-only"
+    },
+    "attribution": {
+      "commit": "",
+      "pr": "",
+      "sessionUrl": false
+    },
+    "permissions": {
+      "defaultMode": "auto"
+    },
+    "statusLine": {
+      "type": "command",
+      "command": "bash \"$HOME/.claude/statusline.sh\""
+    }
+  },
+  "grok": {
+    "ui": {
+      "theme": "auto",
+      "compact_mode": false,
+      "group_tool_verbs": true,
+      "show_thinking_blocks": true
+    }
+  }
+}

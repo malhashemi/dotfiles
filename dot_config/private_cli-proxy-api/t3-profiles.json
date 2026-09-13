@@ -64,8 +64,7 @@
                   },
                   {
                     "id": "high",
-                    "label": "High",
-                    "isDefault": true
+                    "label": "High"
                   },
                   {
                     "id": "xhigh",
@@ -100,8 +99,7 @@
                   },
                   {
                     "id": "high",
-                    "label": "High",
-                    "isDefault": true
+                    "label": "High"
                   },
                   {
                     "id": "xhigh",
@@ -136,8 +134,7 @@
                   },
                   {
                     "id": "high",
-                    "label": "High",
-                    "isDefault": true
+                    "label": "High"
                   },
                   {
                     "id": "xhigh",
@@ -218,8 +215,7 @@
                   },
                   {
                     "id": "high",
-                    "label": "High",
-                    "isDefault": true
+                    "label": "High"
                   },
                   {
                     "id": "xhigh",
@@ -254,8 +250,7 @@
                   },
                   {
                     "id": "high",
-                    "label": "High",
-                    "isDefault": true
+                    "label": "High"
                   },
                   {
                     "id": "xhigh",
@@ -290,8 +285,7 @@
                   },
                   {
                     "id": "high",
-                    "label": "High",
-                    "isDefault": true
+                    "label": "High"
                   },
                   {
                     "id": "xhigh",
