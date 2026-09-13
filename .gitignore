@@ -35,3 +35,28 @@ tmp/
 
 # OpenCode local artifact (node_modules / package.json / bun.lock already ignored in .opencode/.gitignore)
 .opencode/package-lock.json
+
+# Generated AI credentials/state are local; public templates contain references only.
+/.secrets
+/.bitwarden_session
+/.env.local
+/.t3/
+/dot_t3/
+/private_dot_t3/
+/dot_config/private_cli-proxy-api/auth/
+/dot_config/private_cli-proxy-api/private_auth/
+/dot_config/private_cli-proxy-api/client-key
+/dot_config/private_cli-proxy-api/private_client-key
+/dot_config/private_cli-proxy-api/config.yaml
+/dot_config/private_cli-proxy-api/private_config.yaml
+/dot_config/private_cli-proxy-api/claude-accounts.json
+/dot_config/private_cli-proxy-api/private_claude-accounts.json
+/dot_config/private_cli-proxy-api/claude-settings.json
+/dot_config/private_cli-proxy-api/private_claude-settings.json
+/dot_config/private_cli-proxy-api/claude-session-*.json
+/dot_config/private_cli-proxy-api/private_claude-session-*.json
+/dot_config/private_cli-proxy-api/proposals/
+/private_dot_claude-t3-mixed/settings.json
+/private_dot_claude-t3-mixed/private_settings.json
+/private_dot_claude-t3-mixed/dot_credentials.json
+/private_dot_claude-t3-mixed/private_dot_credentials.json

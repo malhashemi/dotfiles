@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""Local Claude Code launchers and CLIProxyAPI account/service helpers."""
+import json
+import os
+from pathlib import Path
+import sys
+import shutil
+import urllib.error
+import urllib.request
+import subprocess
+import tempfile
+
+ROOT = Path.home() / '.config/cli-proxy-api'
+CONFIG = ROOT / 'config.yaml'
+PROXY = shutil.which('cliproxyapi') or shutil.which('cli-proxy-api') or str(Path.home() / '.local/bin/cli-proxy-api')
+CLAUDE = shutil.which('claude') or 'claude'
+BREW = shutil.which('brew') or 'brew'
+URL = 'http://127.0.0.1:8317'
+CLAUDE_LABELS = {'a': 'Personal', 'b': 'Work'}
+os.umask(0o077)
+
+
+def models():
+    key = (ROOT / 'client-key').read_text().strip()
+    request = urllib.request.Request(URL + '/v1/models', headers={'Authorization': 'Bearer ' + key})
+    try:
+        with urllib.request.urlopen(request, timeout=8) as response:
+            return json.load(response)['data']
+    except (OSError, ValueError) as error:
+        raise SystemExit('Cannot reach CLIProxyAPI. Run: cpapi start\n' + str(error))
+
+
+def account_counts():
+    counts = {}
+    for path in (ROOT / 'auth').glob('*.json'):
+        try:
+            account = json.loads(path.read_text())
+            provider = account.get('type', 'unknown')
+            if not account.get('disabled', False):
+                counts[provider] = counts.get(provider, 0) + 1
+        except (OSError, ValueError):
+            continue
+    return counts
+
+
+def save_private_json(path, value):
+    temporary = path.with_name(path.name + '.tmp')
+    temporary.write_text(json.dumps(value, indent=2) + '\n')
+    temporary.chmod(0o600)
+    temporary.replace(path)
+
+
+def login_claude(slot, extra):
+    """Stage OAuth first, so selecting the wrong account cannot overwrite a slot."""
+    account_path = ROOT / 'claude-accounts.json'
+    accounts = json.loads(account_path.read_text()) if account_path.exists() else {}
+    with tempfile.TemporaryDirectory(prefix='claude-login-', dir=ROOT) as staging:
+        staging = Path(staging)
+        config = json.loads(CONFIG.read_text())
+        config['auth-dir'] = str(staging / 'auth')
+        staged_config = staging / 'config.yaml'
+        save_private_json(staged_config, config)
+        print('Choose the Claude subscription for ' + CLAUDE_LABELS[slot] + '.', flush=True)
+        result = subprocess.run([PROXY, '-config', str(staged_config), '-claude-login', *extra])
+        if result.returncode:
+            raise SystemExit(result.returncode)
+        files = list((staging / 'auth').glob('*.json'))
+        if len(files) != 1:
+            raise SystemExit('Expected one Claude authorization; no account slot was changed.')
+        auth = json.loads(files[0].read_text())
+        identity = (auth.get('account_uuid'), auth.get('organization_uuid'))
+        if not all(identity):
+            raise SystemExit('Cannot identify the Claude account and workspace; no slot was changed.')
+        for existing_slot, record in accounts.items():
+            if existing_slot == slot:
+                continue
+            current = json.loads((ROOT / 'auth' / record['auth_file']).read_text())
+            if identity == (current.get('account_uuid'), current.get('organization_uuid')):
+                raise SystemExit('That subscription is already ' + CLAUDE_LABELS[existing_slot] +
+                                 '. Retry and select a different Claude account or workspace. No slot was changed.')
+        # Preserve the registered filename when refreshing an existing slot.
+        filename = accounts.get(slot, {}).get('auth_file', 'claude-account-' + slot + '.json')
+        auth['prefix'] = 'claude-' + slot
+        save_private_json(ROOT / 'auth' / filename, auth)
+        accounts[slot] = {'auth_file': filename}
+        save_private_json(account_path, accounts)
+    t3_path = Path.home() / '.t3/userdata/settings.json'
+    if t3_path.exists():
+        t3 = json.loads(t3_path.read_text())
+        instance = t3.get('providerInstances', {}).get('claude-mixed-' + slot)
+        if instance:
+            instance['enabled'] = True
+            instance['displayName'] = 'Claude ' + CLAUDE_LABELS[slot] + ' · Mixed'
+            save_private_json(t3_path, t3)
+    print('Claude ' + CLAUDE_LABELS[slot] + ' connected and pinned. Its T3 mixed profile is enabled.')
+
+
+def manage(args):
+    command = args[0] if args else 'help'
+    if command in ('start', 'stop', 'restart'):
+        if sys.platform == 'linux':
+            os.execvp('systemctl', ['systemctl', '--user', command, 'claude-mixed-proxy.service'])
+        os.execvp(BREW, [BREW, 'services', command, 'cliproxyapi'])
+    if command == 'login':
+        if len(args) >= 2 and args[1] in ('personal', 'work'):
+            args = [args[0], {'personal': 'claude-a', 'work': 'claude-b'}[args[1]], *args[2:]]
+        if len(args) >= 2 and args[1] in ('claude-a', 'claude-b'):
+            login_claude(args[1][-1], args[2:])
+            return
+        flags = {'openai': '-codex-login', 'codex': '-codex-login', 'grok': '-xai-login', 'xai': '-xai-login'}
+        if len(args) < 2 or args[1] not in flags:
+            raise SystemExit('Usage: cpapi login openai|grok|claude-a|claude-b [additional CLIProxyAPI flags]')
+        os.execv(PROXY, [PROXY, '-config', str(CONFIG), flags[args[1]], *args[2:]])
+    if command in ('status', 'models'):
+        entries = models()
+        if command == 'models':
+            for entry in sorted(entries, key=lambda entry: entry['id']):
+                print(entry['id'])
+        else:
+            print('CLIProxyAPI: running at ' + URL)
+            counts = account_counts()
+            print('Subscription credentials: OpenAI/Codex={}, Grok/xAI={}'.format(counts.get('codex', 0), counts.get('xai', 0)))
+            account_path = ROOT / 'claude-accounts.json'
+            accounts = json.loads(account_path.read_text()) if account_path.exists() else {}
+            print('Pinned Claude accounts:', ', '.join(CLAUDE_LABELS[slot] for slot in sorted(accounts)) or 'none')
+            print('Advertised models:', len(entries))
+            print('Defaults:', json.dumps(json.loads((ROOT / 'profiles.json').read_text())))
+            print('Config:', CONFIG)
+        return
+    if command not in ('help', '--help', '-h'):
+        raise SystemExit('Unknown command: ' + command + '. Run: cpapi help')
+    print('''CLIProxyAPI controls:
+  cpapi login openai      Connect a ChatGPT/Codex subscription
+  cpapi login grok        Connect a Grok subscription
+  cpapi login claude-a    Connect/refresh Claude Account A safely
+  cpapi login claude-b    Connect/refresh Claude Account B safely
+  cpapi login personal|work  Friendly names for those Claude account slots
+  cpapi status           Show service, credential counts, and defaults
+  cpapi models           List models advertised by connected providers
+  cpapi start|stop|restart
+
+Claude Code launchers (all normal Claude flags pass through):
+  claude-openai          Start with the configured OpenAI model
+  claude-grok            Start with the configured Grok model
+  claude-multi           Start with OpenAI and two named provider subagents
+  claude-mixed-a         Start Anthropic Account A with shared GPT/Grok workers
+  claude-mixed-b         Start Anthropic Account B with shared GPT/Grok workers
+  claude-personal       Same as claude-mixed-a
+  claude-work           Same as claude-mixed-b
+  claude-proxy --model MODEL_ID
+
+Within a proxy session: /model MODEL_ID switches providers.
+Defaults: ~/.config/cli-proxy-api/profiles.json
+Guide: ~/.config/cli-proxy-api/README.md''')
+
+
+def launch(args, name):
+    name = {'claude-personal': 'claude-mixed-a', 'claude-work': 'claude-mixed-b'}.get(name, name)
+    if name in ('claude-mixed-a', 'claude-mixed-b'):
+        launch_mixed(args, name[-1])
+        return
+    profiles = json.loads((ROOT / 'profiles.json').read_text())
+    profile = 'grok' if name == 'claude-grok' else 'openai'
+    selected = os.environ.get('CLAUDE_PROXY_MODEL', profiles[profile])
+    explicit_model = False
+    for index, arg in enumerate(args):
+        if arg == '--model' and index + 1 < len(args):
+            selected = args[index + 1]
+            explicit_model = True
+        elif arg.startswith('--model='):
+            selected = arg.split('=', 1)[1]
+            explicit_model = True
+    if selected.startswith('grok-'):
+        profile = 'grok'
+    elif selected.startswith('gpt-'):
+        profile = 'openai'
+
+    if not any(arg in ('--help', '-h', '--version', '-v') for arg in args):
+        available = {entry['id'] for entry in models()}
+        required = list(profiles.values()) if name == 'claude-multi' else [selected]
+        # Claude aliases are resolved to the selected profile below.
+        aliases = {'fable', 'opus', 'sonnet', 'haiku', 'opusplan', 'default'}
+        missing = [model for model in required if model not in available and model not in aliases]
+        if missing:
+            raise SystemExit('Model(s) not advertised: ' + ', '.join(missing) +
+                             '\nConnect accounts with cpapi login openai / cpapi login grok.' +
+                             '\nRun cpapi models to inspect available IDs.')
+
+    settings = json.loads((ROOT / 'claude-settings.json').read_text())
+    # Point background utilities and built-in agent aliases at the chosen provider too.
+    for family in ('FABLE', 'OPUS', 'SONNET', 'HAIKU'):
+        settings['env']['ANTHROPIC_DEFAULT_' + family + '_MODEL'] = profiles[profile]
+    settings['env']['ANTHROPIC_CUSTOM_MODEL_OPTION'] = selected
+    settings['env']['ANTHROPIC_CUSTOM_MODEL_OPTION_NAME'] = selected + ' via CLIProxyAPI'
+    settings['model'] = selected
+    # Use a per-model file so another launch cannot change this session's settings.
+    import hashlib
+    settings_id = hashlib.sha256(json.dumps(settings, sort_keys=True).encode()).hexdigest()[:16]
+    path = ROOT / ('claude-session-' + settings_id + '.json')
+    if not path.exists():
+        path.write_text(json.dumps(settings, indent=2) + '\n')
+        path.chmod(0o600)
+
+    env = os.environ.copy()
+    env.update(settings['env'])
+    # These choose a different transport and are incompatible with this gateway.
+    for key in ('CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'):
+        env.pop(key, None)
+    command = [CLAUDE, '--settings', str(path)]
+    if not explicit_model:
+        command.extend(['--model', selected])
+    if name == 'claude-multi':
+        agents = {
+            'openai-specialist': {
+                'description': 'Use when the user requests an OpenAI/GPT second opinion, architecture analysis, implementation, or review.',
+                'prompt': 'You are the OpenAI specialist. Complete the delegated task using the available tools and normal project permissions. Ground conclusions in evidence. State what you verified and what remains uncertain.',
+                'model': profiles['openai'],
+            },
+            'grok-specialist': {
+                'description': 'Use when the user requests a Grok second opinion, independent critique, debugging, or review.',
+                'prompt': 'You are the Grok specialist. Complete the delegated task using the available tools and normal project permissions. Challenge assumptions with concrete evidence. State what you verified and what remains uncertain.',
+                'model': profiles['grok'],
+            },
+        }
+        command.extend(['--agents', json.dumps(agents)])
+    os.execve(CLAUDE, [*command, *args], env)
+
+
+def launch_mixed(args, slot):
+    accounts_path = ROOT / 'claude-accounts.json'
+    accounts = json.loads(accounts_path.read_text()) if accounts_path.exists() else {}
+    if slot not in accounts:
+        raise SystemExit('Connect this account first: cpapi login claude-' + slot)
+    env = os.environ.copy()
+    env['CLAUDE_CONFIG_DIR'] = str(Path.home() / '.claude-t3-mixed')
+    env['CLAUDE_MIXED_ACCOUNT'] = slot
+    env.update(json.loads((Path(env['CLAUDE_CONFIG_DIR']) / 'settings.json').read_text())['env'])
+    routes = json.loads((ROOT / 'claude-model-routes.json').read_text())
+    for family, canonical in [('FABLE', 'claude-fable-5-1'), ('OPUS', 'claude-opus-5'),
+                              ('SONNET', 'claude-sonnet-5'), ('HAIKU', 'claude-haiku-4-5')]:
+        env['ANTHROPIC_DEFAULT_' + family + '_MODEL'] = 'claude-' + slot + '/' + routes[canonical]
+    env['ANTHROPIC_SMALL_FAST_MODEL'] = env['ANTHROPIC_DEFAULT_HAIKU_MODEL']
+    env['ANTHROPIC_MODEL'] = 'claude-fable-5-1'
+    for key in ('CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'):
+        env.pop(key, None)
+    if not any(arg in ('--help', '-h', '--version', '-v') for arg in args):
+        if ('claude-' + slot + '/claude-fable-5-1') not in {entry['id'] for entry in models()}:
+            raise SystemExit('Claude route unavailable. Run: cpapi login claude-' + slot)
+    binary = str(Path.home() / '.local/bin/claude-t3-mixed')
+    os.execve(binary, [binary, *args], env)
+
+
+if __name__ == '__main__':
+    invoked = Path(sys.argv[0]).name
+    if invoked == 'cpapi':
+        manage(sys.argv[1:])
+    else:
+        launch(sys.argv[1:], invoked)

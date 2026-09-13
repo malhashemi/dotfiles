@@ -1,0 +1,9 @@
+{{- $ai := get . "ai" | default dict -}}
+{{- $machine := get . "machine" | default dict -}}
+{{- dict
+    "enabled" (get $ai "enabled" | default false)
+    "role" (get $machine "role" | default "desktop")
+    "remote_access" (get $ai "remote_access" | default false)
+    "ssh_user" (get $machine "ssh_user" | default .chezmoi.username)
+    "hosts" (get . "tailscale_hosts" | default dict)
+    | toPrettyJson }}

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Bootstrap: {{ include "dot_local/bin/executable_claude-mixed-setup" | sha256sum }}
+# Defaults: {{ include "dot_config/private_cli-proxy-api/defaults.json" | sha256sum }}
+# Preferences: {{ include "dot_config/private_cli-proxy-api/t3-preferences.json" | sha256sum }}
+# Profiles: {{ include "dot_config/private_cli-proxy-api/t3-profiles.json" | sha256sum }}
+{{- $ai := get . "ai" | default dict }}
+# Enabled: {{ get $ai "enabled" | default false }}
+# Role: {{ get (get . "machine" | default dict) "role" | default "desktop" }}
+# Remote access: {{ get $ai "remote_access" | default false }}
+{{ if and (get $ai "enabled") (or (eq .chezmoi.os "darwin") (eq .chezmoi.os "linux")) -}}
+exec python3 {{ joinPath .chezmoi.homeDir ".local/bin/claude-mixed-setup" | quote }} --install
+{{ else -}}
+exit 0
+{{ end -}}

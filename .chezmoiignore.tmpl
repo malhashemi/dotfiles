@@ -12,6 +12,7 @@
 #   3. Always ignore (git, cache, development)
 #   4. Ephemeral/sensitive files
 #   5. Runtime-generated theme files
+#   6. Optional mixed-model setup
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -97,7 +98,7 @@
 
 # Repo-level files (not dotfiles). README.md is root-anchored so per-app READMEs
 # under .config/ (e.g. voice-typer) still deploy.
-/README.md
+README.md
 justfile
 Brewfile
 
@@ -226,3 +227,46 @@ thoughts/
 
 # ncspot (inline method - entire config modified by theme system)
 .config/ncspot/config.toml
+
+# -----------------------------------------------------------------------------
+# 6. Optional Mixed-Model Setup
+# -----------------------------------------------------------------------------
+{{- $ai := get . "ai" | default dict }}
+{{- if not (get $ai "enabled") }}
+.claude/CLAUDE.md
+.claude/skills/codex-computer-use/
+.claude-t3-mixed/
+.config/cli-proxy-api/
+.local/bin/claude-mixed-setup
+.local/bin/claude-proxy
+.local/bin/claude-t3-mixed
+.local/bin/claude-personal
+.local/bin/claude-work
+.local/bin/claude-mixed-a
+.local/bin/claude-mixed-b
+.local/bin/claude-multi
+.local/bin/claude-openai
+.local/bin/claude-grok
+.local/bin/cpapi
+{{- end }}
+
+# Locally generated authentication and application state. Never import these.
+.config/cli-proxy-api/auth/
+.config/cli-proxy-api/client-key
+.config/cli-proxy-api/config.yaml
+.config/cli-proxy-api/claude-settings.json
+.config/cli-proxy-api/claude-session-*.json
+.config/cli-proxy-api/claude-accounts.json
+.config/cli-proxy-api/proposals/
+.config/cli-proxy-api/*before-*.json
+.config/cli-proxy-api/homebrew-config.original-*
+.claude-t3-mixed/settings.json
+.claude-t3-mixed/.claude.json
+.claude-t3-mixed/.credentials.json
+.claude-t3-mixed/projects/
+.claude-t3-mixed/debug/
+.claude-t3-mixed/session-env/
+.t3/
+.local/share/t3-settings-backups/
+.local/share/claude-archives/
+.local/share/claude-portability/

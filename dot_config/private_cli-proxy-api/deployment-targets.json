@@ -1,0 +1,37 @@
+{
+  "targets": [
+    ".claude-t3-mixed/CLAUDE.md",
+    ".claude-t3-mixed/agents/grok-specialist.md",
+    ".claude-t3-mixed/agents/openai-specialist.md",
+    ".claude-t3-mixed/plugins",
+    ".claude-t3-mixed/skills",
+    ".claude-t3-mixed/workflows/mixed-review.js",
+    ".claude/CLAUDE.md",
+    ".claude/skills/codex-computer-use/SKILL.md",
+    ".config/cli-proxy-api/PORTABILITY.md",
+    ".config/cli-proxy-api/claude-context-settings.json",
+    ".config/cli-proxy-api/claude-model-routes.json",
+    ".config/cli-proxy-api/defaults.json",
+    ".config/cli-proxy-api/deployment-targets.json",
+    ".config/cli-proxy-api/profiles.json",
+    ".config/cli-proxy-api/t3-profiles.json",
+    ".local/bin/claude-grok",
+    ".local/bin/claude-mixed-a",
+    ".local/bin/claude-mixed-b",
+    ".local/bin/claude-mixed-setup",
+    ".local/bin/claude-multi",
+    ".local/bin/claude-openai",
+    ".local/bin/claude-personal",
+    ".local/bin/claude-proxy",
+    ".local/bin/claude-t3-mixed",
+    ".local/bin/claude-work",
+    ".local/bin/cpapi",
+    ".config/cli-proxy-api/machine.json",
+    ".config/cli-proxy-api/t3-preferences.json"
+  ],
+  "post_apply": [
+    "claude-mixed-setup",
+    "--install"
+  ],
+  "headless_argument": "--headless"
+}

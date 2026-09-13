@@ -114,6 +114,33 @@ Local, push-to-talk voice dictation — a self-hosted "Vibe Typer" replacement. 
 
 ---
 
+## Shared AI setup
+
+During `chezmoi init`, select the machine role (laptop, desktop or headless),
+whether to enable the shared AI setup, and whether T3 should be reachable through
+Tailscale HTTPS. Existing answers are retained locally. Enable the AI setup only
+on machines where you want the shared Claude instructions and model settings.
+
+The package includes CLIProxyAPI, Personal/Work Claude launchers, model/context
+configuration, selected T3 preferences and first-time service provisioning.
+Desktop machines use the T3 app; headless Arch machines get the persistent T3
+user service. Subscription logins and device pairings remain local.
+
+Private host details can come from custom fields in your existing
+`dotfiles-secrets` Bitwarden item. Use `T3_DEV_HUB_HOST`, `T3_ARCH_DESKTOP_HOST`,
+`T3_MAC_WORKSTATION_HOST`, and `T3_SSH_USER`. The item name or ID is configurable.
+The public repository contains field names only. No vault access is needed for
+normal startup or when chezmoi already has all the local answers.
+
+For existing machines, inspect the AI package's scoped diff before applying it;
+then preview any T3 changes with `claude-mixed-setup --t3-diff`. The helper merges
+selected preferences only when explicitly requested and T3 is closed.
+
+See [AI setup, Bitwarden and maintenance](dot_config/private_cli-proxy-api/PORTABILITY.md)
+for installation, login and pairing steps.
+
+---
+
 ## Theme System
 
 The crown jewel. Change your wallpaper and **34 apps** — including the Hyprland desktop, the GTK/Qt app stack, and the login screen — recolor automatically.

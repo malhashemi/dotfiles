@@ -1,0 +1,310 @@
+{
+  "claude-mixed-a": {
+    "driver": "claudeAgent",
+    "displayName": "Claude Personal \u00b7 Mixed",
+    "environment": [
+      {
+        "name": "ANTHROPIC_MODEL",
+        "value": "claude-fable-5-1",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_DEFAULT_FABLE_MODEL",
+        "value": "claude-a/claude-fable-5-1",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_DEFAULT_OPUS_MODEL",
+        "value": "claude-a/claude-opus-5",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "value": "claude-a/claude-sonnet-5",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "value": "claude-a/claude-haiku-4-5",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_SMALL_FAST_MODEL",
+        "value": "claude-a/claude-haiku-4-5",
+        "sensitive": false
+      },
+      {
+        "name": "CLAUDE_MIXED_ACCOUNT",
+        "value": "a",
+        "sensitive": false
+      }
+    ],
+    "enabled": false,
+    "config": {
+      "binaryPath": "@HOME@/.local/bin/claude-t3-mixed",
+      "homePath": "@HOME@/.claude-t3-mixed",
+      "customModels": [
+        {
+          "slug": "gpt-6-astra",
+          "name": "GPT-6 Astra \u00b7 shared",
+          "capabilities": {
+            "optionDescriptors": [
+              {
+                "id": "effort",
+                "label": "Reasoning",
+                "type": "select",
+                "options": [
+                  {
+                    "id": "low",
+                    "label": "Low"
+                  },
+                  {
+                    "id": "medium",
+                    "label": "Medium"
+                  },
+                  {
+                    "id": "high",
+                    "label": "High",
+                    "isDefault": true
+                  },
+                  {
+                    "id": "xhigh",
+                    "label": "Extra High"
+                  },
+                  {
+                    "id": "max",
+                    "label": "Max"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "slug": "gpt-5.6-sol",
+          "name": "GPT-5.6 Sol \u00b7 shared",
+          "capabilities": {
+            "optionDescriptors": [
+              {
+                "id": "effort",
+                "label": "Reasoning",
+                "type": "select",
+                "options": [
+                  {
+                    "id": "low",
+                    "label": "Low"
+                  },
+                  {
+                    "id": "medium",
+                    "label": "Medium"
+                  },
+                  {
+                    "id": "high",
+                    "label": "High",
+                    "isDefault": true
+                  },
+                  {
+                    "id": "xhigh",
+                    "label": "Extra High"
+                  },
+                  {
+                    "id": "max",
+                    "label": "Max"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "slug": "grok-4.6",
+          "name": "Grok 4.6 \u00b7 shared",
+          "capabilities": {
+            "optionDescriptors": [
+              {
+                "id": "effort",
+                "label": "Reasoning",
+                "type": "select",
+                "options": [
+                  {
+                    "id": "low",
+                    "label": "Low"
+                  },
+                  {
+                    "id": "medium",
+                    "label": "Medium"
+                  },
+                  {
+                    "id": "high",
+                    "label": "High",
+                    "isDefault": true
+                  },
+                  {
+                    "id": "xhigh",
+                    "label": "Extra High"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "launchArgs": "",
+      "autoCompactWindow": ""
+    }
+  },
+  "claude-mixed-b": {
+    "driver": "claudeAgent",
+    "displayName": "Claude Work \u00b7 Mixed",
+    "environment": [
+      {
+        "name": "ANTHROPIC_MODEL",
+        "value": "claude-fable-5-1",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_DEFAULT_FABLE_MODEL",
+        "value": "claude-b/claude-fable-5-1",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_DEFAULT_OPUS_MODEL",
+        "value": "claude-b/claude-opus-5",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "value": "claude-b/claude-sonnet-5",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "value": "claude-b/claude-haiku-4-5",
+        "sensitive": false
+      },
+      {
+        "name": "ANTHROPIC_SMALL_FAST_MODEL",
+        "value": "claude-b/claude-haiku-4-5",
+        "sensitive": false
+      },
+      {
+        "name": "CLAUDE_MIXED_ACCOUNT",
+        "value": "b",
+        "sensitive": false
+      }
+    ],
+    "enabled": false,
+    "config": {
+      "binaryPath": "@HOME@/.local/bin/claude-t3-mixed",
+      "homePath": "@HOME@/.claude-t3-mixed",
+      "customModels": [
+        {
+          "slug": "gpt-6-astra",
+          "name": "GPT-6 Astra \u00b7 shared",
+          "capabilities": {
+            "optionDescriptors": [
+              {
+                "id": "effort",
+                "label": "Reasoning",
+                "type": "select",
+                "options": [
+                  {
+                    "id": "low",
+                    "label": "Low"
+                  },
+                  {
+                    "id": "medium",
+                    "label": "Medium"
+                  },
+                  {
+                    "id": "high",
+                    "label": "High",
+                    "isDefault": true
+                  },
+                  {
+                    "id": "xhigh",
+                    "label": "Extra High"
+                  },
+                  {
+                    "id": "max",
+                    "label": "Max"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "slug": "gpt-5.6-sol",
+          "name": "GPT-5.6 Sol \u00b7 shared",
+          "capabilities": {
+            "optionDescriptors": [
+              {
+                "id": "effort",
+                "label": "Reasoning",
+                "type": "select",
+                "options": [
+                  {
+                    "id": "low",
+                    "label": "Low"
+                  },
+                  {
+                    "id": "medium",
+                    "label": "Medium"
+                  },
+                  {
+                    "id": "high",
+                    "label": "High",
+                    "isDefault": true
+                  },
+                  {
+                    "id": "xhigh",
+                    "label": "Extra High"
+                  },
+                  {
+                    "id": "max",
+                    "label": "Max"
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "slug": "grok-4.6",
+          "name": "Grok 4.6 \u00b7 shared",
+          "capabilities": {
+            "optionDescriptors": [
+              {
+                "id": "effort",
+                "label": "Reasoning",
+                "type": "select",
+                "options": [
+                  {
+                    "id": "low",
+                    "label": "Low"
+                  },
+                  {
+                    "id": "medium",
+                    "label": "Medium"
+                  },
+                  {
+                    "id": "high",
+                    "label": "High",
+                    "isDefault": true
+                  },
+                  {
+                    "id": "xhigh",
+                    "label": "Extra High"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "launchArgs": "",
+      "autoCompactWindow": ""
+    }
+  }
+}

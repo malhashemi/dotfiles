@@ -1,20 +1,86 @@
 {{- $hostname := .chezmoi.hostname -}}
 {{- $os := .chezmoi.os -}}
 
-{{- /* User identity - prompted once on chezmoi init, cached locally */ -}}
+{{- /* Explicit role replaces hostname guesses; preserve the old headless value as a default. */ -}}
+{{- $roleDefault := "desktop" -}}
+{{- if eq $os "darwin" -}}{{- $roleDefault = "laptop" -}}{{- end -}}
+{{- if and (hasKey . "is_headless") .is_headless -}}{{- $roleDefault = "headless" -}}{{- end -}}
+{{- $role := promptChoiceOnce . "machine.role" "Machine role" (list "laptop" "desktop" "headless") $roleDefault -}}
+{{- $aiEnabled := promptBoolOnce . "ai.enabled" "Install the shared AI tools and T3 setup" true -}}
+{{- $tailscaleEnabled := promptBoolOnce . "tailscale_enabled" "Do you use Tailscale" -}}
+{{- $remoteAccess := false -}}
+{{- if and $aiEnabled $tailscaleEnabled -}}
+{{-   $remoteAccess = promptBoolOnce . "ai.remote_access" "Enable T3 remote access over Tailscale HTTPS" true -}}
+{{- end -}}
+
+{{- /* Only these non-token fields can enter local template data. Existing answers win. */ -}}
+{{- $inputs := deepCopy . -}}
+{{- $mapping := list
+      (dict "group" "tailscale_hosts" "key" "dev_hub" "field" "T3_DEV_HUB_HOST")
+      (dict "group" "tailscale_hosts" "key" "arch_desktop" "field" "T3_ARCH_DESKTOP_HOST")
+      (dict "group" "tailscale_hosts" "key" "mac_workstation" "field" "T3_MAC_WORKSTATION_HOST")
+      (dict "group" "machine" "key" "ssh_user" "field" "T3_SSH_USER") -}}
+{{- $missing := false -}}
+{{- range $entry := $mapping -}}
+{{-   $group := get $inputs $entry.group | default dict -}}
+{{-   if not (hasKey $group $entry.key) -}}
+{{-     $fromEnv := env $entry.field -}}
+{{-     if ne $fromEnv "" -}}
+{{-       $_ := set $group $entry.key $fromEnv -}}
+{{-       $_ := set $inputs $entry.group $group -}}
+{{-     else -}}{{- $missing = true -}}{{- end -}}
+{{-   end -}}
+{{- end -}}
+{{- $useBitwarden := false -}}
+{{- $bitwardenItem := "dotfiles-secrets" -}}
+{{- if or $aiEnabled $tailscaleEnabled -}}
+{{-   $useBitwarden = promptBoolOnce . "private_config.bitwarden" "Fill missing machine details from Bitwarden" false -}}
+{{-   if $useBitwarden -}}
+{{-     $bitwardenItem = promptStringOnce . "private_config.item" "Bitwarden item name or ID" "dotfiles-secrets" -}}
+{{-   end -}}
+{{- end -}}
+{{- if and $useBitwarden $missing -}}
+{{-   if lookPath "bw" -}}
+{{-     $status := output "bw" "status" | fromJson -}}
+{{-     if eq $status.status "unlocked" -}}
+{{-       $fields := bitwardenFields "item" $bitwardenItem -}}
+{{-       range $entry := $mapping -}}
+{{-         $group := get $inputs $entry.group | default dict -}}
+{{-         if and (not (hasKey $group $entry.key)) (hasKey $fields $entry.field) -}}
+{{-           $value := (get $fields $entry.field).value -}}
+{{-           if and (kindIs "string" $value) (ne $value "") -}}
+{{-             $_ := set $group $entry.key $value -}}
+{{-             $_ := set $inputs $entry.group $group -}}
+{{-           end -}}
+{{-         end -}}
+{{-       end -}}
+{{-     else -}}
+{{-       warnf "Bitwarden is locked or signed out; using local prompts. To import first, unlock bw in this shell and rerun chezmoi init." -}}
+{{-     end -}}
+{{-   else -}}
+{{-     warnf "Bitwarden CLI is not installed yet; using local prompts. The package bootstrap installs bw for later use." -}}
+{{-   end -}}
+{{- end -}}
+
 {{- $userName := promptStringOnce . "user.name" "Your full name" -}}
 {{- $userEmail := promptStringOnce . "user.email" "Your email" -}}
-
-{{- /* Tailscale mesh VPN - prompted once, cached locally */ -}}
-{{- /* To enable later: chezmoi init --prompt  (or edit ~/.config/chezmoi/chezmoi.toml) */ -}}
-{{- $tailscaleEnabled := promptBoolOnce . "tailscale_enabled" "Do you use Tailscale" -}}
+{{- $sshUser := promptStringOnce $inputs "machine.ssh_user" "SSH username on your other machines" .chezmoi.username -}}
 {{- $devHub := "" -}}
 {{- $archDesktop := "" -}}
 {{- $macWorkstation := "" -}}
 {{- if $tailscaleEnabled -}}
-{{-   $devHub = promptStringOnce . "tailscale_hosts.dev_hub" "Tailscale devbox hostname" -}}
-{{-   $archDesktop = promptStringOnce . "tailscale_hosts.arch_desktop" "Tailscale desktop hostname" -}}
-{{-   $macWorkstation = promptStringOnce . "tailscale_hosts.mac_workstation" "Tailscale Mac workstation hostname" -}}
+{{-   $devHub = promptStringOnce $inputs "tailscale_hosts.dev_hub" "Tailscale devbox hostname (blank to skip)" "" -}}
+{{-   $archDesktop = promptStringOnce $inputs "tailscale_hosts.arch_desktop" "Tailscale desktop hostname (blank to skip)" "" -}}
+{{-   $macWorkstation = promptStringOnce $inputs "tailscale_hosts.mac_workstation" "Tailscale Mac workstation hostname (blank to skip)" "" -}}
+{{- end -}}
+
+{{- range $host := list $devHub $archDesktop $macWorkstation -}}
+{{-   if and (ne $host "") (not (regexMatch "^[A-Za-z0-9][A-Za-z0-9.-]*$" $host)) -}}
+{{-     fail "Tailscale hosts must be hostnames or IPv4 addresses, without a URL scheme, spaces or shell syntax." -}}
+{{-   end -}}
+{{- end -}}
+{{- if not (regexMatch "^[A-Za-z_][A-Za-z0-9_.-]*[$]?$" $sshUser) -}}
+{{-   fail "Enter a valid SSH username without spaces or shell syntax." -}}
 {{- end -}}
 
 [data]
@@ -43,27 +109,28 @@
     cache_dir = "{{ .chezmoi.homeDir }}/.cache"
     {{- end }}
     tailscale_enabled = {{ $tailscaleEnabled }}
-    # Headless detection for VPS vs desktop
-    {{- if contains "MacBook" $hostname }}
-    is_headless = false
-    {{- else if and (ne $devHub "") (eq $hostname $devHub) }}
-    is_headless = true
-    {{- else if contains "vps" $hostname }}
-    is_headless = true
-    {{- else if contains "dev-arch" $hostname }}
-    is_headless = true
-    {{- else }}
-    is_headless = false
-    {{- end }}
+    is_headless = {{ eq $role "headless" }}
+
+[data.machine]
+    role = {{ $role | quote }}
+    ssh_user = {{ $sshUser | quote }}
+
+[data.ai]
+    enabled = {{ $aiEnabled }}
+    remote_access = {{ $remoteAccess }}
+
+[data.private_config]
+    bitwarden = {{ $useBitwarden }}
+    item = {{ $bitwardenItem | quote }}
 
 [data.user]
-    name = "{{ $userName }}"
-    email = "{{ $userEmail }}"
+    name = {{ $userName | quote }}
+    email = {{ $userEmail | quote }}
 
 [data.tailscale_hosts]
-    dev_hub = "{{ $devHub }}"
-    arch_desktop = "{{ $archDesktop }}"
-    mac_workstation = "{{ $macWorkstation }}"
+    dev_hub = {{ $devHub | quote }}
+    arch_desktop = {{ $archDesktop | quote }}
+    mac_workstation = {{ $macWorkstation | quote }}
 
 [diff]
     pager = "delta"

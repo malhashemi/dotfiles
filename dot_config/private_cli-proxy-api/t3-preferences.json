@@ -1,0 +1,118 @@
+{
+  "server": {
+    "defaultModelSelection": {
+      "instanceId": "codex",
+      "model": "gpt-6-astra",
+      "options": [
+        {
+          "id": "reasoningEffort",
+          "value": "xhigh"
+        },
+        {
+          "id": "serviceTier",
+          "value": "default"
+        }
+      ]
+    },
+    "textGenerationModelSelection": {
+      "instanceId": "grok",
+      "model": "grok-4.6"
+    },
+    "sourceControlWriterModelSelection": {
+      "instanceId": "grok",
+      "model": "grok-4.6"
+    }
+  },
+  "client": {
+    "loadBalancingEnabled": false,
+    "appearanceContrast": 100,
+    "panelAnimationDurationMs": 0,
+    "confirmThreadArchive": false,
+    "confirmThreadDelete": true,
+    "confirmThreadUnpin": false,
+    "diffIgnoreWhitespace": true,
+    "diffLayout": "stacked",
+    "environmentIdentificationMode": "artwork",
+    "glassOpacity": 80,
+    "fontSizeInterface": 16,
+    "fontSizePrompt": 14,
+    "fontSizeCode": 13,
+    "fontSizeTerminal": 12,
+    "fontFamilyCode": "",
+    "fontFamilyComposer": "",
+    "fontFamilySans": "",
+    "fontFamilyTerminal": "",
+    "fontSmoothing": true,
+    "planModeEnabled": false,
+    "contextWindowMeterEnabled": false,
+    "composerCollapseOnScroll": true,
+    "proactivePanelsEnabled": false,
+    "showSkillsInSlashMenu": true,
+    "legacySidebarEnabled": false,
+    "sidebarProjectGroupingMode": "repository",
+    "sidebarProjectSortOrder": "updated_at",
+    "sidebarThreadSortOrder": "updated_at",
+    "sidebarThreadPreviewCount": 6,
+    "timestampFormat": "locale",
+    "wordWrap": true,
+    "confirmQuit": "double-click",
+    "favorites": [
+      {
+        "provider": "codex",
+        "model": "gpt-6-astra"
+      },
+      {
+        "provider": "codex",
+        "model": "gpt-5.6-sol"
+      },
+      {
+        "provider": "claude-mixed-a",
+        "model": "claude-fable-5-1"
+      },
+      {
+        "provider": "claude-mixed-b",
+        "model": "claude-fable-5-1"
+      }
+    ]
+  },
+  "modelMenus": {
+    "claude-mixed-a": {
+      "hiddenModels": [
+        "claude-fable-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-opus-4-5",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5"
+      ],
+      "modelOrder": [
+        "claude-fable-5-1",
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "gpt-6-astra",
+        "gpt-5.6-sol",
+        "grok-4.6"
+      ]
+    },
+    "claude-mixed-b": {
+      "hiddenModels": [
+        "claude-fable-5",
+        "claude-opus-4-8",
+        "claude-opus-4-7",
+        "claude-opus-4-6",
+        "claude-opus-4-5",
+        "claude-sonnet-4-6",
+        "claude-haiku-4-5"
+      ],
+      "modelOrder": [
+        "claude-fable-5-1",
+        "claude-opus-5",
+        "claude-sonnet-5",
+        "gpt-6-astra",
+        "gpt-5.6-sol",
+        "grok-4.6"
+      ]
+    }
+  }
+}

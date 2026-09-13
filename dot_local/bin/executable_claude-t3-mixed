@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""Pin a T3 Claude instance to its subscription, then exec real Claude Code.
+
+Only launch settings are merged. stdin/stdout and SDK control messages are passed
+directly to Claude Code, including native Agent and Workflow execution.
+"""
+import json
+import os
+from pathlib import Path
+import sys
+import shutil
+
+
+ROOT = Path.home() / '.config/cli-proxy-api'
+CLAUDE = shutil.which('claude') or 'claude'
+
+
+def merge_settings(left, right):
+    merged = dict(left)
+    for key, value in right.items():
+        if isinstance(value, dict) and isinstance(merged.get(key), dict):
+            merged[key] = merge_settings(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def canonical_model(model):
+    # Older gateway discovery encoded GPT/Grok IDs as Claude names.
+    prefix = 'claude-fable-5-dd-'
+    base = model.removesuffix('[1m]')
+    if base.startswith(prefix):
+        decoded = base[len(prefix):][::-1]
+        if decoded in ('gpt-6-astra', 'gpt-5.6-sol', 'grok-4.6'):
+            return decoded + model[len(base):]
+    return model
+
+
+def prepare(args, slot):
+    if slot not in ('a', 'b'):
+        raise ValueError('Set CLAUDE_MIXED_ACCOUNT to a (Personal) or b (Work).')
+    accounts = json.loads((ROOT / 'claude-accounts.json').read_text())
+    if slot not in accounts:
+        raise ValueError('Connect this subscription first: cpapi login claude-' + slot)
+
+    # The SDK supplies --settings for thinking, auto-compaction and Ultracode.
+    # Preserve those values while adding account-specific native model overrides.
+    retained = []
+    settings = json.loads((ROOT / 'claude-context-settings.json').read_text())
+    index = 0
+    while index < len(args):
+        arg = args[index]
+        if arg == '--':
+            retained.extend(args[index:])
+            break
+        value = None
+        if arg == '--settings':
+            index += 1
+            if index >= len(args):
+                raise ValueError('--settings requires a file or JSON object')
+            value = args[index]
+        elif arg.startswith('--settings='):
+            value = arg.split('=', 1)[1]
+        if value is not None:
+            raw = value if value.lstrip().startswith('{') else Path(value).expanduser().read_text()
+            parsed = json.loads(raw)
+            if not isinstance(parsed, dict):
+                raise ValueError('--settings must contain a JSON object')
+            settings = merge_settings(settings, parsed)
+        else:
+            retained.append(arg)
+        index += 1
+
+    if isinstance(settings.get('model'), str):
+        settings['model'] = canonical_model(settings['model'])
+    for index, arg in enumerate(retained):
+        if arg == '--':
+            break
+        if arg == '--model' and index + 1 < len(retained):
+            retained[index + 1] = canonical_model(retained[index + 1])
+        elif arg.startswith('--model='):
+            retained[index] = '--model=' + canonical_model(arg.split('=', 1)[1])
+    if 'ANTHROPIC_MODEL' in os.environ:
+        os.environ['ANTHROPIC_MODEL'] = canonical_model(os.environ['ANTHROPIC_MODEL'])
+
+    routes = json.loads((ROOT / 'claude-model-routes.json').read_text())
+    settings = merge_settings(settings, {
+        'modelOverrides': {model: 'claude-' + slot + '/' + target for model, target in routes.items()}
+    })
+    return ['--settings', json.dumps(settings), *retained]
+
+
+if __name__ == '__main__':
+    args = sys.argv[1:]
+    if any(arg in ('--version', '-v', '--help', '-h') for arg in args):
+        os.execv(CLAUDE, [CLAUDE, *args])
+    try:
+        args = prepare(args, os.environ.get('CLAUDE_MIXED_ACCOUNT', ''))
+    except (OSError, ValueError, KeyError) as error:
+        print('Mixed Claude launcher: ' + str(error), file=sys.stderr)
+        raise SystemExit(2)
+    os.execv(CLAUDE, [CLAUDE, *args])

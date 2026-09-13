@@ -1,0 +1,31 @@
+{
+  "proxy": {
+    "host": "127.0.0.1",
+    "port": 8317,
+    "remote-management": {
+      "allow-remote": false,
+      "secret-key": "",
+      "disable-control-panel": true
+    },
+    "debug": false,
+    "logging-to-file": false,
+    "request-log": false,
+    "request-retry": 2,
+    "max-retry-interval": 15,
+    "routing": {
+      "strategy": "round-robin"
+    },
+    "streaming": {
+      "keepalive-seconds": 15,
+      "bootstrap-retries": 1
+    },
+    "force-model-prefix": true
+  },
+  "mixed": {
+    "alwaysThinkingEnabled": true,
+    "effortLevel": "high",
+    "disableWorkflows": false,
+    "workflowSizeGuideline": "small"
+  },
+  "t3_version": "0.0.40"
+}
