@@ -26,6 +26,7 @@
     ".local/bin/claude-proxy",
     ".local/bin/claude-t3-mixed",
     ".local/bin/claude-work",
+    ".local/bin/claude-workflow-status",
     ".local/bin/cpapi",
     ".config/cli-proxy-api/machine.json",
     ".config/cli-proxy-api/t3-preferences.json"

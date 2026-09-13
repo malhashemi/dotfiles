@@ -1,0 +1,269 @@
+#!/usr/bin/env python3
+"""Show a read-only Claude workflow snapshot, including nested skill agents."""
+import argparse
+from collections import Counter, defaultdict
+from datetime import datetime, timezone
+import json
+import math
+from pathlib import Path
+import re
+import sys
+
+
+def timestamp(value):
+    if not isinstance(value, str):
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace('Z', '+00:00'))
+        return parsed.timestamp() if parsed.tzinfo else None
+    except ValueError:
+        return None
+
+
+def label(value):
+    return ''.join(c for c in str(value) if c.isprintable())[:100]
+
+
+def read_json(path, warnings):
+    try:
+        value = json.loads(path.read_text())
+        if isinstance(value, dict):
+            return value
+    except (OSError, ValueError):
+        pass
+    warnings.append('Could not read an object from ' + path.name)
+    return {}
+
+
+def records(path, warnings):
+    try:
+        with path.open() as stream:
+            for number, line in enumerate(stream, 1):
+                try:
+                    row = json.loads(line)
+                    if isinstance(row, dict):
+                        yield row
+                    else:
+                        raise ValueError()
+                except ValueError:
+                    # A writer may still be appending its last record.
+                    if not line.endswith('\n'):
+                        warnings.append('Incomplete last record in ' + path.name)
+                    else:
+                        warnings.append('Invalid record in ' + path.name + ':' + str(number))
+    except OSError:
+        warnings.append('Could not read ' + path.name)
+
+
+def inspect_transcript(path, warnings):
+    info = {'first': None, 'last': None, 'event': None, 'terminal': None,
+            'pending': {}, 'tool_errors': 0, 'api_status': None}
+    for row in records(path, warnings):
+        when = timestamp(row.get('timestamp'))
+        if when is not None and info['first'] is None:
+            info['first'] = when
+        message = row.get('message')
+        if not isinstance(message, dict):
+            continue
+        content = message.get('content', [])
+        if isinstance(content, str):
+            content = [{'type': 'text', 'text': content}]
+        if not isinstance(content, list):
+            continue
+        event = None
+        terminal = None
+        if row.get('isApiErrorMessage'):
+            event, terminal = 'API error', 'api error'
+            status = row.get('apiErrorStatus')
+            info['api_status'] = status if isinstance(status, int) else None
+        else:
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                kind = block.get('type')
+                if kind == 'tool_use':
+                    name = label(block.get('name', 'unknown'))
+                    tool_id = block.get('id')
+                    if isinstance(tool_id, str):
+                        info['pending'][tool_id] = {'name': name, 'started': when}
+                    event = 'tool call: ' + name
+                elif kind == 'tool_result':
+                    call = info['pending'].pop(block.get('tool_use_id'), {})
+                    event = 'tool result: ' + call.get('name', 'unknown')
+                    if block.get('is_error'):
+                        info['tool_errors'] += 1
+                        event += ' (error)'
+                    elif row.get('toolEndsTurn') is True:
+                        terminal = 'response complete'
+                elif kind in ('text', 'thinking', 'redacted_thinking') and row.get('type') == 'assistant':
+                    event = 'model response'
+                elif kind == 'text' and row.get('type') == 'user':
+                    text = block.get('text', '')
+                    if isinstance(text, str) and text.startswith('[Request interrupted by user'):
+                        event, terminal = 'interruption recorded', 'interrupted'
+            if row.get('type') == 'assistant' and message.get('stop_reason') in ('end_turn', 'stop_sequence'):
+                terminal = 'response complete'
+        if event:
+            info['event'] = event
+            info['terminal'] = terminal
+            if when is not None:
+                info['last'] = max(info['last'], when) if info['last'] is not None else when
+    return info
+
+
+def inspect_workflow(session, run_id, idle_seconds=420, now=None):
+    now = datetime.now(timezone.utc).timestamp() if now is None else now
+    agents_dir = session / 'subagents'
+    workflow_dir = agents_dir / 'workflows' / run_id
+    state_path = session / 'workflows' / (run_id + '.json')
+    if not workflow_dir.is_dir() and not state_path.is_file():
+        raise ValueError('Workflow not found under the supplied session directory.')
+    warnings = []
+    state = read_json(state_path, warnings) if state_path.is_file() else {}
+    metadata, paths, children = {}, {}, defaultdict(list)
+    for path in agents_dir.rglob('agent-*.meta.json'):
+        agent_id = path.name[len('agent-'):-len('.meta.json')]
+        data = read_json(path, warnings)
+        metadata[agent_id] = data
+        paths[agent_id] = path.with_name('agent-' + agent_id + '.jsonl')
+        parent = data.get('parentAgentId')
+        if isinstance(parent, str):
+            children[parent].append(agent_id)
+    roots, outcomes = {}, {}
+    journal = workflow_dir / 'journal.jsonl'
+    if journal.is_file():
+        for row in records(journal, warnings):
+            agent_id = row.get('agentId')
+            if not isinstance(agent_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]+', agent_id):
+                continue
+            roots.setdefault(agent_id, agent_id)
+            if row.get('type') == 'started':
+                roots[agent_id] = label(row.get('label', agent_id))
+                outcomes.pop(agent_id, None)
+            elif row.get('type') in ('result', 'failed', 'cancelled'):
+                outcomes[agent_id] = {'result': 'result recorded', 'failed': 'failed',
+                                      'cancelled': 'interrupted'}[row['type']]
+    for path in sorted(workflow_dir.glob('agent-*.jsonl')):
+        agent_id = path.stem[len('agent-'):]
+        paths[agent_id] = path
+        roots.setdefault(agent_id, label(metadata.get(agent_id, {}).get('description', agent_id)))
+    nodes = {}
+
+    def age(when):
+        return round(max(0, now - when), 1) if when is not None else None
+
+    def visit(agent_id, parent=None):
+        if agent_id in nodes:
+            warnings.append('Repeated or cyclic agent link: ' + label(agent_id))
+            return None
+        path = paths.get(agent_id, workflow_dir / ('agent-' + agent_id + '.jsonl'))
+        info = inspect_transcript(path, warnings)
+        data = metadata.get(agent_id, {})
+        node = {'agent_id': agent_id, 'parent_agent_id': parent,
+                'label': roots.get(agent_id, label(data.get('agentType', agent_id))),
+                'model': label(data.get('model', '')) or None,
+                'last_event': info['event'], 'own_age_seconds': age(info['last']),
+                'pending_tools': [{'name': v['name'], 'age_seconds': age(v['started'])}
+                                  for v in info['pending'].values()],
+                'tool_error_count': info['tool_errors'], 'last_api_error_status': info['api_status'],
+                'children': []}
+        nodes[agent_id] = node
+        for child in children[agent_id]:
+            if child in roots:
+                warnings.append('Cross-linked workflow root: ' + label(child))
+                continue
+            linked = visit(child, agent_id)
+            if linked:
+                node['children'].append(linked)
+        events = [(info['last'], agent_id)] if info['last'] is not None else []
+        events.extend((child['_last'], child['latest_activity_agent']) for child in node['children']
+                      if child['_last'] is not None)
+        latest, latest_agent = max(events, default=(None, None))
+        branch_age = age(latest)
+        node.update(_last=latest, latest_activity_agent=latest_agent, branch_age_seconds=branch_age)
+        node['last_activity'] = datetime.fromtimestamp(latest, timezone.utc).isoformat() if latest is not None else None
+        terminal = outcomes.get(agent_id) or info['terminal']
+        unfinished = [child for child in node['children'] if not child['_terminal']]
+        if terminal:
+            status = terminal
+        elif branch_age is None:
+            status = 'no activity recorded'
+        elif branch_age >= idle_seconds:
+            status = 'needs inspection'
+        elif unfinished:
+            status = 'waiting for child' if info['pending'] else 'child activity'
+        elif info['pending']:
+            status = 'waiting for tool'
+        else:
+            status = 'recent activity'
+        # A stopped run can leave callers with no terminal transcript record.
+        ended = state.get('status') in ('completed', 'complete', 'failed', 'cancelled', 'stopped')
+        ended_at = timestamp(state.get('timestamp'))
+        if not terminal and ended and ended_at is not None and (latest is None or latest <= ended_at):
+            status = 'unfinished when run ended'
+        node.update(status=status, _terminal=bool(terminal))
+        return node
+
+    tree = [visit(agent_id) for agent_id in roots]
+    for node in nodes.values():
+        node.pop('_last')
+        node.pop('_terminal')
+    return {'workflow_id': run_id, 'session_directory': str(session),
+            'snapshot_time': datetime.fromtimestamp(now, timezone.utc).isoformat(),
+            'recorded_run_status': label(state.get('status', 'unknown')),
+            'idle_threshold_seconds': idle_seconds, 'counts': dict(Counter(n['status'] for n in nodes.values())),
+            'agents': tree, 'warnings': list(dict.fromkeys(warnings)),
+            'note': 'Read-only snapshot of retained records, not process liveness. Inactivity alone does not prove a stall.'}
+
+
+def duration(seconds):
+    if seconds is None:
+        return 'unknown'
+    seconds = int(seconds)
+    return (str(seconds // 60) + 'm ' if seconds >= 60 else '') + str(seconds % 60) + 's'
+
+
+def display(report):
+    print('Workflow:', report['workflow_id'], '| recorded run status:', report['recorded_run_status'])
+    print('Snapshot:', report['snapshot_time'], '| inspection threshold:', duration(report['idle_threshold_seconds']))
+
+    def show(node, depth=0):
+        detail = 'branch activity ' + duration(node['branch_age_seconds']) + ' ago'
+        if node['pending_tools']:
+            detail += '; pending: ' + ', '.join(t['name'] for t in node['pending_tools'])
+        print('  ' * depth + node['label'] + ' [' + node['agent_id'] + '] — ' + node['status'] + ' | ' + detail)
+        for child in node['children']:
+            show(child, depth + 1)
+
+    for node in report['agents']:
+        show(node)
+    if not report['agents']:
+        print('No agent records found yet.')
+    for warning in report['warnings']:
+        print('Warning:', warning)
+    print(report['note'])
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__, epilog='Never stops agents, starts services, or calls a model. Exit 0 means the snapshot was read, not that the workflow succeeded.')
+    parser.add_argument('session_directory', type=Path, help='Session directory containing subagents/ and workflows/.')
+    parser.add_argument('workflow_id', help='Workflow run ID, for example wf_abc123.')
+    parser.add_argument('--json', action='store_true', help='Print metadata as JSON; never print prompts, tool arguments, or result bodies.')
+    parser.add_argument('--idle-minutes', type=float, default=7, help='Flag inactivity for inspection after this many minutes (default: 7).')
+    args = parser.parse_args()
+    if not re.fullmatch(r'wf_[A-Za-z0-9_-]+', args.workflow_id):
+        parser.error('Invalid workflow ID.')
+    if not math.isfinite(args.idle_minutes) or args.idle_minutes <= 0:
+        parser.error('--idle-minutes must be a positive finite number.')
+    try:
+        report = inspect_workflow(args.session_directory.expanduser().resolve(), args.workflow_id, args.idle_minutes * 60)
+    except (OSError, ValueError) as error:
+        parser.exit(2, 'claude-workflow-status: ' + str(error) + '\n')
+    if args.json:
+        print(json.dumps(report, indent=2, ensure_ascii=False))
+    else:
+        display(report)
+
+
+if __name__ == '__main__':
+    main()

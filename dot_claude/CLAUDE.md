@@ -50,6 +50,7 @@ Use these as defaults, not restrictions. Choose differently when the task warran
 - Prefer workflows when comparing models or approaches. They make routing, labels, intermediate results, and final synthesis easier to inspect.
 - Use a plain subagent for a single independent task: isolated investigation, narrow review, or quick implementation where orchestration would add ceremony.
 - If a task starts as a subagent but grows coordination needs, switch to a workflow rather than continuing with ad hoc delegation.
+- When checking workflow progress, run `~/.local/bin/claude-workflow-status <session-directory> <workflow-id>` through Bash. Pass the session directory containing `subagents/`; the report includes nested agents. A quiet parent or a `needs inspection` status alone is not a reason to stop a workflow.
 
 ### Mechanics
 
