@@ -58,38 +58,38 @@ image_delay = 30
 [opener]
 # Text editor
 edit = [
-    { run = '$EDITOR "$@"', block = true, for = "unix" },
-    { run = '%EDITOR% %*', block = true, for = "windows" },
+    { run = '$EDITOR %s', block = true, for = "unix" },
+    { run = '%EDITOR% %s', block = true, for = "windows" },
 ]
 
 # Default open action (platform-specific)
 open = [
-    { run = 'open "$@"', desc = "Open", for = "macos" },
-    { run = 'xdg-open "$@"', desc = "Open", for = "linux" },
-    { run = 'start "" "%1"', orphan = true, for = "windows" },
-    { run = 'termux-open "$@"', orphan = true, for = "android" },
+    { run = 'open %s', desc = "Open", for = "macos" },
+    { run = 'xdg-open %s', desc = "Open", for = "linux" },
+    { run = 'start "" %s1', orphan = true, for = "windows" },
+    { run = 'termux-open %s', orphan = true, for = "android" },
 ]
 
 # Reveal in file manager
 reveal = [
-    { run = 'open -R "$1"', desc = "Reveal in Finder", for = "macos" },
-    { run = '''nautilus --select "$1"''', desc = "Reveal in Files", for = "linux" },
+    { run = 'open -R %s1', desc = "Reveal in Finder", for = "macos" },
+    { run = '''nautilus --select %s1''', desc = "Reveal in Files", for = "linux" },
 ]
 
 # Media player
 play = [
-    { run = 'mpv "$@"', orphan = true, for = "unix" },
+    { run = 'mpv %s', orphan = true, for = "unix" },
 ]
 
 # Archive extraction
 extract = [
-    { run = 'unar "$1"', desc = "Extract", for = "unix" },
-    { run = '7z x "%1" -o"%1_extracted"', desc = "Extract with 7zip", for = "windows" },
+    { run = 'unar %s1', desc = "Extract", for = "unix" },
+    { run = '7z x %s1 -o%s1_extracted', desc = "Extract with 7zip", for = "windows" },
 ]
 
 # Lazygit
 lazygit = [
-    { run = 'lazygit -p "$1"', block = true, for = "unix" },
+    { run = 'lazygit -p %s1', block = true, for = "unix" },
 ]
 
 [open]

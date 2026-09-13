@@ -113,7 +113,7 @@ prepend_keymap = [
     { on = ["e"], run = "extract", desc = "Extract archive" },
     
     # Permissions
-    { on = ["c", "m"], run = '''shell 'chmod +x "$@"' --confirm''', desc = "Make executable" },
+    { on = ["c", "m"], run = '''shell 'chmod +x %s' --confirm''', desc = "Make executable" },
 ]
 
 # ============================================================================
