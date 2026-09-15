@@ -151,7 +151,7 @@ fi
 
 print_header "Adding Taps"
 for tap in charmbracelet/tap felixkratz/formulae nikitabobko/tap \
-           oven-sh/bun schpet/tap sst/tap; do
+           oven-sh/bun schpet/tap anomalyco/tap; do
     brew_tap "$tap" && echo -e "  ${GREEN}✓${NC} ${tap}"
 done
 
@@ -214,7 +214,7 @@ if brew list tailscale &>/dev/null; then
 fi
 
 print_header "Dev Tools"
-for pkg in sst/tap/opencode biome repomix dart-sdk llvm gemini-cli \
+for pkg in anomalyco/tap/opencode biome repomix dart-sdk llvm gemini-cli \
            schpet/tap/linear; do
     brew_pkg "$pkg"
 done
