@@ -60,6 +60,42 @@ def merge_preferences(current, selected):
     return result
 
 
+def merge_claude_preferences(current, selected):
+    """Merge shared hook commands while retaining other machine-local handlers."""
+    result = merge_preferences(current, {k: v for k, v in selected.items() if k != 'hooks'})
+    for event, groups in selected.get('hooks', {}).items():
+        existing = result.setdefault('hooks', {}).setdefault(event, [])
+        for group in groups:
+            for hook in group['hooks']:
+                for local in existing:
+                    if local.get('matcher') != group.get('matcher'):
+                        continue
+                    match = next((h for h in local['hooks'] if
+                                  (h.get('type'), h.get('command')) ==
+                                  (hook.get('type'), hook.get('command'))), None)
+                    if match is not None:
+                        match.update(copy.deepcopy(hook))
+                        break
+                else:
+                    existing.append({**copy.deepcopy(group), 'hooks': [copy.deepcopy(hook)]})
+    return result
+
+
+def ensure_hook_runtime():
+    """Keep the shell parser isolated from system Python and hook-time networking."""
+    runtime = HOME_DIR / '.local/share/claude-hooks/venv'
+    python = runtime / 'bin/python'
+    if not python.exists():
+        run([sys.executable, '-m', 'venv', runtime])
+    probe = subprocess.run([str(python), '-c',
+                            'from tree_sitter import Language, Parser; import tree_sitter_bash; '
+                            'Parser(Language(tree_sitter_bash.language()))'],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if probe.returncode:
+        run([python, '-m', 'pip', 'install', '--disable-pip-version-check',
+             'tree-sitter==0.26.0', 'tree-sitter-bash==0.25.1'])
+
+
 def model_defaults():
     return read_json(INPUTS / 'models.json')
 
@@ -122,12 +158,16 @@ def merge_toml(text, selected):
     return result
 
 
-def planned_cli():
+def planned_cli(hooks_only=False):
     preferences = read_json(INPUTS / 'cli-preferences.json')
     models = model_defaults()
     path = HOME_DIR / '.claude/settings.json'
     current = path.read_text() if path.exists() else ''
     existing = json.loads(current) if current else {}
+    if hooks_only:
+        proposed = merge_claude_preferences(existing, {'hooks': preferences['claude']['hooks']})
+        after = json_text(proposed)
+        return [(path, current, after)] if current != after else []
     mixed_path = MIXED / 'settings.json'
     legacy = read_json(mixed_path, {}) if not mixed_path.is_symlink() else {}
     # Keep legacy launch credentials private; never move them into global settings.
@@ -136,7 +176,7 @@ def planned_cli():
         'model': models['providers']['claude'] + '[1m]',
         'effortLevel': models['effort'][models['providers']['claude']],
     })
-    proposed = merge_preferences(merge_preferences(inherited, existing), common)
+    proposed = merge_claude_preferences(merge_preferences(inherited, existing), common)
     changes = [(path, current, json_text(proposed))]
     if legacy.get('env'):
         connection = ROOT / 'claude-settings.json'
@@ -166,8 +206,9 @@ def print_cli_diff():
         print('Mixed settings: preserve preferences above, archive the old file, then link to ~/.claude/settings.json.')
 
 
-def configure_cli(allow_existing=False):
-    changes = [(p, a, b) for p, a, b in planned_cli() if allow_existing or not p.exists()]
+def configure_cli(allow_existing=False, hooks_only=False):
+    changes = [(p, a, b) for p, a, b in planned_cli(hooks_only) if allow_existing or not p.exists()]
+    ensure_hook_runtime()
     archive = HOME_DIR / '.local/share/claude-archives' / ('preferences-' + secrets.token_hex(6))
     for path, before, _ in changes:
         if (path.read_text() if path.exists() else '') != before:
@@ -744,6 +785,7 @@ def main():
     action.add_argument('--connections', action='store_true')
     action.add_argument('--cli-diff', action='store_true', help='Preview shared Claude, Codex and Grok preferences.')
     action.add_argument('--apply-cli-changes', action='store_true', help='Back up and merge selected CLI preferences.')
+    action.add_argument('--apply-claude-hooks', action='store_true', help='Install the shared hook runtime and merge only Claude hooks.')
     action.add_argument('--update-plan', action='store_true', help='Show installer-specific tool update commands.')
     action.add_argument('--update-tools', action='store_true', help='Explicit maintenance; Arch includes a full system upgrade.')
     parser.add_argument('--headless', action='store_true', help='Override the saved role for this invocation.')
@@ -758,6 +800,9 @@ def main():
         return
     if args.apply_cli_changes:
         configure_cli(allow_existing=True)
+        return
+    if args.apply_claude_hooks:
+        configure_cli(allow_existing=True, hooks_only=True)
         return
     if args.t3_diff:
         print_t3_diff(planned_t3(machine))

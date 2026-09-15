@@ -383,7 +383,7 @@ fi
 
 print_header "Cargo Packages"
 if command -v cargo &>/dev/null; then
-    for pkg in matugen just-lsp; do
+    for pkg in matugen just-lsp sd; do
         if command -v "$pkg" &>/dev/null; then
             print_skip "$pkg"
         elif cargo install --locked "$pkg" &>/dev/null; then

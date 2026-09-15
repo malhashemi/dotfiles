@@ -245,7 +245,7 @@ print_header "Cargo Packages"
 # Source cargo env — brew install rust puts cargo in ~/.cargo/bin which isn't on PATH yet
 [[ -f "$HOME/.cargo/env" ]] && source "$HOME/.cargo/env"
 if command -v cargo &>/dev/null; then
-    for pkg in matugen just-lsp; do
+    for pkg in matugen just-lsp sd; do
         if command -v "$pkg" &>/dev/null; then
             print_skip "$pkg"
         elif cargo install --locked "$pkg" &>/dev/null; then

@@ -61,7 +61,13 @@ auto-compaction settings are not changed.
 
 `cli-preferences.json` contains shared Claude behaviour, attribution suppression,
 the human-only `code-review` setting, and Grok display preferences. The status-line
-script is shared and needs Bash, Git and jq from the OS bootstrap. Existing hooks,
+script is shared and needs Bash, Git and jq from the OS bootstrap. Shared Bash
+tool preferences use `~/.claude/hooks/prefer-modern-cli.py`; Mixed links its hooks
+directory to the same location. The setup helper installs Tree-sitter Bash in an isolated
+Python environment and merges the shared hook without replacing other handlers.
+Use `claude-mixed-setup --apply-claude-hooks` to apply only this hook configuration.
+Cargo installs `sd` in both platform bootstraps; `~/.local/bin/sd` links to the
+Cargo binary so noninteractive agents can find it. Existing machine-local hooks,
 plugin installations, MCP connections, notification integrations, project trust
 records and credentials remain local. TOML merges preserve unrelated content and
 validate the complete result before writing.

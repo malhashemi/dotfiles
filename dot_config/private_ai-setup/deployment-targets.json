@@ -1,6 +1,7 @@
 {
   "targets": [
     ".claude-t3-mixed/CLAUDE.md",
+    ".claude-t3-mixed/hooks",
     ".claude-t3-mixed/agents/grok-specialist.md",
     ".claude-t3-mixed/agents/openai-specialist.md",
     ".claude-t3-mixed/plugins",
@@ -8,6 +9,7 @@
     ".claude-t3-mixed/skills",
     ".claude-t3-mixed/workflows/mixed-review.js",
     ".claude/CLAUDE.md",
+    ".claude/hooks/prefer-modern-cli.py",
     ".claude/scripts/claude-workflow-status",
     ".claude/skills/codex-computer-use/SKILL.md",
     ".claude/statusline.sh",
@@ -35,7 +37,8 @@
     ".local/bin/claude-proxy",
     ".local/bin/claude-t3-mixed",
     ".local/bin/claude-work",
-    ".local/bin/cpapi"
+    ".local/bin/cpapi",
+    ".local/bin/sd"
   ],
   "post_apply": [
     "claude-mixed-setup",

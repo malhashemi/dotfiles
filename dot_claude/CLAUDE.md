@@ -61,6 +61,14 @@ Use these as defaults, not restrictions. Choose differently when the task warran
 
 ## Notes
 
+<important if="you are using Bash">
+- Use rg to search file contents.
+- Use fd to locate files.
+- Use sd for search and replace.
+- Use jq to extract JSON values.
+- Use xh for HTTP requests.
+</important>
+
 <important if="you are using the rpi:create-structure-outline skill">
 - Every exported symbol gets a full signature; declare each shared type once and reference it by name; add a per-phase "how it connects" note.
 - The skill's "concise" instruction is scoped to prose, not signatures.
