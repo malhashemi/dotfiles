@@ -24,6 +24,9 @@
     "inputNeededNotifEnabled": true,
     "disableWorkflows": false,
     "workflowSizeGuideline": "small",
+    "worktree": {
+      "baseRef": "head"
+    },
     "skillOverrides": {
       "code-review": "user-invocable-only"
     },
