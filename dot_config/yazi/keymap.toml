@@ -14,6 +14,7 @@ prepend_keymap = [
     # Quick Directory Bookmarks (g prefix)
     # --------------------------------------------------------------------------
     { on = ["g", "h"], run = "cd ~", desc = "Go to Home" },
+    { on = ["g", "v"], run = "cd ~/dev", desc = "Go to dev" },
     { on = ["g", "d"], run = "cd ~/Downloads", desc = "Go to Downloads" },
     { on = ["g", "c"], run = "cd ~/.config", desc = "Go to .config" },
     { on = ["g", "p"], run = "cd ~/Projects", desc = "Go to Projects" },
