@@ -20,6 +20,7 @@
     ".config/ai-setup/deployment-targets.json",
     ".config/ai-setup/machine.json",
     ".config/ai-setup/models.json",
+    ".config/ai-setup/proxy-headers.json",
     ".config/ai-setup/t3/keybindings.json",
     ".config/ai-setup/t3/preferences.json",
     ".config/ai-setup/t3/profiles.json",

@@ -14,6 +14,7 @@ into each application's own settings. There is no background synchronization.
 | `t3/profiles.json` | Personal/Work provider definitions and custom model options | T3 preference merge |
 | `t3/keybindings.json` | Shared shortcuts with platform-specific modifiers | T3 preference merge |
 | `bootstrap.json` | Seed configuration for a new proxy and fallback T3 CLI version | Installation |
+| `proxy-headers.json` | Explicit provider header overrides; `null` removes a managed header | Installation or proxy header merge |
 | `machine.json` | This machine's role, hosts and remote-access choices, rendered from local chezmoi answers | Setup and connection commands |
 | `deployment-targets.json` | Explicit file list for a targeted AI setup rollout | Deployment planning |
 
@@ -61,8 +62,11 @@ auto-compaction settings are not changed.
 
 The catalog includes Opus 5.5, GPT-6 Sol, and GPT-6 Luna as selectable
 models without changing existing defaults. Use Claude Code 2.1.280 or newer
-for the Opus 5.5 Mixed route. Keep proxy protocol behavior at its upstream
-defaults; no release-specific header or thinking overrides are seeded.
+for the Opus 5.5 Mixed route. A temporary override in `proxy-headers.json`
+sets the Claude User-Agent to `claude-cli/2.1.280 (external, cli)` for
+[CLIProxyAPI issue #6054](https://github.com/router-for-me/CLIProxyAPI/issues/6054).
+The model release still advertises the older Claude client in this path.
+No thinking payload overrides are applied.
 
 For a model-only rollout, preview `claude-mixed-setup --t3-diff --models-only`,
 then run `claude-mixed-setup --apply-t3-changes --models-only`. This adds missing
@@ -72,9 +76,17 @@ defaults, favorites, and unrelated preferences remain intact. Deploy the helper
 and relevant inputs with a targeted chezmoi apply first. Full preference merges
 still require closing T3.
 
-Installations with the previous September 22 overrides can remove just those
-values using `claude-mixed-setup --remove-proxy-model-workaround`; the helper
-backs up the private configuration and preserves credentials and other rules.
+Deploy `proxy-headers.json` and the helper with a targeted chezmoi apply, preview
+`claude-mixed-setup --proxy-diff`, then run
+`claude-mixed-setup --apply-proxy-changes`. The helper backs up the private proxy
+configuration and merges only the selected headers. CLIProxyAPI reloads its
+configuration without restarting T3. Credentials and other rules stay local.
+
+When the owner confirms the upstream issue is resolved, set this source value
+to `null`, deploy the same targets, and run the same preview/apply commands:
+`{"claude-header-defaults": {"user-agent": null}}`. Keep the removal entry until
+every machine has received it; deleting the input alone does not remove a value
+already merged into a private configuration.
 
 `cli-preferences.json` contains shared Claude behaviour, attribution suppression,
 the human-only `code-review` setting, and Grok display preferences. The status-line

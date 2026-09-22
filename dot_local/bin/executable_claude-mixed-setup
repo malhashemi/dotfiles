@@ -681,38 +681,46 @@ def planned_t3_model_additions(machine):
     return changes
 
 
-def remove_proxy_model_workaround():
-    """Undo only the exact September 22 proxy overrides, retaining local settings."""
+def planned_proxy_headers():
+    """Merge only explicitly managed provider headers; null removes a header."""
     path = ROOT / 'config.yaml'
-    before = read_json(path, {})
+    if not path.exists():
+        raise ValueError('Proxy configuration is missing; run --install first.')
+    before = read_json(path)
     after = copy.deepcopy(before)
-    headers = after.get('claude-header-defaults', {})
-    if headers.get('user-agent') == 'claude-cli/2.1.280 (external, cli)':
-        del headers['user-agent']
+    selected = read_json(INPUTS / 'proxy-headers.json', {})
+    allowed = {
+        'claude-header-defaults': {'user-agent', 'package-version', 'runtime-version',
+                                  'os', 'arch', 'timeout', 'timezone', 'stabilize-device-profile'},
+        'codex-header-defaults': {'user-agent', 'beta-features'},
+    }
+    for section, values in selected.items():
+        if section not in allowed or not isinstance(values, dict) or set(values) - allowed[section]:
+            raise ValueError('proxy-headers.json contains unsupported header settings.')
+        headers = after.setdefault(section, {})
+        for name, value in values.items():
+            if value is None:
+                headers.pop(name, None)
+            else:
+                headers[name] = copy.deepcopy(value)
         if not headers:
-            after.pop('claude-header-defaults', None)
-    payload = after.get('payload', {})
-    model = [{'name': 'claude-opus-5-5', 'protocol': 'claude'}]
-    for name, params in [('override', {'thinking.type': 'adaptive'}),
-                         ('filter', ['thinking.budget_tokens'])]:
-        rule = {'models': model, 'params': params}
-        if rule in payload.get(name, []):
-            payload[name] = [item for item in payload[name] if item != rule]
-            if not payload[name]:
-                del payload[name]
-    if not payload:
-        after.pop('payload', None)
+            after.pop(section, None)
+    return path, before, after
+
+
+def configure_proxy_headers():
+    path, before, after = planned_proxy_headers()
     if after == before:
-        print('No matching proxy workaround remains.')
+        print('Managed proxy headers already match.')
         return
-    archive = HOME_DIR / '.local/share/claude-archives' / ('proxy-defaults-' + secrets.token_hex(6))
+    archive = HOME_DIR / '.local/share/claude-archives' / ('proxy-headers-' + secrets.token_hex(6))
     if read_json(path) != before:
-        raise ValueError('Proxy configuration changed during cleanup. No settings changed.')
+        raise ValueError('Proxy configuration changed during planning. No settings changed.')
     write_new(archive / 'config.yaml', path.read_text())
-    temporary = path.with_name(path.name + '.cleanup-' + secrets.token_hex(4))
+    temporary = path.with_name(path.name + '.headers-' + secrets.token_hex(4))
     write_new(temporary, json_text(after))
     temporary.replace(path)
-    print('Removed the temporary proxy model overrides. Backup:', archive)
+    print('Saved managed proxy headers. Backup:', archive)
 
 
 def configure_t3(machine, allow_existing=False, models_only=False):
@@ -842,8 +850,8 @@ def main():
     action.add_argument('--install', action='store_true')
     action.add_argument('--t3-diff', action='store_true')
     action.add_argument('--apply-t3-changes', action='store_true')
-    action.add_argument('--remove-proxy-model-workaround', action='store_true',
-                        help='Remove only the temporary September 22 proxy model overrides.')
+    action.add_argument('--proxy-diff', action='store_true', help='Preview managed proxy header changes.')
+    action.add_argument('--apply-proxy-changes', action='store_true', help='Back up and merge managed proxy headers.')
     action.add_argument('--connections', action='store_true')
     action.add_argument('--cli-diff', action='store_true', help='Preview shared Claude, Codex and Grok preferences.')
     action.add_argument('--apply-cli-changes', action='store_true', help='Back up and merge selected CLI preferences.')
@@ -858,8 +866,15 @@ def main():
         parser.error('--models-only requires --t3-diff or --apply-t3-changes')
     machine = machine_settings(args.headless)
     os.umask(0o077)
-    if args.remove_proxy_model_workaround:
-        remove_proxy_model_workaround()
+    if args.proxy_diff:
+        change = planned_proxy_headers()
+        if change[1] == change[2]:
+            print('Managed proxy headers already match.')
+        else:
+            print_t3_diff([change])
+        return
+    if args.apply_proxy_changes:
+        configure_proxy_headers()
         return
     if args.update_plan or args.update_tools:
         update_tools(machine, preview=args.update_plan)
@@ -895,6 +910,7 @@ def main():
     headless = machine.get('role') == 'headless'
     fresh_proxy = install_packages(headless)
     ensure_runtime()
+    configure_proxy_headers()
     configure_t3(machine)
     setup_service(fresh_proxy, headless)
     if headless:

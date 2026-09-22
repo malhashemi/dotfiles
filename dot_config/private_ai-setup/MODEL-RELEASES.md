@@ -64,6 +64,10 @@ catalog/templates, not those generated copies. Ordinary catalog additions do
 not require editing CLIProxyAPI's private `config.yaml`. If a release requires
 new proxy configuration, review a targeted merge separately; `bootstrap.json`
 seeds new installations and does not update an existing private configuration.
+For provider header changes, edit `proxy-headers.json`, deploy it and the helper
+with targeted chezmoi apply, then review `claude-mixed-setup --proxy-diff` before
+`--apply-proxy-changes`. Set a managed header to `null` to remove it later;
+deleting it from the source alone leaves the private runtime value in place.
 
 ## 3. Review context and deliberate model choices
 
