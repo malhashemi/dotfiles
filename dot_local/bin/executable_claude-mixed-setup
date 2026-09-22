@@ -658,8 +658,75 @@ def print_t3_diff(changes):
             tofile=str(path.relative_to(HOME_DIR)) + ' proposed selected settings')), end='')
 
 
-def configure_t3(machine, allow_existing=False):
-    changes = planned_t3(machine)
+def planned_t3_model_additions(machine):
+    """Add catalog models and menu entries without changing existing preferences."""
+    model_ids = {model['id'] for model in model_defaults()['catalog']}
+    changes = []
+    for path, before, proposed in planned_t3(machine):
+        after = copy.deepcopy(before)
+        if path.name == 'settings.json':
+            for name, wanted in proposed.get('providerInstances', {}).items():
+                existing = after.get('providerInstances', {}).get(name)
+                if existing is None or existing.get('driver') != wanted.get('driver'):
+                    continue
+                additions = wanted.get('config', {}).get('customModels', [])
+                if not additions:
+                    continue
+                current = existing.setdefault('config', {}).setdefault('customModels', [])
+                present = {model['slug'] for model in current}
+                current.extend(copy.deepcopy(model) for model in additions
+                               if model['slug'] in model_ids and model['slug'] not in present)
+        elif path.name == 'client-settings.json':
+            for name, wanted in proposed.get('providerModelPreferences', {}).items():
+                menu = after.setdefault('providerModelPreferences', {}).setdefault(name, {})
+                order = menu.setdefault('modelOrder', [])
+                wanted_order = wanted.get('modelOrder', [])
+                for index, model in enumerate(wanted_order):
+                    if model not in model_ids or model in order:
+                        continue
+                    following = next((item for item in wanted_order[index + 1:] if item in order), None)
+                    order.insert(order.index(following) if following else len(order), model)
+        if before != after:
+            changes.append((path, before, after))
+    return changes
+
+
+def remove_proxy_model_workaround():
+    """Undo only the exact September 22 proxy overrides, retaining local settings."""
+    path = ROOT / 'config.yaml'
+    before = read_json(path, {})
+    after = copy.deepcopy(before)
+    headers = after.get('claude-header-defaults', {})
+    if headers.get('user-agent') == 'claude-cli/2.1.280 (external, cli)':
+        del headers['user-agent']
+        if not headers:
+            after.pop('claude-header-defaults', None)
+    payload = after.get('payload', {})
+    model = [{'name': 'claude-opus-5-5', 'protocol': 'claude'}]
+    for name, params in [('override', {'thinking.type': 'adaptive'}),
+                         ('filter', ['thinking.budget_tokens'])]:
+        rule = {'models': model, 'params': params}
+        if rule in payload.get(name, []):
+            payload[name] = [item for item in payload[name] if item != rule]
+            if not payload[name]:
+                del payload[name]
+    if not payload:
+        after.pop('payload', None)
+    if after == before:
+        print('No matching proxy workaround remains.')
+        return
+    archive = HOME_DIR / '.local/share/claude-archives' / ('proxy-defaults-' + secrets.token_hex(6))
+    if read_json(path) != before:
+        raise ValueError('Proxy configuration changed during cleanup. No settings changed.')
+    write_new(archive / 'config.yaml', path.read_text())
+    temporary = path.with_name(path.name + '.cleanup-' + secrets.token_hex(4))
+    write_new(temporary, json_text(after))
+    temporary.replace(path)
+    print('Removed the temporary proxy model overrides. Backup:', archive)
+
+
+def configure_t3(machine, allow_existing=False, models_only=False):
+    changes = planned_t3_model_additions(machine) if models_only else planned_t3(machine)
     writable = [(p, a, b) for p, a, b in changes if allow_existing or not p.exists()]
     if len(writable) != len(changes):
         print('Existing T3 settings retained. Preview with: claude-mixed-setup --t3-diff')
@@ -782,6 +849,8 @@ def main():
     action.add_argument('--install', action='store_true')
     action.add_argument('--t3-diff', action='store_true')
     action.add_argument('--apply-t3-changes', action='store_true')
+    action.add_argument('--remove-proxy-model-workaround', action='store_true',
+                        help='Remove only the temporary September 22 proxy model overrides.')
     action.add_argument('--connections', action='store_true')
     action.add_argument('--cli-diff', action='store_true', help='Preview shared Claude, Codex and Grok preferences.')
     action.add_argument('--apply-cli-changes', action='store_true', help='Back up and merge selected CLI preferences.')
@@ -789,9 +858,16 @@ def main():
     action.add_argument('--update-plan', action='store_true', help='Show installer-specific tool update commands.')
     action.add_argument('--update-tools', action='store_true', help='Explicit maintenance; Arch includes a full system upgrade.')
     parser.add_argument('--headless', action='store_true', help='Override the saved role for this invocation.')
+    parser.add_argument('--models-only', action='store_true',
+                        help='With --t3-diff or --apply-t3-changes, add catalog models only.')
     args = parser.parse_args()
+    if args.models_only and not (args.t3_diff or args.apply_t3_changes):
+        parser.error('--models-only requires --t3-diff or --apply-t3-changes')
     machine = machine_settings(args.headless)
     os.umask(0o077)
+    if args.remove_proxy_model_workaround:
+        remove_proxy_model_workaround()
+        return
     if args.update_plan or args.update_tools:
         update_tools(machine, preview=args.update_plan)
         return
@@ -805,10 +881,11 @@ def main():
         configure_cli(allow_existing=True, hooks_only=True)
         return
     if args.t3_diff:
-        print_t3_diff(planned_t3(machine))
+        changes = planned_t3_model_additions(machine) if args.models_only else planned_t3(machine)
+        print_t3_diff(changes)
         return
     if args.apply_t3_changes:
-        configure_t3(machine, allow_existing=True)
+        configure_t3(machine, allow_existing=True, models_only=args.models_only)
         return
     if args.connections:
         show_connections(machine)

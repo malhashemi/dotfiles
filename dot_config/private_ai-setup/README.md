@@ -59,14 +59,20 @@ high; Opus uses extra high; Grok uses medium. Standard Codex service tier is
 explicit. Session or project overrides still work. Codex's context window and
 auto-compaction settings are not changed.
 
-The catalog also includes Opus 5.5, GPT-6 Sol, and GPT-6 Luna as selectable
-models. Existing defaults remain unchanged. CLIProxyAPI v7.3.13 adds these
-models but still defaults to Claude Code 2.1.258. The proxy bootstrap sets
-`claude-header-defaults.user-agent` to 2.1.280 and uses adaptive thinking
-for Opus 5.5. Existing installations need those two settings merged into
-their private proxy configuration; bootstrap defaults only seed new installs.
-Revisit the header override when upstream raises its default; normal package
-upgrades do not require a custom binary or a source merge.
+The catalog includes Opus 5.5, GPT-6 Sol, and GPT-6 Luna as selectable
+models without changing existing defaults. Use Claude Code 2.1.280 or newer
+for the Opus 5.5 Mixed route. Keep proxy protocol behavior at its upstream
+defaults; no release-specific header or thinking overrides are seeded.
+
+For a model-only rollout, preview `claude-mixed-setup --t3-diff --models-only`,
+close T3, then run `claude-mixed-setup --apply-t3-changes --models-only`. This
+adds missing catalog models and menu entries while retaining existing model
+options, defaults, favorites, and unrelated application preferences. Deploy the
+helper and the relevant inputs with a targeted chezmoi apply first.
+
+Installations with the previous September 22 overrides can remove just those
+values using `claude-mixed-setup --remove-proxy-model-workaround`; the helper
+backs up the private configuration and preserves credentials and other rules.
 
 `cli-preferences.json` contains shared Claude behaviour, attribution suppression,
 the human-only `code-review` setting, and Grok display preferences. The status-line

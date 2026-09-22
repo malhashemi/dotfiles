@@ -19,38 +19,7 @@
       "keepalive-seconds": 15,
       "bootstrap-retries": 1
     },
-    "force-model-prefix": true,
-    "claude-header-defaults": {
-      "user-agent": "claude-cli/2.1.280 (external, cli)"
-    },
-    "payload": {
-      "override": [
-        {
-          "models": [
-            {
-              "name": "claude-opus-5-5",
-              "protocol": "claude"
-            }
-          ],
-          "params": {
-            "thinking.type": "adaptive"
-          }
-        }
-      ],
-      "filter": [
-        {
-          "models": [
-            {
-              "name": "claude-opus-5-5",
-              "protocol": "claude"
-            }
-          ],
-          "params": [
-            "thinking.budget_tokens"
-          ]
-        }
-      ]
-    }
+    "force-model-prefix": true
   },
   "t3_version": "0.0.40"
 }
