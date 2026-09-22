@@ -1,7 +1,9 @@
 onboarding = false
 
 [theme]
-name = "custom-dynamic"
+# Built-in base theme; [theme.custom] below overrides its colors. Herdr only
+# accepts built-in names here (anything else triggers a config warning).
+name = "{{ if eq (.theme.variant | default "dark") "light" }}catppuccin-latte{{ else }}catppuccin{{ end }}"
 
 [theme.custom]
 panel_bg = "{{ .theme.material.surface_container | default "#1e1e2e" }}"
@@ -21,10 +23,12 @@ peach = "{{ .theme.material.secondary | default "#fab387" }}"
 red = "{{ .theme.material.error | default "#f38ba8" }}"
 accent = "{{ .theme.material.primary | default "#89b4fa" }}"
 
-[update]
-channel = "stable"
+[terminal]
 shell_mode = "auto"
 new_cwd = "follow"
+
+[update]
+channel = "stable"
 
 [ui.sound]
 enabled = true

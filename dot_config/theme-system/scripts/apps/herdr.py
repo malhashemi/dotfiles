@@ -43,7 +43,7 @@ class HerdrTheme(BaseApp):
         variant = get_theme_variant(theme_data)
         custom = self._map_material_to_herdr(mat, variant)
 
-        self._rewrite_theme_block(custom)
+        self._rewrite_theme_block(custom, variant)
         self._reload_app()
 
     def _map_material_to_herdr(self, mat: dict, variant: str) -> dict:
@@ -81,12 +81,14 @@ class HerdrTheme(BaseApp):
             "accent": mat.get("primary", "#89b4fa"),
         }
 
-    def _rewrite_theme_block(self, custom: dict) -> None:
+    def _rewrite_theme_block(self, custom: dict, variant: str) -> None:
         """Replace the [theme] + [theme.custom] sections in config.toml.
 
         Preserves every other section (keys, ui, sound, session, ...). Only the
-        theme block is regenerated: name set to "custom-dynamic" with a full
-        [theme.custom] palette. Idempotent — re-running replaces cleanly.
+        theme block is regenerated: a full [theme.custom] palette layered on a
+        built-in base theme. Herdr only accepts built-in names in theme.name
+        (anything else triggers a config warning); [theme.custom] overrides it.
+        Idempotent — re-running replaces cleanly.
         """
         content = self.config_file.read_text()
         lines = content.split("\n")
@@ -108,7 +110,8 @@ class HerdrTheme(BaseApp):
                 out.append(line)
 
         # Build the replacement theme block.
-        block = ['[theme]', 'name = "custom-dynamic"', "", "[theme.custom]"]
+        base = "catppuccin-latte" if variant == "light" else "catppuccin"
+        block = ["[theme]", f'name = "{base}"', "", "[theme.custom]"]
         for token, value in custom.items():
             block.append(f'{token} = "{value}"')
         block.append("")
