@@ -128,7 +128,11 @@ other execution hosts; subscription rollout timing may differ.
    not itself merge existing T3 or CLI preferences. Preview `--cli-diff` and
    `--t3-diff` with `claude-mixed-setup`. These previews cover all selected shared
    preferences, so stop and isolate unrelated drift before applying.
-5. Finish active work and close the T3 desktop or stop the headless T3 service.
+5. For additions only, preview `--t3-diff --models-only` and apply with
+   `--apply-t3-changes --models-only`. T3 reloads the watched server settings
+   without restarting active sessions; existing model options and client menus
+   are preserved. For a full preference merge, finish active work and close
+   the T3 desktop or stop the headless T3 service.
    Apply the reviewed merges with `--apply-cli-changes` and/or
    `--apply-t3-changes`. Restart only affected services and open fresh sessions.
 6. Check the model and effort on the laptop, Arch desktop, and dev-hub. A phone

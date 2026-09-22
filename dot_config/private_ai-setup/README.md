@@ -65,10 +65,12 @@ for the Opus 5.5 Mixed route. Keep proxy protocol behavior at its upstream
 defaults; no release-specific header or thinking overrides are seeded.
 
 For a model-only rollout, preview `claude-mixed-setup --t3-diff --models-only`,
-close T3, then run `claude-mixed-setup --apply-t3-changes --models-only`. This
-adds missing catalog models and menu entries while retaining existing model
-options, defaults, favorites, and unrelated application preferences. Deploy the
-helper and the relevant inputs with a targeted chezmoi apply first.
+then run `claude-mixed-setup --apply-t3-changes --models-only`. This adds missing
+catalog models to the server settings that T3 watches and reloads live; it does
+not restart sessions or change client menu order. Existing model options,
+defaults, favorites, and unrelated preferences remain intact. Deploy the helper
+and relevant inputs with a targeted chezmoi apply first. Full preference merges
+still require closing T3.
 
 Installations with the previous September 22 overrides can remove just those
 values using `claude-mixed-setup --remove-proxy-model-workaround`; the helper

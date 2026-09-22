@@ -659,7 +659,7 @@ def print_t3_diff(changes):
 
 
 def planned_t3_model_additions(machine):
-    """Add catalog models and menu entries without changing existing preferences."""
+    """Add missing catalog models to the server's watched settings file only."""
     model_ids = {model['id'] for model in model_defaults()['catalog']}
     changes = []
     for path, before, proposed in planned_t3(machine):
@@ -676,16 +676,6 @@ def planned_t3_model_additions(machine):
                 present = {model['slug'] for model in current}
                 current.extend(copy.deepcopy(model) for model in additions
                                if model['slug'] in model_ids and model['slug'] not in present)
-        elif path.name == 'client-settings.json':
-            for name, wanted in proposed.get('providerModelPreferences', {}).items():
-                menu = after.setdefault('providerModelPreferences', {}).setdefault(name, {})
-                order = menu.setdefault('modelOrder', [])
-                wanted_order = wanted.get('modelOrder', [])
-                for index, model in enumerate(wanted_order):
-                    if model not in model_ids or model in order:
-                        continue
-                    following = next((item for item in wanted_order[index + 1:] if item in order), None)
-                    order.insert(order.index(following) if following else len(order), model)
         if before != after:
             changes.append((path, before, after))
     return changes
@@ -732,7 +722,10 @@ def configure_t3(machine, allow_existing=False, models_only=False):
         print('Existing T3 settings retained. Preview with: claude-mixed-setup --t3-diff')
     if not writable:
         return
-    if t3_running():
+    # T3 watches settings.json and publishes changes to connected clients. Pure
+    # model additions do not alter running sessions or client-owned preferences.
+    live_model_additions = models_only and all(p.name == 'settings.json' for p, _, _ in writable)
+    if t3_running() and not live_model_additions:
         if allow_existing:
             raise ValueError('Close T3 or stop its headless service before applying preferences. No settings changed.')
         print('T3 is running; settings creation deferred. Run --t3-diff after closing it.')
@@ -746,7 +739,7 @@ def configure_t3(machine, allow_existing=False, models_only=False):
     written = []
     try:
         for path, before, after in writable:
-            if t3_running() or read_json(path, [] if isinstance(before, list) else {}) != before:
+            if (t3_running() and not live_model_additions) or read_json(path, [] if isinstance(before, list) else {}) != before:
                 raise ValueError('T3 started or its settings changed during the merge.')
             if originals[path] is not None:
                 write_new(archive / path.name, originals[path].decode())
