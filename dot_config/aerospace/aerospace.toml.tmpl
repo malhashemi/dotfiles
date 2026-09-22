@@ -245,7 +245,7 @@ alt-t = 'exec-and-forget open -a /Applications/Telegram.app'
 alt-o = 'exec-and-forget open -a /Applications/Obsidian.app'
 
 # Theme control - Random wallpaper
-cmd-shift-w = 'exec-and-forget bash -c "export PATH=\"{{ .chezmoi.homeDir }}/.cargo/bin:$PATH\" && {{ .chezmoi.homeDir }}/.config/theme-system/scripts/wallpaper-manager.py random"'
+cmd-shift-w = 'exec-and-forget bash -c "export PATH=\"{{ .chezmoi.homeDir }}/.local/bin:/opt/homebrew/bin:{{ .chezmoi.homeDir }}/.cargo/bin:$PATH\" && {{ .chezmoi.homeDir }}/.config/theme-system/scripts/wallpaper-manager.py random"'
 
 # 'service' binding mode declaration.
 # See: https://nikitabobko.github.io/AeroSpace/guide#binding-modes
