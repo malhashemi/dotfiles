@@ -59,6 +59,15 @@ high; Opus uses extra high; Grok uses medium. Standard Codex service tier is
 explicit. Session or project overrides still work. Codex's context window and
 auto-compaction settings are not changed.
 
+The catalog also includes Opus 5.5, GPT-6 Sol, and GPT-6 Luna as selectable
+models. Existing defaults remain unchanged. CLIProxyAPI v7.3.13 adds these
+models but still defaults to Claude Code 2.1.258. The proxy bootstrap sets
+`claude-header-defaults.user-agent` to 2.1.280 and uses adaptive thinking
+for Opus 5.5. Existing installations need those two settings merged into
+their private proxy configuration; bootstrap defaults only seed new installs.
+Revisit the header override when upstream raises its default; normal package
+upgrades do not require a custom binary or a source merge.
+
 `cli-preferences.json` contains shared Claude behaviour, attribution suppression,
 the human-only `code-review` setting, and Grok display preferences. The status-line
 script is shared and needs Bash, Git and jq from the OS bootstrap. Shared Bash
