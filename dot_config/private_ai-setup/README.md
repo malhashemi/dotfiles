@@ -62,11 +62,13 @@ auto-compaction settings are not changed.
 
 The catalog includes Opus 5.5, GPT-6 Sol, and GPT-6 Luna as selectable
 models without changing existing defaults. Use Claude Code 2.1.280 or newer
-for the Opus 5.5 Mixed route. A temporary override in `proxy-headers.json`
-sets the Claude User-Agent to `claude-cli/2.1.280 (external, cli)` for
-[CLIProxyAPI issue #6054](https://github.com/router-for-me/CLIProxyAPI/issues/6054).
-The model release still advertises the older Claude client in this path.
-No thinking payload overrides are applied.
+for the Opus 5.5 Mixed route. CLIProxyAPI
+[v7.3.15](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v7.3.15)
+raised the Claude client baseline to 2.1.280 and fixed
+[issue #6054](https://github.com/router-for-me/CLIProxyAPI/issues/6054).
+`proxy-headers.json` now removes the temporary User-Agent override so the proxy
+uses its upstream default. Confirm each machine runs v7.3.15 or newer before
+applying this removal; older installations still need the workaround.
 
 For a model-only rollout, preview `claude-mixed-setup --t3-diff --models-only`,
 then run `claude-mixed-setup --apply-t3-changes --models-only`. This adds missing
@@ -82,11 +84,10 @@ Deploy `proxy-headers.json` and the helper with a targeted chezmoi apply, previe
 configuration and merges only the selected headers. CLIProxyAPI reloads its
 configuration without restarting T3. Credentials and other rules stay local.
 
-When the owner confirms the upstream issue is resolved, set this source value
-to `null`, deploy the same targets, and run the same preview/apply commands:
-`{"claude-header-defaults": {"user-agent": null}}`. Keep the removal entry until
-every machine has received it; deleting the input alone does not remove a value
-already merged into a private configuration.
+The `null` User-Agent value is a removal instruction, not a runtime override.
+Keep this entry until every machine has received the cleanup; deleting the
+input alone does not remove a value already merged into a private configuration.
+After merging, reload or restart only the proxy service; T3 can remain open.
 
 `cli-preferences.json` contains shared Claude behaviour, attribution suppression,
 the human-only `code-review` setting, and Grok display preferences. The status-line
