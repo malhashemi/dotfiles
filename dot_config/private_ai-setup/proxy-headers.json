@@ -1,5 +1,5 @@
 {
   "claude-header-defaults": {
-    "user-agent": "claude-cli/2.1.280 (external, cli)"
+    "user-agent": null
   }
 }
