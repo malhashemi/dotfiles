@@ -111,7 +111,8 @@ class HerdrTheme(BaseApp):
 
         # Build the replacement theme block.
         base = "catppuccin-latte" if variant == "light" else "catppuccin"
-        block = ["[theme]", f'name = "{base}"', "", "[theme.custom]"]
+        # auto_switch stays off: the theme system, not herdr, picks light/dark.
+        block = ["[theme]", f'name = "{base}"', "auto_switch = false", "", "[theme.custom]"]
         for token, value in custom.items():
             block.append(f'{token} = "{value}"')
         block.append("")

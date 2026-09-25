@@ -1,0 +1,8 @@
+# Herdr plugins installed on every machine by
+# .chezmoiscripts/run_onchange_after_herdr-plugins.sh.tmpl.
+# Add a plugin here after `herdr plugin install <owner/repo>` so new machines get it.
+# Optional `ref` pins a branch, tag, or commit; omit it to track the default branch.
+herdr:
+  plugins:
+    - repo: jeffarese/herdr-bar
+    - repo: hhdebb/herdr-radar

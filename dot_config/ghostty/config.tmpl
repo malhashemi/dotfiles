@@ -48,7 +48,7 @@ keybind = cmd+shift+comma=reload_config
 keybind = cmd+comma=open_config
 keybind = ctrl+q=toggle_fullscreen
 keybind = ctrl+apostrophe=clear_screen
-# cmd+k freed for Herdr pane-nav (focus_pane_up); clear_screen stays on ctrl+'
+# cmd+k freed for the Herdr command bar (herdr-bar); clear_screen stays on ctrl+'
 keybind = cmd+ctrl+t=toggle_window_decorations
 {{- else }}
 keybind = alt+c=copy_to_clipboard
@@ -64,7 +64,7 @@ keybind = ctrl+alt+r=reload_config
 keybind = alt+comma=open_config
 keybind = ctrl+q=toggle_fullscreen
 keybind = ctrl+apostrophe=clear_screen
-# alt+k freed for Herdr pane-nav (focus_pane_up); clear_screen stays on ctrl+'
+# alt+k freed for the Herdr command bar (herdr-bar); clear_screen stays on ctrl+'
 keybind = alt+ctrl+t=toggle_window_decorations
 {{- end }}
 {{- $opacity := .theme.opacity | default 0 }}
@@ -76,3 +76,8 @@ background-opacity = {{ printf "%.2f" (divf (float64 $opacity) 100.0) }}
 background-blur = 80
 {{- end }}
 {{- end }}
+
+# >>> herdr-radar font block
+font-codepoint-map = U+E1A0-U+E1B7=Herdr Agent Icons Max
+font-codepoint-map = U+E1C0-U+E1C5=Herdr Agent Icons Max
+# <<< herdr-radar font block

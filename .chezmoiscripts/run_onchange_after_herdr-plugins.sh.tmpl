@@ -1,0 +1,28 @@
+#!/bin/bash
+# Install the Herdr plugins listed in .chezmoidata/herdr.yaml.
+# Re-runs whenever that list changes; plugins already installed are left alone.
+# Hash: {{ .herdr.plugins | toJson }}
+
+if ! command -v herdr >/dev/null 2>&1; then
+  echo "herdr not installed; skipping plugin install"
+  exit 0
+fi
+
+installed="$(herdr plugin list 2>/dev/null)"
+failed=0
+
+{{ range .herdr.plugins -}}
+if grep -Fq "github:{{ .repo }}@" <<<"$installed"; then
+  echo "herdr plugin {{ .repo }}: already installed"
+else
+  echo "herdr plugin {{ .repo }}: installing"
+  if ! herdr plugin install {{ .repo | quote }}{{ if hasKey . "ref" }} --ref {{ .ref | quote }}{{ end }} --yes; then
+    echo "herdr plugin {{ .repo }}: install failed" >&2
+    failed=1
+  fi
+fi
+{{ end }}
+# Pick up keybindings that reference newly installed plugin actions.
+herdr server reload-config >/dev/null 2>&1 || true
+
+exit "$failed"
