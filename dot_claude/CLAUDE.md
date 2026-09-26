@@ -39,8 +39,3 @@ The main thread generally does most substantive work. Use subagents or workflows
 - Use jq to extract JSON values.
 - Use xh for HTTP requests.
 </important>
-
-<important if="you are using the rpi:create-structure-outline skill">
-- Every exported symbol gets a full signature; declare each shared type once and reference it by name; add a per-phase "how it connects" note.
-- The skill's "concise" instruction is scoped to prose, not signatures.
-</important>
