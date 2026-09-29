@@ -29,7 +29,7 @@ const reports = await parallel([
   ),
   () => agent(
     'Independently challenge this task and its likely approach. Read relevant evidence; do not modify files or send messages. Look for edge cases, hidden assumptions, and failure modes. Return concise findings with file or source references and unresolved questions. Task: ' + task,
-    { model: 'grok-4.6', effort: grokEffort, label: 'Grok · independent critique' }
+    { model: 'grok-4.7', effort: grokEffort, label: 'Grok · independent critique' }
   )
 ])
 

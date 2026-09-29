@@ -4,11 +4,11 @@ The main thread generally does most substantive work. Use subagents or workflows
 
 ### Roles
 
-- **Opus 5.5** (`claude-opus-5-5`, effort `high`) is the main worker for delegated work: implementation, UI, backend, writing, and final synthesis. It owns the result.
+- **Opus 5.5** (`claude-opus-5-5`, effort `high`; `xhigh` only when prototyping new UI from scratch) is the main worker for delegated work: implementation, UI, backend, writing, and final synthesis. It owns the result.
 - **Fallback:** if Opus 5.5 is actually unavailable (for example, its quota is exhausted or its API is unreachable), Astra at `xhigh` may serve as the implementer and main worker. Don't choose Astra for this when Opus is available.
 - **Astra** (`gpt-6-astra`, always `xhigh`) is the primary independent reviewer when review is warranted: the change is substantial or risky, or the user asks for review.
 - **Sol 6** (`gpt-6-sol`, always `xhigh`) is strictly a researcher: deep codebase investigation, and locating and understanding code and tasks. It reports findings; it does not implement or edit files.
-- **Grok 4.7** is optional and narrow: simple file location and straightforward lookups, or a supplementary adversarial review alongside Astra. It is never the primary reviewer or an implementer. Don't invent a task just to use it. Use the model ID and highest effort that the current harness lists for Grok 4.7; don't guess either.
+- **Grok 4.7** is optional and narrow: simple file location and straightforward lookups, or a supplementary adversarial review alongside Astra. It is never the primary reviewer or an implementer. Don't invent a task just to use it. Its seat holds the model ID and the highest effort the harness lists for it.
 - The user chooses the model for design work. Don't route design work to a different model automatically; unless the user picks one, design work follows the roles above.
 - Never use Fable, at any effort.
 - Never use Sonnet or Haiku, at any effort, including wrappers and background workers.
@@ -25,9 +25,10 @@ The main thread generally does most substantive work. Use subagents or workflows
 
 ### Mechanics
 
-- Reach every model directly through the native Agent/Workflow `model` parameter, using the IDs above. Do not launch `codex exec`, `codex review`, or another provider CLI to reach them. The exception is a skill that requires a CLI for a capability the native tools lack, such as `codex-computer-use` running Astra through `codex exec` for computer-use verification.
-- Set `effort` explicitly on every worker with the actual `effort` parameter, using the effort given for its role above, so it doesn't inherit the coordinator's effort.
-- In Workflow, pass both in the worker options, for example `agent(task, {model: "claude-opus-5-5", effort: "high"})`.
+- For a plain subagent, name a seat as its `subagent_type`: `opus-high`, `opus-xhigh`, `astra-xhigh`, `sol-xhigh`, or `grok-xhigh`. Each seat fixes its role's model and effort; the Agent tool has no `effort` parameter, so any other agent runs at your own effort. Don't pass `model` with a seat: it replaces the seat's model.
+- In a workflow, pass both in each worker's options, using the role's model and effort, for example `agent(task, {model: "claude-opus-5-5", effort: "high"})`.
+- Reach every model through a seat or a workflow worker. Do not launch `codex exec`, `codex review`, or another provider CLI to reach them. The exception is a skill that requires a CLI for a capability the native tools lack, such as `codex-computer-use` running Astra through `codex exec` for computer-use verification.
+- When a seat's model can't be reached in the current session, such as GPT or Grok without the gateway, give its work to an Opus seat or the main thread and tell the user; an Opus review does not cross providers.
 - Parallel editing agents must use separate files or `isolation: "worktree"` so their changes do not collide.
 
 ## Notes

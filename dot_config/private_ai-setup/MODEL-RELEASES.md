@@ -93,7 +93,7 @@ Review these independently when promoting or retiring a model:
   requirement for primary reviews to cross Anthropic and OpenAI.
 - `dot_config/private_ai-setup/t3/preferences.json`: menu order, favorites, and
   hidden models. Adding a catalog entry does not update these lists.
-- The saved specialists and `mixed-review.js` under
+- The seat agents in `dot_claude/agents/` and `mixed-review.js` under
   `private_dot_claude-t3-mixed/`: explicit model and effort choices are independent
   of the catalog defaults.
 - `dot_claude/skills/codex-computer-use/SKILL.md`: change its pinned model only if

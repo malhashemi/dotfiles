@@ -49,6 +49,13 @@
       "efforts": ["low", "medium", "high", "xhigh", "max"]
     },
     {
+      "id": "grok-4.7",
+      "name": "Grok 4.7",
+      "provider": "grok",
+      "t3Custom": true,
+      "efforts": ["low", "medium", "high", "xhigh"]
+    },
+    {
       "id": "grok-4.6",
       "name": "Grok 4.6",
       "provider": "grok",
@@ -75,13 +82,14 @@
   "providers": {
     "codex": "gpt-6-astra",
     "claude": "claude-fable-5-1",
-    "grok": "grok-4.6"
+    "grok": "grok-4.7"
   },
   "effort": {
     "gpt-6-astra": "xhigh",
     "gpt-5.6-sol": "xhigh",
     "claude-fable-5-1": "high",
     "claude-opus-5": "xhigh",
+    "grok-4.7": "medium",
     "grok-4.6": "medium",
     "claude-opus-5-5": "xhigh",
     "gpt-6-sol": "xhigh",

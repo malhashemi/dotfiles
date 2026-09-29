@@ -209,20 +209,6 @@ def launch(args, name):
     command = [CLAUDE, '--settings', str(path)]
     if not explicit_model:
         command.extend(['--model', selected])
-    if name == 'claude-multi':
-        agents = {
-            'openai-specialist': {
-                'description': 'Use when the user requests an OpenAI/GPT second opinion, architecture analysis, implementation, or review.',
-                'prompt': 'You are the OpenAI specialist. Complete the delegated task using the available tools and normal project permissions. Ground conclusions in evidence. State what you verified and what remains uncertain.',
-                'model': profiles['openai'],
-            },
-            'grok-specialist': {
-                'description': 'Use when the user requests a Grok second opinion, independent critique, debugging, or review.',
-                'prompt': 'You are the Grok specialist. Complete the delegated task using the available tools and normal project permissions. Challenge assumptions with concrete evidence. State what you verified and what remains uncertain.',
-                'model': profiles['grok'],
-            },
-        }
-        command.extend(['--agents', json.dumps(agents)])
     os.execve(CLAUDE, [*command, *args], env)
 
 
