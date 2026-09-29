@@ -1,6 +1,6 @@
 ## Models for delegated work
 
-The main thread generally does most substantive work. Use subagents or workflows whenever they help; whichever you choose, each seat goes to the model that owns that role below.
+Use the main thread, subagents, or workflows as the task warrants. Each delegated seat goes to the model that owns that role below.
 
 ### Roles
 
