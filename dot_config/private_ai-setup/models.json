@@ -97,6 +97,10 @@
     "gpt-6-luna": "xhigh"
   },
   "codexServiceTier": "default",
+  "cli": {
+    "claude": { "model": "opus", "effort": "high" },
+    "grok": { "model": "grok-4.6", "effort": "high" }
+  },
   "t3": {
     "defaultModelSelection": {
       "instanceId": "claude-mixed-a",

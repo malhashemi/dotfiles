@@ -43,6 +43,7 @@ The source is `dot_config/private_ai-setup/models.json`; the installed copy is
 | `claudeFamilyDefaults` | Separate Fable, Opus, Sonnet, and Haiku family alias targets |
 | `additionalClaudeRoutes` | Anthropic identities kept routable outside the picker lineup |
 | `retired` | Former catalog IDs that a full T3 merge removes from custom entries and favorites |
+| `cli` | Exact Claude and Grok CLI defaults (`model`, `effort`); a provider left out follows `providers` and `effort` |
 | `t3` | Conversation, title, and Git-text defaults: a provider name uses that provider's default model; an object is the exact T3 selection |
 
 Keep catalog IDs unique. Add a preferred effort for each new model. Catalog

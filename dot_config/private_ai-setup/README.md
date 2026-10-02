@@ -56,7 +56,10 @@ files are generated locally and are never copied into the repository.
 `models.json` is the shared source for model choices and effort levels.
 It drives T3's conversation, title and Git-text defaults, Mixed model selectors,
 and standalone Codex/Grok defaults. Astra and Sol use extra high; Fable uses
-high; Opus uses extra high; Grok uses medium. Standard Codex service tier is
+high; Opus uses extra high; Grok uses medium. The `cli` and `t3` sections pin
+the exact Claude CLI, Grok CLI and T3 selections in use: Claude CLI `opus` at
+high, Grok CLI 4.6 at high, T3 Opus 5.5 at high on Claude Personal Mixed, and
+Grok 4.6 at medium for T3 titles and Git text. Standard Codex service tier is
 explicit. Session or project overrides still work. Codex's context window and
 auto-compaction settings are not changed.
 

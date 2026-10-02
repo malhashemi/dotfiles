@@ -175,9 +175,13 @@ def planned_cli(hooks_only=False):
     legacy = read_json(mixed_path, {}) if not mixed_path.is_symlink() else {}
     # Keep legacy launch credentials private; never move them into global settings.
     inherited = {k: v for k, v in legacy.items() if k not in ('env', 'modelOverrides')}
+    # Exact CLI defaults in `cli` take precedence over the provider defaults.
+    cli = models.get('cli', {})
+    claude = cli.get('claude') or {'model': models['providers']['claude'] + '[1m]',
+                                   'effort': models['effort'][models['providers']['claude']]}
     common = merge_preferences(preferences['claude'], {
-        'model': models['providers']['claude'] + '[1m]',
-        'effortLevel': models['effort'][models['providers']['claude']],
+        'model': claude['model'],
+        'effortLevel': claude['effort'],
     })
     proposed = merge_claude_preferences(merge_preferences(inherited, existing), common)
     changes = [(path, current, json_text(proposed))]
@@ -187,12 +191,13 @@ def planned_cli(hooks_only=False):
         new = merge_preferences({'env': legacy['env']}, json.loads(old) if old else {})
         changes.append((connection, old, json_text(new)))
     codex = models['providers']['codex']
-    grok = models['providers']['grok']
+    grok = cli.get('grok') or {'model': models['providers']['grok'],
+                               'effort': models['effort'][models['providers']['grok']]}
     for relative, selected in [
         ('.codex/config.toml', {'model': codex, 'model_reasoning_effort': models['effort'][codex],
                                 'service_tier': models['codexServiceTier']}),
         ('.grok/config.toml', merge_preferences(preferences.get('grok', {}), {
-            'models': {'default': grok, 'default_reasoning_effort': models['effort'][grok]}})),
+            'models': {'default': grok['model'], 'default_reasoning_effort': grok['effort']}})),
     ]:
         path = HOME_DIR / relative
         current = path.read_text() if path.exists() else ''
