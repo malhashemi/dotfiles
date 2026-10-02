@@ -101,6 +101,9 @@ def model_defaults():
 
 
 def model_selection(provider):
+    # An object is an exact T3 selection; a provider name uses its default model.
+    if isinstance(provider, dict):
+        return copy.deepcopy(provider)
     defaults = model_defaults()
     model = defaults['providers'][provider]
     options = [{'id': 'reasoningEffort', 'value': defaults['effort'][model]}]

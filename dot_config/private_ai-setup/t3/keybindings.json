@@ -110,7 +110,7 @@
     "command": "sidebar.toggle"
   },
   {
-    "key": "mod+alt+b",
+    "key": "mod+shift+b",
     "command": "rightPanel.toggle"
   },
   {
