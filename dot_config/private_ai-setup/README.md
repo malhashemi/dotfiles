@@ -60,7 +60,7 @@ high; Opus uses extra high; Grok uses medium. Standard Codex service tier is
 explicit. Session or project overrides still work. Codex's context window and
 auto-compaction settings are not changed.
 
-The catalog includes Opus 5.5, GPT-6 Sol, and GPT-6 Luna as selectable
+The catalog includes Opus 5.5, GPT-6.1 Sol, and GPT-6 Luna as selectable
 models without changing existing defaults. Use Claude Code 2.1.280 or newer
 for the Opus 5.5 Mixed route. CLIProxyAPI
 [v7.3.15](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v7.3.15)

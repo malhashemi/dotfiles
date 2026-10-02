@@ -42,6 +42,7 @@ The source is `dot_config/private_ai-setup/models.json`; the installed copy is
 | `providers` | Explicit default model for each provider |
 | `claudeFamilyDefaults` | Separate Fable, Opus, Sonnet, and Haiku family alias targets |
 | `additionalClaudeRoutes` | Anthropic identities kept routable outside the picker lineup |
+| `retired` | Former catalog IDs that a full T3 merge removes from custom entries and favorites |
 | `t3` | Provider used for conversation, title, and Git-text defaults |
 
 Keep catalog IDs unique. Add a preferred effort for each new model. Catalog
@@ -100,9 +101,11 @@ Review these independently when promoting or retiring a model:
   intended, retaining its tool-access guidance and other settings.
 
 Removing a catalog entry does not remove a saved T3 custom entry: the merge
-preserves extra local models and favorites. Review retirement separately, keep
-old IDs honest for existing sessions, and use an explicit removal or hiding
-change when desired.
+preserves extra local models and favorites. To retire a model, also add its ID
+to `retired`; the full T3 merge then removes it from both Mixed profiles'
+custom entries and from favorites under any provider. `--models-only` never
+removes entries. Keep old IDs honest for existing sessions, and use a hiding
+change instead when the model should stay available.
 
 ## 4. Preview and validate
 

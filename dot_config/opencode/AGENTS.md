@@ -5,10 +5,9 @@ Use the main thread, subagents, or workflows as the task warrants. Each delegate
 ### Roles
 
 - **Opus 5.5** (`claude-opus-5-5` on the session's Claude provider, `claude-work` or `claude-personal`; effort `high`, and `xhigh` only when prototyping new UI from scratch) is the main worker for delegated work: implementation, UI, backend, writing, and final synthesis. It owns the result.
-- **Fallback:** if Opus 5.5 is actually unavailable (for example, its quota is exhausted or its API is unreachable), Astra at `xhigh` may serve as the implementer and main worker. Don't choose Astra for this when Opus is available.
-- **Astra** (`openai/gpt-6-astra`, always `xhigh`) is the primary independent reviewer when review is warranted: the change is substantial or risky, or the user asks for review.
-- **Sol 6** (`openai/gpt-6-sol`, always `xhigh`) is strictly a researcher: deep codebase investigation, and locating and understanding code and tasks. It reports findings; it does not implement or edit files.
-- **Grok 4.7** (`xai/grok-4.7`, always `xhigh`) is optional and narrow: simple file location and straightforward lookups, or a supplementary adversarial review alongside Astra. It is never the primary reviewer or an implementer. Don't invent a task just to use it.
+- **Fallback:** if Opus 5.5 is actually unavailable (for example, its quota is exhausted or its API is unreachable), Sol 6.1 (`openai/gpt-6.1-sol`) at `high` may serve as the implementer and main worker. Don't choose Sol 6.1 for this when Opus is available.
+- **Sol 6.1** (`openai/gpt-6.1-sol`, always `xhigh` for review and research) is the primary independent reviewer when review is warranted: the change is substantial or risky, or the user asks for review. It is also the researcher: deep codebase investigation, and locating and understanding code and tasks. In these roles it reports findings and does not edit files.
+- **Grok 4.7** (`xai/grok-4.7`, always `xhigh`) is optional and narrow: simple file location and straightforward lookups, or a supplementary adversarial review alongside Sol 6.1. It is never the primary reviewer or an implementer. Don't invent a task just to use it.
 - The user chooses the model for design work. Don't route design work to a different model automatically; unless the user picks one, design work follows the roles above.
 - Never use Fable, at any effort.
 - Never use Sonnet or Haiku, at any effort, including wrappers and background workers.
@@ -17,17 +16,17 @@ Use the main thread, subagents, or workflows as the task warrants. Each delegate
 ### Subagents and workflows
 
 - Use your judgment about when subagents or workflows help, for example exploratory work, parallel investigation, multi-step coordination, or a review-and-fix loop.
-- A plain subagent suits a single well-scoped seat: a Sol investigation, an Astra review, or an Opus implementation that benefits from isolated context.
+- A plain subagent suits a single well-scoped seat: a Sol investigation or review, or an Opus implementation that benefits from isolated context.
 - A workflow suits work with several steps or seats to coordinate, such as sequenced phases, shared artifacts, or comparing approaches.
 - Always orchestrate when the user explicitly asks for it.
-- Orchestration decides how work is split, not who does it. However many agents are involved, implementation seats go to Opus 5.5 (or to Astra only under the fallback above), and the other models keep their roles above.
+- Orchestration decides how work is split, not who does it. However many agents are involved, implementation seats go to Opus 5.5 (or to Sol 6.1 only under the fallback above), and the other models keep their roles above.
 - Check a workflow's progress with the workflow tool's `status` mode, and collect its outcome with `result`. A quiet run alone is not a reason to stop a workflow.
 
 ### Mechanics
 
-- For a plain subagent, set `model` on every call to the role's model and effort, written `provider/model#variant`: for example `claude-work/claude-opus-5-5#high`, `openai/gpt-6-astra#xhigh`, `openai/gpt-6-sol#xhigh`, or `xai/grok-4.7#xhigh`. This file is the user's standing request to set it, so a subagent never runs on the default model and effort.
+- For a plain subagent, set `model` on every call to the role's model and effort, written `provider/model#variant`: for example `claude-work/claude-opus-5-5#high`, `openai/gpt-6.1-sol#xhigh`, or `xai/grok-4.7#xhigh`. This file is the user's standing request to set it, so a subagent never runs on the default model and effort.
 - In a workflow, pass `model` and `effort` in each worker's options, for example `agent(task, {model: "claude-work/claude-opus-5-5", effort: "high"})`.
-- Reach every model through a subagent or a workflow worker. Do not launch `codex exec`, `codex review`, or another provider CLI to reach them. The exception is a skill that requires a CLI for a capability the native tools lack, such as `codex-computer-use` running Astra through `codex exec` for computer-use verification.
+- Reach every model through a subagent or a workflow worker. Do not launch `codex exec`, `codex review`, or another provider CLI to reach them. The exception is a skill that requires a CLI for a capability the native tools lack, such as `codex-computer-use` running `codex exec` for computer-use verification.
 - When a role's model can't be reached in the current session, give its work to Opus or the main thread and tell the user; an Opus review does not cross providers.
 - Parallel editing agents must use separate files or `isolation: "worktree"` so their changes do not collide.
 

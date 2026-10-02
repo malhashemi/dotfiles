@@ -28,8 +28,8 @@
       "efforts": ["low", "medium", "high", "xhigh", "max"]
     },
     {
-      "id": "gpt-6-sol",
-      "name": "GPT-6 Sol",
+      "id": "gpt-6.1-sol",
+      "name": "GPT-6.1 Sol",
       "provider": "codex",
       "t3Custom": true,
       "efforts": ["low", "medium", "high", "xhigh", "max"]
@@ -63,6 +63,7 @@
       "efforts": ["low", "medium", "high", "xhigh"]
     }
   ],
+  "retired": ["gpt-6-sol"],
   "claudeFamilyDefaults": {
     "FABLE": "claude-fable-5-1",
     "OPUS": "claude-opus-5",
@@ -92,7 +93,7 @@
     "grok-4.7": "medium",
     "grok-4.6": "medium",
     "claude-opus-5-5": "xhigh",
-    "gpt-6-sol": "xhigh",
+    "gpt-6.1-sol": "xhigh",
     "gpt-6-luna": "xhigh"
   },
   "codexServiceTier": "default",

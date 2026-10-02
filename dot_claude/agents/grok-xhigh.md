@@ -1,6 +1,6 @@
 ---
 name: grok-xhigh
-description: "Grok 4.7 at xhigh effort. Simple file location and straightforward lookups, or a supplementary adversarial review alongside Astra. Never the primary reviewer or an implementer."
+description: "Grok 4.7 at xhigh effort. Simple file location and straightforward lookups, or a supplementary adversarial review alongside Sol 6.1. Never the primary reviewer or an implementer."
 model: "grok-4.7"
 effort: xhigh
 disallowedTools: Edit, Write, NotebookEdit

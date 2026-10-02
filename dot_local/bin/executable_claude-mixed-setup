@@ -529,6 +529,7 @@ def planned_t3(machine):
     profiles = json.loads((INPUTS / 't3/profiles.json').read_text().replace('@HOME@', str(HOME_DIR)))
     accounts = read_json(ROOT / 'claude-accounts.json', {})
     models = model_defaults()
+    retired = set(models.get('retired', []))
     for name, proposed in profiles.items():
         for model in proposed['config'].get('customModels', []):
             effort = models['effort'].get(model['slug'])
@@ -555,6 +556,7 @@ def planned_t3(machine):
                 if model['slug'] in shared:
                     custom[i] = merge_preferences(model, shared.pop(model['slug']))
             custom.extend(shared.values())
+            config['customModels'] = [m for m in custom if m['slug'] not in retired]
             env = instance.setdefault('environment', [])
             shared_env = {e['name']: e for e in proposed['environment']}
             for i, entry in enumerate(env):
@@ -593,6 +595,9 @@ def planned_t3(machine):
         for favorite in preferences['client'].get('favorites', []):
             if favorite not in favorites:
                 favorites.append(copy.deepcopy(favorite))
+        # Retired IDs may be favorited under any provider, with or without a provider prefix.
+        result['favorites'] = [f for f in favorites
+                               if f.get('model', '').rsplit('/', 1)[-1] not in retired]
         menus = result.setdefault('providerModelPreferences', {})
         for name, fields in preferences['modelMenus'].items():
             menus.setdefault(name, {}).update(fields)

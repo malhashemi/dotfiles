@@ -25,7 +25,7 @@ phase('Independent reviews')
 const reports = await parallel([
   () => agent(
     'Review this task using available tools. Read relevant evidence; do not modify files or send messages. Propose an approach and identify correctness risks. Return concise findings with file or source references and unresolved questions. Task: ' + task,
-    { model: 'gpt-6-astra', effort: openaiEffort, label: 'OpenAI · implementation review' }
+    { model: 'gpt-6.1-sol', effort: openaiEffort, label: 'OpenAI · implementation review' }
   ),
   () => agent(
     'Independently challenge this task and its likely approach. Read relevant evidence; do not modify files or send messages. Look for edge cases, hidden assumptions, and failure modes. Return concise findings with file or source references and unresolved questions. Task: ' + task,
