@@ -303,6 +303,20 @@ account/workspace to both names. Login enables the corresponding mixed profile.
 For browser callbacks over SSH, use the provider's login options and the indicated
 callback port forwarding; never paste tokens into the repository.
 
+**Re-authentication:** use `cpapi login personal` or `cpapi login work` again,
+and select the matching account/workspace in the browser. The helper stages the
+login, preserves the profile's registered credential filename, and restores its
+`claude-a` (Personal) or `claude-b` (Work) routing prefix.
+
+Do not refresh these named profiles with raw `cliproxyapi -claude-login`. Default
+authentication can create a separate email-named credential without a profile
+prefix. Copying that credential over the registered profile file drops the prefix
+that OpenCode and T3 expect. Symptoms include
+`unknown provider for model claude-b/...` or repeated API failures. After logging
+in, use `cpapi models` to confirm the selected profile's prefixed models are
+advertised. Keep credentials and `claude-accounts.json` local; never add them to
+the public dotfiles repository.
+
 The native Codex and Grok providers in T3 use their own CLI login stores. Complete
 those logins locally too if using them for default tasks, titles or Git text.
 CLIProxyAPI login does not automatically sign those separate clients in.

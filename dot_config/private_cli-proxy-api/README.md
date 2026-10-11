@@ -33,6 +33,14 @@ cpapi login openai
 cpapi login grok
 ```
 
+For re-authentication, use `cpapi login personal` or `cpapi login work` again and
+select the matching account/workspace. These helpers preserve the registered
+filename and restore the `claude-a` or `claude-b` routing prefix. Avoid raw
+`cliproxyapi -claude-login` for these named profiles: it can create a separate,
+unprefixed email-named credential. Do not copy that over a registered profile file;
+losing its prefix breaks the routes that OpenCode and T3 expect. Check `cpapi models`
+after login for the selected profile's prefixed models.
+
 Use `cpapi start`, `cpapi stop` or `cpapi restart` to manage the proxy service.
 Logins remain local to each machine. Never commit this whole directory: it
 contains credentials and gateway keys. Chezmoi tracks only the selected public
