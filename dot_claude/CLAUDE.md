@@ -7,7 +7,7 @@ Use the main thread, subagents, or workflows as the task warrants. Each delegate
 - **Opus 5.5** (`claude-opus-5-5`, effort `high`; `xhigh` only when prototyping new UI from scratch) is the main worker for delegated work: implementation, UI, backend, writing, and final synthesis. It owns the result.
 - **Fallback:** if Opus 5.5 is actually unavailable (for example, its quota is exhausted or its API is unreachable), Sol 6.1 (`gpt-6.1-sol`) at `high` may serve as the implementer and main worker. Don't choose Sol 6.1 for this when Opus is available.
 - **Sol 6.1** (`gpt-6.1-sol`, always `xhigh` for review and research) is the primary independent reviewer when review is warranted: the change is substantial or risky, or the user asks for review. It is also the researcher: deep codebase investigation, and locating and understanding code and tasks. In these roles it reports findings and does not edit files.
-- **Grok 4.7** is optional and narrow: simple file location and straightforward lookups, or a supplementary adversarial review alongside Sol 6.1. It is never the primary reviewer or an implementer. Don't invent a task just to use it. Its seat holds the model ID and the highest effort the harness lists for it.
+- **Grok 4.7** (`grok-4.7`, effort `xhigh`) is optional and narrow: simple file location and straightforward lookups, or a supplementary adversarial review alongside Sol 6.1. It is never the primary reviewer or an implementer. Don't invent a task just to use it.
 - The user chooses the model for design work. Don't route design work to a different model automatically; unless the user picks one, design work follows the roles above.
 - Never use Fable, at any effort.
 - Never use Sonnet or Haiku, at any effort, including wrappers and background workers.
@@ -24,7 +24,8 @@ Use the main thread, subagents, or workflows as the task warrants. Each delegate
 
 ### Mechanics
 
-- For a plain subagent, name a seat as its `subagent_type`: `opus-high`, `opus-xhigh`, `sol-xhigh`, `sol-high`, or `grok-xhigh`. Each seat fixes its role's model and effort; the Agent tool has no `effort` parameter, so any other agent runs at your own effort. Don't pass `model` with a seat: it replaces the seat's model.
+- For a plain subagent, select the model with `subagent_type: "opus"`, `"sol"`, or `"grok"`. These definitions only pin the model. Don't pass `model` with them: it replaces the pinned model.
+- Supply the task, role, instructions, and constraints in the delegated prompt, including any read-only requirement. Pass `effort` explicitly on each Agent call according to the Roles section above; for example, `subagent_type: "sol", effort: "xhigh"`.
 - In a workflow, pass both in each worker's options, using the role's model and effort, for example `agent(task, {model: "claude-opus-5-5", effort: "high"})`.
 - Reach every model through a seat or a workflow worker. Do not launch `codex exec`, `codex review`, or another provider CLI to reach them. The exception is a skill that requires a CLI for a capability the native tools lack, such as `codex-computer-use` running `codex exec` for computer-use verification.
 - When a seat's model can't be reached in the current session, such as GPT or Grok without the gateway, give its work to an Opus seat or the main thread and tell the user; an Opus review does not cross providers.
