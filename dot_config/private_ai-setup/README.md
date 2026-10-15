@@ -249,6 +249,11 @@ order are retained.
 
 Browser preferences, load balancing, appearance, sidebar behaviour, confirmation
 settings, Git/worktree defaults and source-control writing style are portable.
+The shared preferences also include notification, composer, snapshot, and browser
+recording behaviour. T3's color palette follows the separate
+[theme-system adapter](../theme-system/README.md#t3-code); glass opacity stays a
+client preference. When capturing live settings, keep onboarding, browser profile
+identities, project overrides, and project-script shortcuts local.
 `t3/keybindings.json` keeps shared shortcuts and uses Control for thread digits
 on macOS and the platform modifier on Linux. User-added shortcuts survive.
 Keybindings belong to the server, including on a headless host; client appearance

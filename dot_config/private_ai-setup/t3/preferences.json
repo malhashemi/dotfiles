@@ -1,5 +1,7 @@
 {
-  "server": {},
+  "server": {
+    "sidebarAutoSettleAfterDays": null
+  },
   "client": {
     "loadBalancingEnabled": false,
     "appearanceContrast": 100,
@@ -8,7 +10,7 @@
     "confirmThreadDelete": true,
     "confirmThreadUnpin": false,
     "diffIgnoreWhitespace": true,
-    "diffLayout": "stacked",
+    "diffLayout": "split",
     "environmentIdentificationMode": "artwork",
     "glassOpacity": 80,
     "fontSizeInterface": 16,
@@ -76,6 +78,10 @@
       },
       {
         "provider": "claude-mixed-a",
+        "model": "gpt-6.1-sol"
+      },
+      {
+        "provider": "claude-mixed-a",
         "model": "gpt-6-astra"
       }
     ],
@@ -87,7 +93,27 @@
     "browserDefaultAppearance": "system",
     "browserRecordingFrameRate": 30,
     "browserLinkTarget": "system",
-    "browserAutoShowFloatingPreview": true
+    "browserAutoShowFloatingPreview": true,
+    "notificationMode": "notifications-and-sound",
+    "inAppNotificationsEnabled": true,
+    "diffColorScheme": "red-green",
+    "chatWidth": "comfortable",
+    "browserRecordingShowKeyPresses": false,
+    "browserRecordingShowMousePresses": false,
+    "diffFilesCollapsed": false,
+    "composerRichTextEnabled": true,
+    "sendShortcut": "enter",
+    "followUpBehavior": "steer",
+    "sidebarWorkingShelfEnabled": true,
+    "snapShotEnabled": true,
+    "snapShotIncludeAccessibility": true,
+    "snapShotShortcut": {
+      "kind": "both-shift-keys"
+    },
+    "snapShotPlaySound": true,
+    "snapShotSound": "soft-pop",
+    "snapShotFlash": true,
+    "snapShotAnimations": true
   },
   "modelMenus": {
     "claude-mixed-a": {

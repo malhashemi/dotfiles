@@ -121,6 +121,7 @@ Wallpaper ──► matugen ──► Material Design 3 colors ──► 21 apps
 |-----|:------------:|-------|
 | NeoVim | | Lua colorscheme |
 | Zed | ✓ | JSON theme |
+| T3 Code | | Environment theme JSON + `t3 theme set`; also serves headless web clients |
 
 ### macOS Desktop
 | App | GUI Required | Notes |
@@ -153,6 +154,27 @@ Wallpaper ──► matugen ──► Material Design 3 colors ──► 21 apps
 | Obsidian | ✓ | Per-vault CSS |
 
 ## Architecture
+
+### T3 Code
+
+The T3 Code adapter publishes the current static or wallpaper-derived palette as
+`~/.t3/userdata/themes/theme-system.json` and selects it with `t3 theme set`.
+Connected desktop and server-served web clients update live; offline clients
+apply the selection on reconnect. Each theme application reselects this slot,
+including after a manual theme choice in T3. No restart is needed.
+
+The adapter requires an initialized T3 data directory and a CLI supporting
+`t3 theme set <file> --id <id> --base-dir <directory>`. It respects `T3CODE_HOME`
+and also runs on headless servers. The CLI validates and atomically publishes
+ordinary files, so no symlinked theme files are needed. Generated palettes and
+T3 runtime settings stay outside chezmoi; the adapter source is managed here.
+Glass opacity and other client preferences remain in the shared AI setup.
+
+This applies to the desktop's main local environment and the server's own web
+app. Mobile, `app.t3.codes`, and additional connections do not follow environment
+themes. A client custom theme with the same ID overrides the published palette.
+
+See [T3 Code's appearance documentation](https://github.com/pingdotgg/t3code/blob/main/docs/user/appearance.md#environment-themes).
 
 ```
 theme-system/

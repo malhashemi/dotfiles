@@ -26,6 +26,7 @@ from .posting import PostingTheme
 from .yazi import YaziTheme
 from .gitui import GituiTheme
 from .zed import ZedTheme
+from .t3code import T3CodeTheme
 from .glow import GlowTheme
 from .ghostty import GhosttyTheme
 from .herdr import HerdrTheme
@@ -77,6 +78,7 @@ def get_all_apps(config_home: Path) -> list:
         YaziTheme(config_home),
         GituiTheme(config_home),
         ZedTheme(config_home),
+        T3CodeTheme(config_home),
         GlowTheme(config_home),
         GhosttyTheme(config_home),
         HerdrTheme(config_home),
@@ -115,6 +117,7 @@ __all__ = [
     "YaziTheme",
     "GituiTheme",
     "ZedTheme",
+    "T3CodeTheme",
     "GlowTheme",
     "GhosttyTheme",
     "HerdrTheme",

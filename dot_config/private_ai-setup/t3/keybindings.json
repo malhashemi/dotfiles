@@ -226,5 +226,125 @@
   {
     "key": "@THREAD_MOD@+9",
     "command": "thread.jump.9"
+  },
+  {
+    "key": "mod+shift+enter",
+    "command": "thread.steerQueuedMessage",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+shift+h",
+    "command": "composer.host",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+shift+e",
+    "command": "composer.effort",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+shift+a",
+    "command": "composer.mode",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+shift+x",
+    "command": "composer.workspace",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+shift+g",
+    "command": "composer.branch",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+shift+k",
+    "command": "pullRequest.copyNumber",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+shift+arrowup",
+    "command": "modelPicker.previousProvider",
+    "when": "modelPickerOpen"
+  },
+  {
+    "key": "mod+shift+arrowdown",
+    "command": "modelPicker.nextProvider",
+    "when": "modelPickerOpen"
+  },
+  {
+    "key": "mod+shift+l",
+    "command": "composer.previousWorktree",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+[",
+    "command": "navigation.back",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+]",
+    "command": "navigation.forward",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+u",
+    "command": "usage.open",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+alt+a",
+    "command": "theme.select",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+alt+shift+a",
+    "command": "appearance.cycle",
+    "when": "!terminalFocus"
+  },
+  {
+    "key": "mod+z",
+    "command": "thread.undo",
+    "when": "!terminalFocus && !editableFocus"
+  },
+  {
+    "key": "c",
+    "command": "usage.cost",
+    "when": "usagePageOpen"
+  },
+  {
+    "key": "t",
+    "command": "usage.tokens",
+    "when": "usagePageOpen"
+  },
+  {
+    "key": "l",
+    "command": "usage.limits",
+    "when": "usagePageOpen"
+  },
+  {
+    "key": "mod+shift+1",
+    "command": "usage.period.day",
+    "when": "usagePageOpen"
+  },
+  {
+    "key": "mod+shift+2",
+    "command": "usage.period.week",
+    "when": "usagePageOpen"
+  },
+  {
+    "key": "mod+shift+3",
+    "command": "usage.period.month",
+    "when": "usagePageOpen"
+  },
+  {
+    "key": "mod+shift+4",
+    "command": "usage.period.quarter",
+    "when": "usagePageOpen"
+  },
+  {
+    "key": "mod+alt+n",
+    "command": "chat.newWithoutProject",
+    "when": "!terminalFocus"
   }
 ]
