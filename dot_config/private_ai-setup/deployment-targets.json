@@ -1,5 +1,6 @@
 {
   "targets": [
+    ".agents/AGENTS.md",
     ".claude-t3-mixed/CLAUDE.md",
     ".claude-t3-mixed/hooks",
     ".claude-t3-mixed/agents",
@@ -11,8 +12,8 @@
     ".claude/agents",
     ".claude/hooks/prefer-modern-cli.py",
     ".claude/scripts/claude-workflow-status",
-    ".claude/skills/codex-computer-use/SKILL.md",
     ".claude/statusline.sh",
+    ".codex/AGENTS.md",
     ".config/ai-setup/MODEL-RELEASES.md",
     ".config/ai-setup/README.md",
     ".config/ai-setup/bootstrap.json",
@@ -28,6 +29,8 @@
     ".config/cli-proxy-api/claude-context-settings.json",
     ".config/cli-proxy-api/claude-model-routes.json",
     ".config/cli-proxy-api/profiles.json",
+    ".config/opencode/AGENTS.md",
+    ".grok/AGENTS.md",
     ".local/bin/claude-grok",
     ".local/bin/claude-mixed-a",
     ".local/bin/claude-mixed-b",

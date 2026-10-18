@@ -1,42 +1,8 @@
-## Models for delegated work
+@~/.agents/AGENTS.md
 
-Use the main thread, subagents, or workflows as the task warrants. Each delegated seat goes to the model that owns that role below.
+## Claude Code
 
-### Roles
-
-- **Opus 5.5** (`claude-opus-5-5`, effort `high`; `xhigh` only when prototyping new UI from scratch) is the main worker for delegated work: implementation, UI, backend, writing, and final synthesis. It owns the result.
-- **Fallback:** if Opus 5.5 is actually unavailable (for example, its quota is exhausted or its API is unreachable), Sol 6.1 (`gpt-6.1-sol`) at `high` may serve as the implementer and main worker. Don't choose Sol 6.1 for this when Opus is available.
-- **Sol 6.1** (`gpt-6.1-sol`, always `xhigh` for review and research) is the primary independent reviewer when review is warranted: the change is substantial or risky, or the user asks for review. It is also the researcher: deep codebase investigation, and locating and understanding code and tasks. In these roles it reports findings and does not edit files.
-- **Grok 4.7** (`grok-4.7`, effort `xhigh`) is optional and narrow: simple file location and straightforward lookups, or a supplementary adversarial review alongside Sol 6.1. It is never the primary reviewer or an implementer. Don't invent a task just to use it.
-- The user chooses the model for design work. Don't route design work to a different model automatically; unless the user picks one, design work follows the roles above.
-- Never use Fable, at any effort.
-- Never use Sonnet or Haiku, at any effort, including wrappers and background workers.
-- The Sonnet and Haiku ban covers simple tasks too. Delegate a simple file-location or straightforward lookup task only to Grok 4.7; otherwise do it in the main thread. If a built-in, plugin, or helper agent would run on Sonnet or Haiku, set its model explicitly or don't use it.
-
-### Subagents and workflows
-
-- Use your judgment about when subagents or workflows help, for example exploratory work, parallel investigation, multi-step coordination, or a review-and-fix loop.
-- A plain subagent suits a single well-scoped seat: a Sol investigation or review, or an Opus implementation that benefits from isolated context.
-- A workflow suits work with several steps or seats to coordinate, such as sequenced phases, shared artifacts, or comparing approaches.
-- Always orchestrate when the user explicitly asks for it.
-- Orchestration decides how work is split, not who does it. However many agents are involved, implementation seats go to Opus 5.5 (or to Sol 6.1 only under the fallback above), and the other models keep their roles above.
-- When checking workflow progress, run `~/.claude/scripts/claude-workflow-status <session-directory> <workflow-id>` through Bash. Pass the session directory containing `subagents/`; the report includes nested agents. A quiet parent or a `needs inspection` status alone is not a reason to stop a workflow.
-
-### Mechanics
-
-- For a plain subagent, select the model with `subagent_type: "opus"`, `"sol"`, or `"grok"`. These definitions only pin the model. Don't pass `model` with them: it replaces the pinned model.
-- Supply the task, role, instructions, and constraints in the delegated prompt, including any read-only requirement. Pass `effort` explicitly on each Agent call according to the Roles section above; for example, `subagent_type: "sol", effort: "xhigh"`.
-- In a workflow, pass both in each worker's options, using the role's model and effort, for example `agent(task, {model: "claude-opus-5-5", effort: "high"})`.
-- Reach every model through a seat or a workflow worker. Do not launch `codex exec`, `codex review`, or another provider CLI to reach them. The exception is a skill that requires a CLI for a capability the native tools lack, such as `codex-computer-use` running `codex exec` for computer-use verification.
-- When a seat's model can't be reached in the current session, such as GPT or Grok without the gateway, give its work to an Opus seat or the main thread and tell the user; an Opus review does not cross providers.
-- Parallel editing agents must use separate files or `isolation: "worktree"` so their changes do not collide.
-
-## Notes
-
-<important if="you are using Bash">
-- Use rg to search file contents.
-- Use fd to locate files.
-- Use sd for search and replace.
-- Use jq to extract JSON values.
-- Use xh for HTTP requests.
-</important>
+- Native Opus seats: `subagent_type: "opus"` with `effort` set per role. Don't pass `model`; it replaces the pinned model.
+- Workflows run Claude workers only. Use them to coordinate several Opus seats, passing `{model: "claude-opus-5-5", effort: "high"}` to each worker; reach Sol and Grok from the main thread through T3.
+- Check a workflow's progress with `~/.claude/scripts/claude-workflow-status <session-directory> <workflow-id>`, passing the session directory that contains `subagents/`. A quiet parent or a `needs inspection` status alone is not a reason to stop a workflow.
+- If a built-in, plugin, or helper agent would run on Sonnet or Haiku, set its model explicitly or don't use it.

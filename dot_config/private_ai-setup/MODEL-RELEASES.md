@@ -88,20 +88,20 @@ unless explicitly requested.
 
 Review these independently when promoting or retiring a model:
 
-- `dot_claude/CLAUDE.md`: model roles and per-role effort. Use
-  benchmark evidence, including effort/cost comparisons, and the owner's actual
-  experience. Cost efficiency means useful work within subscription allowances.
-  Personal and Work already share this file. Preserve the Notes section and the
-  requirement for primary reviews to cross Anthropic and OpenAI.
+- `dot_agents/AGENTS.md`: model roles, per-role effort, and each role's T3
+  provider instance. Use benchmark evidence, including effort/cost comparisons,
+  and the owner's actual experience. Cost efficiency means useful work within
+  subscription allowances. Every harness shares this file: Claude imports it from
+  `dot_claude/CLAUDE.md`, and Codex, OpenCode, and Grok link to it. Preserve the
+  Shell tools section and the requirement for primary reviews to cross Anthropic
+  and OpenAI.
 - `dot_config/private_ai-setup/t3/preferences.json`: menu order, favorites, and
   hidden models. Adding a catalog entry does not update these lists.
 - The model agents in `dot_claude/agents/`: one definition per model, pinning its
   exact ID. The delegating agent supplies task instructions, constraints, and
-  effort according to `dot_claude/CLAUDE.md`.
+  effort according to `dot_agents/AGENTS.md`.
 - `mixed-review.js` under `private_dot_claude-t3-mixed/`: explicit model and
   effort choices are independent of the catalog defaults.
-- `dot_claude/skills/codex-computer-use/SKILL.md`: change its pinned model only if
-  intended, retaining its tool-access guidance and other settings.
 
 Removing a catalog entry does not remove a saved T3 custom entry: the merge
 preserves extra local models and favorites. To retire a model, also add its ID
