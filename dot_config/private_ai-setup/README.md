@@ -93,7 +93,9 @@ input alone does not remove a value already merged into a private configuration.
 After merging, reload or restart only the proxy service; T3 can remain open.
 
 `cli-preferences.json` contains shared Claude behaviour, attribution suppression,
-the human-only `code-review` setting, and Grok display preferences. The status-line
+the human-only `code-review` setting, Grok display preferences, and Grok's
+instruction loading: it reads the shared `~/.agents/AGENTS.md` through
+`~/.grok/AGENTS.md`, not `~/.claude/CLAUDE.md`. The status-line
 script is shared and needs Bash, Git and jq from the OS bootstrap. Shared Bash
 tool preferences use `~/.claude/hooks/prefer-modern-cli.py`; Mixed links its hooks
 directory to the same location. The setup helper installs Tree-sitter Bash in an isolated

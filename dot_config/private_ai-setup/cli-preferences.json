@@ -49,6 +49,11 @@
       "compact_mode": false,
       "group_tool_verbs": true,
       "show_thinking_blocks": true
+    },
+    "compat": {
+      "claude": {
+        "agents": false
+      }
     }
   }
 }
