@@ -7,7 +7,6 @@
     ".claude-t3-mixed/plugins",
     ".claude-t3-mixed/settings.json",
     ".claude-t3-mixed/skills",
-    ".claude-t3-mixed/workflows/mixed-review.js",
     ".claude/CLAUDE.md",
     ".claude/agents",
     ".claude/hooks/prefer-modern-cli.py",

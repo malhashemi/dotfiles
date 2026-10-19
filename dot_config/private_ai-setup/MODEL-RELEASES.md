@@ -97,14 +97,16 @@ Review these independently when promoting or retiring a model:
   and OpenAI.
 - `dot_config/private_ai-setup/t3/preferences.json`: menu order, favorites, and
   hidden models. Adding a catalog entry does not update these lists.
-- The model agents in `dot_claude/agents/`: one definition per model, pinning its
-  exact ID. The delegating agent supplies task instructions, constraints, and
+- `dot_claude/agents/opus.md`: the only Claude Code model agent, pinning the
+  Opus ID. Other providers' models are reached through T3 delegation, not Claude
+  subagents. The delegating agent supplies task instructions, constraints, and
   effort according to `dot_agents/AGENTS.md`.
-- `mixed-review.js` under `private_dot_claude-t3-mixed/`: explicit model and
-  effort choices are independent of the catalog defaults.
+- `t3Custom` in the catalog: only Claude models get a "· shared" entry in the
+  Mixed profiles. GPT and Grok models run in their own T3 providers.
 
-Removing a catalog entry does not remove a saved T3 custom entry: the merge
-preserves extra local models and favorites. To retire a model, also add its ID
+Removing a catalog entry or its `t3Custom` flag drops its "· shared" entry from
+the Mixed profiles on the next full T3 merge; other local custom models and
+favorites are preserved. To retire a model everywhere, also add its ID
 to `retired`; the full T3 merge then removes it from both Mixed profiles'
 custom entries and from favorites under any provider. `--models-only` never
 removes entries. Keep old IDs honest for existing sessions, and use a hiding

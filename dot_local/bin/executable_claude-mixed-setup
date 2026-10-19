@@ -559,12 +559,15 @@ def planned_t3(machine):
                 raise ValueError('Provider ' + name + ' uses a different driver; review before merging.')
             config = instance.setdefault('config', {})
             shared = {m['slug']: m for m in proposed['config']['customModels']}
+            owned = set(shared)
             custom = config.setdefault('customModels', [])
             for i, model in enumerate(custom):
                 if model['slug'] in shared:
                     custom[i] = merge_preferences(model, shared.pop(model['slug']))
             custom.extend(shared.values())
-            config['customModels'] = [m for m in custom if m['slug'] not in retired]
+            # Entries named "· shared" come from the catalog; drop those it no longer lists.
+            config['customModels'] = [m for m in custom if m['slug'] not in retired and (
+                m['slug'] in owned or not m.get('name', '').endswith(' · shared'))]
             env = instance.setdefault('environment', [])
             shared_env = {e['name']: e for e in proposed['environment']}
             for i, entry in enumerate(env):

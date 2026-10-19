@@ -1,1 +1,4 @@
 .claude/skills/codex-computer-use
+.claude/agents/sol.md
+.claude/agents/grok.md
+.claude-t3-mixed/workflows/mixed-review.js

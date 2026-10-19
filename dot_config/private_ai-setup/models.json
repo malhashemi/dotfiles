@@ -24,42 +24,36 @@
       "id": "gpt-6-astra",
       "name": "GPT-6 Astra",
       "provider": "codex",
-      "t3Custom": true,
       "efforts": ["low", "medium", "high", "xhigh", "max"]
     },
     {
       "id": "gpt-6.1-sol",
       "name": "GPT-6.1 Sol",
       "provider": "codex",
-      "t3Custom": true,
       "efforts": ["low", "medium", "high", "xhigh", "max"]
     },
     {
       "id": "gpt-6-luna",
       "name": "GPT-6 Luna",
       "provider": "codex",
-      "t3Custom": true,
       "efforts": ["low", "medium", "high", "xhigh", "max"]
     },
     {
       "id": "gpt-5.6-sol",
       "name": "GPT-5.6 Sol",
       "provider": "codex",
-      "t3Custom": true,
       "efforts": ["low", "medium", "high", "xhigh", "max"]
     },
     {
       "id": "grok-4.7",
       "name": "Grok 4.7",
       "provider": "grok",
-      "t3Custom": true,
       "efforts": ["low", "medium", "high", "xhigh"]
     },
     {
       "id": "grok-4.6",
       "name": "Grok 4.6",
       "provider": "grok",
-      "t3Custom": true,
       "efforts": ["low", "medium", "high", "xhigh"]
     }
   ],
