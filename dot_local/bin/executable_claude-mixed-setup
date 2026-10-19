@@ -607,8 +607,12 @@ def planned_t3(machine):
             if favorite not in favorites:
                 favorites.append(copy.deepcopy(favorite))
         # Retired IDs may be favorited under any provider, with or without a provider prefix.
+        # Mixed profiles no longer offer other providers' models; those run in their own providers.
+        elsewhere = {m['id'] for m in models['catalog'] if m.get('provider') != 'claude'}
         result['favorites'] = [f for f in favorites
-                               if f.get('model', '').rsplit('/', 1)[-1] not in retired]
+                               if f.get('model', '').rsplit('/', 1)[-1] not in retired
+                               and not (f.get('provider', '').startswith('claude-mixed-')
+                                        and f.get('model') in elsewhere)]
         menus = result.setdefault('providerModelPreferences', {})
         for name, fields in preferences['modelMenus'].items():
             menus.setdefault(name, {}).update(fields)
