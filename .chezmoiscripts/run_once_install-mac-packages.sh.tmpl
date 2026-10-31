@@ -91,6 +91,10 @@ brew_cask() {
     # Check if app exists in /Applications (installed outside Homebrew)
     elif [[ -n "$app_name" && -d "/Applications/${app_name}.app" ]]; then
         print_skip "$cask"
+    # Fonts installed by hand: the cask refuses to overwrite existing font files
+    elif [[ "$cask" == font-* ]] && ls "$HOME/Library/Fonts" /Library/Fonts 2>/dev/null \
+            | tr -d ' _-' | tr '[:upper:]' '[:lower:]' | grep -q "$(tr -d '-' <<<"${cask#font-}")"; then
+        print_skip "$cask"
     elif brew install --cask "$cask" &>/dev/null; then
         print_success "$cask"
     else
@@ -284,7 +288,7 @@ else
 fi
 
 print_header "Claude Code"
-if command -v npm &>/dev/null && npm list -g @anthropic-ai/claude-code &>/dev/null; then
+if command -v npm &>/dev/null && npm list -g --depth=0 @anthropic-ai/claude-code &>/dev/null; then
     print_info "Removing deprecated npm Claude Code package..."
     if npm uninstall -g @anthropic-ai/claude-code &>/dev/null; then
         print_success "npm:@anthropic-ai/claude-code removed"
@@ -293,7 +297,7 @@ if command -v npm &>/dev/null && npm list -g @anthropic-ai/claude-code &>/dev/nu
     fi
 fi
 
-if command -v npm &>/dev/null && npm list -g @anthropic-ai/claude-code &>/dev/null; then
+if command -v npm &>/dev/null && npm list -g --depth=0 @anthropic-ai/claude-code &>/dev/null; then
     print_fail "claude-code official installer (npm package still present)"
 elif command -v claude &>/dev/null; then
     print_skip "claude-code"

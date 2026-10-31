@@ -162,7 +162,7 @@ sudo pacman -Syu --noconfirm &>/dev/null && echo -e "  ${GREEN}✓${NC} System u
 
 print_header "Installing Homebrew (Linuxbrew)"
 
-if ! command -v brew &>/dev/null; then
+if ! command -v brew &>/dev/null && [[ ! -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
     print_info "Installing Homebrew for Linux..."
     
     # Install Homebrew dependencies
@@ -383,6 +383,8 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────────
 
 print_header "Cargo Packages"
+# cargo-installed binaries live in ~/.cargo/bin, which a non-login script lacks
+[[ -d "$HOME/.cargo/bin" ]] && export PATH="$HOME/.cargo/bin:$PATH"
 if command -v cargo &>/dev/null; then
     for pkg in matugen just-lsp sd; do
         if command -v "$pkg" &>/dev/null; then
