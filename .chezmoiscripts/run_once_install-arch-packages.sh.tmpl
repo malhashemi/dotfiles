@@ -151,9 +151,10 @@ if ! command -v yay &>/dev/null && ! command -v paru &>/dev/null; then
     fi
 fi
 
-# Update package database
-print_header "Updating Package Database"
-sudo pacman -Sy &>/dev/null && echo -e "  ${GREEN}✓${NC} Package database updated"
+# Sync and upgrade together: installing after a bare -Sy is a partial upgrade,
+# which Arch does not support.
+print_header "Upgrading System"
+sudo pacman -Syu --noconfirm &>/dev/null && echo -e "  ${GREEN}✓${NC} System upgraded"
 
 # ─────────────────────────────────────────────────────────────────────────────────
 # Homebrew/Linuxbrew
