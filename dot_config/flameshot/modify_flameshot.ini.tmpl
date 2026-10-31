@@ -1,0 +1,2 @@
+{{- /* ~/.config/flameshot/flameshot.ini: base in .theme-bases/flameshot/flameshot.ini.tmpl, colors from the theme-system's flameshot module (see .chezmoitemplates/theme-modify.sh). */ -}}
+{{- template "theme-modify.sh" (dict "app" "flameshot" "base" (includeTemplate ".theme-bases/flameshot/flameshot.ini.tmpl" .) "ctx" .) -}}

@@ -1,0 +1,2 @@
+{{- /* ~/.config/yazi/theme.toml: base in .theme-bases/yazi/theme.toml, colors from the theme-system's yazi module (see .chezmoitemplates/theme-modify.sh). */ -}}
+{{- template "theme-modify.sh" (dict "app" "yazi" "base" (include ".theme-bases/yazi/theme.toml") "ctx" .) -}}

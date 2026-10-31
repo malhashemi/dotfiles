@@ -1,0 +1,2 @@
+{{- /* ~/.config/clipboard/theme: base in .theme-bases/clipboard/theme.tmpl, colors from the theme-system's clipboard module (see .chezmoitemplates/theme-modify.sh). */ -}}
+{{- template "theme-modify.sh" (dict "app" "clipboard" "base" (includeTemplate ".theme-bases/clipboard/theme.tmpl" .) "ctx" .) -}}

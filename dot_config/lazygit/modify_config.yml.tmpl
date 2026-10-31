@@ -1,0 +1,2 @@
+{{- /* ~/.config/lazygit/config.yml: base in .theme-bases/lazygit/config.yml, colors from the theme-system's lazygit module (see .chezmoitemplates/theme-modify.sh). */ -}}
+{{- template "theme-modify.sh" (dict "app" "lazygit" "base" (include ".theme-bases/lazygit/config.yml") "ctx" .) -}}

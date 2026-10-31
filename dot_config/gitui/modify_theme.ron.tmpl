@@ -1,0 +1,2 @@
+{{- /* ~/.config/gitui/theme.ron: base in .theme-bases/gitui/theme.ron, colors from the theme-system's gitui module (see .chezmoitemplates/theme-modify.sh). */ -}}
+{{- template "theme-modify.sh" (dict "app" "gitui" "base" (include ".theme-bases/gitui/theme.ron") "ctx" .) -}}

@@ -154,6 +154,9 @@ class StarshipTheme(BaseApp):
 
             # Clean approach: remove ALL existing palettes
             if "palettes" in config:
+                # tomlkit adds a blank line before the replaced palette on
+                # every rewrite; trim it first so repeated applies are stable.
+                self._trim_whitespace_before(config, "palettes")
                 # Clear all palette entries
                 config["palettes"].clear()
             else:
@@ -171,3 +174,19 @@ class StarshipTheme(BaseApp):
 
         except Exception as e:
             self.log_error(f"Failed to update Starship config: {e}")
+
+    @staticmethod
+    def _trim_whitespace_before(config, key: str) -> None:
+        """Reset the trailing blank lines of the table before `key` to one."""
+        from tomlkit.items import Table, Whitespace
+
+        keys = list(config.keys())
+        index = keys.index(key)
+        if index == 0:
+            return
+        previous = config[keys[index - 1]]
+        if not isinstance(previous, Table):
+            return
+        body = previous.value.body
+        if body and isinstance(body[-1][1], Whitespace):
+            body[-1] = (None, Whitespace("\n"))

@@ -1,0 +1,2 @@
+{{- /* ~/.config/starship/starship.toml: base in .theme-bases/starship/starship.toml, colors from the theme-system's starship module (see .chezmoitemplates/theme-modify.sh). */ -}}
+{{- template "theme-modify.sh" (dict "app" "starship" "base" (include ".theme-bases/starship/starship.toml") "ctx" .) -}}
