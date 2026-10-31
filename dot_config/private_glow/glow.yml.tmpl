@@ -1,0 +1,20 @@
+# style name or JSON path (default "auto")
+{{- /* Mirror theme-system/scripts/apps/glow.py so applies don't fight it. */}}
+{{- $theme := get . "theme" | default dict }}
+{{- $name := get $theme "name" | default "" }}
+{{- $dir := joinPath .chezmoi.homeDir ".config/glow/themes" }}
+{{- if eq $name "dynamic" }}
+style: "{{ joinPath $dir "dynamic.json" }}"
+{{- else if $name }}
+style: "{{ joinPath $dir (printf "catppuccin-%s.json" $name) }}"
+{{- else }}
+style: "auto"
+{{- end }}
+# mouse support (TUI-mode only)
+mouse: false
+# use pager to display markdown
+pager: false
+# word-wrap at width
+width: 80
+# show all files, including hidden and ignored.
+all: false

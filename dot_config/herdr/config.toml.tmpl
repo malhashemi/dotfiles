@@ -1,8 +1,9 @@
 onboarding = false
 
 [theme]
-# Built-in base theme; [theme.custom] below overrides its colors. Herdr only
-# accepts built-in names here (anything else triggers a config warning).
+{{- /* Built-in base theme; [theme.custom] below overrides its colors. Herdr only
+     accepts built-in names here. A template comment, because the theme-system
+     rewrites this file and drops TOML comments. */}}
 name = "{{ if eq (.theme.variant | default "dark") "light" }}catppuccin-latte{{ else }}catppuccin{{ end }}"
 auto_switch = false
 

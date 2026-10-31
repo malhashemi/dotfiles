@@ -38,7 +38,18 @@
   "buffer_font_size": 15,
   "theme": {
     "mode": "system",
+{{- /* Mirror theme-system/scripts/apps/zed.py so applies don't fight it. */}}
+{{- $theme := get . "theme" | default dict }}
+{{- $name := get $theme "name" | default "" }}
+{{- if eq $name "dynamic" }}
+    "light": "Dynamic",
+    "dark": "Dynamic"
+{{- else if $name }}
+    "light": "Catppuccin Latte",
+    "dark": "Catppuccin {{ title $name }}"
+{{- else }}
     "light": "One Light",
     "dark": "Catppuccin Mocha"
+{{- end }}
   }
 }
