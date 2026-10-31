@@ -149,7 +149,6 @@ Wallpaper ──► matugen ──► Material Design 3 colors ──► 21 apps
 ### Other
 | App | GUI Required | Notes |
 |-----|:------------:|-------|
-| OpenCode | | JSON theme |
 | Flameshot | ✓ | INI config |
 | Obsidian | ✓ | Per-vault CSS |
 

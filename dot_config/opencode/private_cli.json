@@ -1,0 +1,47 @@
+{
+  "$schema": "https://opencode.ai/v2/cli.json",
+  "tabs": {
+    "enabled": false,
+    "scope": "global",
+    "layout": "vertical",
+    "mode": "on",
+    "indicators": "status"
+  },
+  "prompt": {
+    "paste": "full",
+    "image_preview": true
+  },
+  "theme": {
+    "name": "system"
+  },
+  "plugins": [
+    "opencode-quick-quote",
+    "./herdr-opencode"
+  ],
+  "session": {
+    "sidebar": "hide",
+    "scrollbar": false,
+    "thinking": "hide",
+    "markdown": "rendered",
+    "grouping": "auto",
+    "image_preview": true,
+    "tps": true,
+    "permissions": "autoaccept",
+    "new_location": "launch"
+  },
+  "animations": true,
+  "scroll": {
+    "acceleration": true
+  },
+  "attention": {
+    "notifications": true,
+    "sound": true,
+    "volume": 0.9999999999999999
+  },
+  "terminal": {
+    "copy": "select"
+  },
+  "debug": {
+    "devtools": true
+  }
+}

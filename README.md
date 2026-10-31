@@ -12,7 +12,7 @@ Cross-platform dotfiles managed by [chezmoi](https://chezmoi.io/): a full **Arch
 - **Wallpaper-Driven Theming** — 34 apps recolored from one wallpaper, login screen included
 - **Full Hyprland Desktop** — greetd login, Quickshell bar, Walker launcher, notifications, idle/lock, all themed
 - **Voice Dictation** — local push-to-talk transcription (on-device) with a cloud smart layer + Arabic/English → English
-- **AI Coding Environment** — a bundled [opencode](https://opencode.ai/) agent/skill framework (ticket → implement → PR review → merge)
+- **AI Coding Environment** — Claude Code, Codex, Grok and [opencode](https://opencode.ai/) v2 wired through T3 Code and a shared model proxy
 - **Cross-Platform** — the same repo drives a Linux desktop, macOS, and headless servers
 - **Fresh-Install Ready** — one command installs packages, configs, and system settings
 
@@ -243,7 +243,7 @@ Wallpaper ──► matugen ──► Material Design 3 palette ──► 34 app
 | [Clipboard](https://github.com/Slackadays/Clipboard) | Clipboard CLI | ✓ |
 | [Flameshot](https://flameshot.org/) | Screenshots | ✓ |
 | [worktrunk](https://github.com/) (`wt`) | Git-worktree workflow CLI | - |
-| [opencode](https://opencode.ai/) | AI coding assistant — ships a full custom agent/skill framework (ticket → implement → PR review → merge); see `dot_config/opencode/` | ✓ |
+| [opencode](https://opencode.ai/) | AI coding assistant (v2) — providers via CLIProxyAPI, Herdr integration and npm plugins; see `dot_config/opencode/` | ✓ |
 | [gh](https://cli.github.com/) | GitHub CLI | - |
 | [Obsidian](https://obsidian.md/) | Notes (per-vault) | ✓ |
 | [Zen Browser](https://zen-browser.app/) | Firefox-based browser | - |
@@ -374,7 +374,7 @@ class MyAppTheme(BaseApp):
 │   ├── walker/ swaync/ wlogout/   # Launcher, notifications, power menu
 │   ├── voice-typer/          # Voice dictation daemon + client
 │   ├── theme-system/         # Unified theming engine (34 app modules)
-│   ├── opencode/             # AI agent/skill framework
+│   ├── opencode/             # opencode v2 config and plugins
 │   ├── nvim/ ghostty/ herdr/ yazi/ …
 │   └── aerospace/ sketchybar/     # macOS desktop
 ├── dot_zshrc.tmpl  dot_gitconfig.tmpl

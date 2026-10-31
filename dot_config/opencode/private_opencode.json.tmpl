@@ -1,0 +1,166 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": [
+    "opencode-gpt-live",
+    "opencode-codex-computer-use",
+    {
+      "package": "@malhashemi/opencode-dynamic-workflows",
+      "options": { "inline": "allow" }
+    }
+  ],
+  "default_agent": "build",
+  "model": "claude-work/claude-opus-5-5",
+  "permissions": [
+    {
+      "action": "external_directory",
+      "resource": "*",
+      "effect": "allow"
+    }
+  ],
+  "agents": {
+    "build": {
+      "model": "claude-work/claude-opus-5-5#high"
+    }
+  },
+  "providers": {
+    "claude-personal": {
+      "name": "Claude Personal (CLIProxyAPI)",
+      "canonical": "anthropic",
+      "package": "@opencode/ai/providers/anthropic",
+      "settings": {
+        "baseURL": "http://127.0.0.1:8317/v1",
+        "apiKey": "{file:{{ .chezmoi.homeDir }}/.config/cli-proxy-api/client-key}"
+      },
+      "models": {
+        "claude-fable-5-1": {
+          "modelID": "claude-a/claude-fable-5-1",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-fable-5": {
+          "modelID": "claude-a/claude-fable-5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-opus-5-5": {
+          "modelID": "claude-a/claude-opus-5-5",
+          "name": "Claude Opus 5.5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-opus-5": {
+          "modelID": "claude-a/claude-opus-5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-opus-4-8": {
+          "modelID": "claude-a/claude-opus-4-8",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-sonnet-5": {
+          "modelID": "claude-a/claude-sonnet-5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-haiku-4-5": {
+          "modelID": "claude-a/claude-haiku-4-5-20251001"
+        }
+      }
+    },
+    "claude-work": {
+      "name": "Claude Work (CLIProxyAPI)",
+      "canonical": "anthropic",
+      "package": "@opencode/ai/providers/anthropic",
+      "settings": {
+        "baseURL": "http://127.0.0.1:8317/v1",
+        "apiKey": "{file:{{ .chezmoi.homeDir }}/.config/cli-proxy-api/client-key}"
+      },
+      "models": {
+        "claude-fable-5-1": {
+          "modelID": "claude-b/claude-fable-5-1",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-fable-5": {
+          "modelID": "claude-b/claude-fable-5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-opus-5-5": {
+          "modelID": "claude-b/claude-opus-5-5",
+          "name": "Claude Opus 5.5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-opus-5": {
+          "modelID": "claude-b/claude-opus-5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-opus-4-8": {
+          "modelID": "claude-b/claude-opus-4-8",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-sonnet-5": {
+          "modelID": "claude-b/claude-sonnet-5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-haiku-4-5": {
+          "modelID": "claude-b/claude-haiku-4-5-20251001"
+        }
+      }
+    },
+    "openai": {
+      "settings": {
+        "compaction": {
+          "type": "native"
+        }
+      },
+      "models": {
+        "gpt-6-astra": {
+          "limit": {
+            "input": 264800
+          },
+          "settings": {
+            "reasoningEffort": "high"
+          }
+        }
+      }
+    }
+  },
+  "websearch": {
+    "provider": "exa"
+  },
+  "mcp": {
+    "servers": {
+      "exa": {
+        "type": "local",
+        "command": [
+          "npx",
+          "-y",
+          "exa-mcp-server@2.0.5",
+          "enabledTools=[\"get_code_context_exa\",\"crawling_exa\",\"deep_researcher_start\",\"deep_researcher_check\"]"
+        ],
+        "cwd": "{{ .chezmoi.homeDir }}",
+        "environment": {
+          "EXA_API_KEY": "{env:EXA_API_KEY}"
+        }
+      }
+    }
+  }
+}
