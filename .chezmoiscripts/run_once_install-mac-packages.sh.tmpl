@@ -214,10 +214,19 @@ if brew list tailscale &>/dev/null; then
 fi
 
 print_header "Dev Tools"
-for pkg in anomalyco/tap/opencode biome repomix dart-sdk llvm gemini-cli \
+for pkg in biome repomix dart-sdk llvm gemini-cli \
            schpet/tap/linear; do
     brew_pkg "$pkg"
 done
+
+# opencode v2 via its official installer (~/.opencode/bin; .zshenv adds it to PATH)
+if command -v opencode &>/dev/null || [[ -x "$HOME/.opencode/bin/opencode" ]]; then
+    print_skip "opencode"
+elif curl -fsSL https://opencode.ai/install | bash -s -- --no-modify-path &>/dev/null; then
+    print_success "opencode"
+else
+    print_fail "opencode"
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────────
 # Casks (GUI Apps)

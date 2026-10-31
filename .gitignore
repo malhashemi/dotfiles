@@ -33,9 +33,6 @@ tmp/
 .chezmoidata/theme.yaml
 .chezmoidata/wallpaper-state.yaml
 
-# OpenCode local artifact (node_modules / package.json / bun.lock already ignored in .opencode/.gitignore)
-.opencode/package-lock.json
-
 # Generated AI credentials/state are local; public templates contain references only.
 /.secrets
 /.bitwarden_session
