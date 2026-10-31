@@ -47,14 +47,14 @@
 {{- if eq .chezmoi.os "darwin" }}
 [credential]
 	helper = osxkeychain
-{{- else }}
+{{- end }}
+# GitHub over HTTPS authenticates through the signed-in gh CLI on every machine.
 [credential "https://github.com"]
 	helper =
 	helper = !gh auth git-credential
 [credential "https://gist.github.com"]
 	helper =
 	helper = !gh auth git-credential
-{{- end }}
 
 [delta]
 	navigate = true

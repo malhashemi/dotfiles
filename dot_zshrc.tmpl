@@ -5,6 +5,11 @@
 # Completion System Setup
 setopt prompt_subst
 zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'
+# Extra completion directories must be on fpath before compinit runs.
+[[ -d "$HOME/.grok/completions/zsh" ]] && fpath=("$HOME/.grok/completions/zsh" $fpath)
+{{- if eq .chezmoi.os "darwin" }}
+[[ -d "$HOME/.docker/completions" ]] && fpath=("$HOME/.docker/completions" $fpath)
+{{- end }}
 autoload bashcompinit && bashcompinit
 autoload -Uz compinit
 compinit
@@ -303,12 +308,22 @@ alias wallpaper="~/.config/theme-system/scripts/wallpaper-manager.py"
 alias secrets="~/scripts/secrets.sh && source ~/.secrets"
 
 # pnpm
-export PNPM_HOME="/home/malhashemi/.local/share/pnpm"
+{{- if eq .chezmoi.os "darwin" }}
+export PNPM_HOME="$HOME/Library/pnpm"
+{{- else }}
+export PNPM_HOME="$HOME/.local/share/pnpm"
+{{- end }}
 case ":$PATH:" in
   *":$PNPM_HOME:"*) ;;
   *) export PATH="$PNPM_HOME:$PATH" ;;
 esac
 # pnpm end
+
+# npm global installs that use a user prefix (e.g. ~/.npmrc prefix=~/.npm-global)
+[[ -d "$HOME/.npm-global/bin" ]] && export PATH="$HOME/.npm-global/bin:$PATH"
+
+# Grok CLI (self-installer layout; completions are added before compinit above)
+[[ -d "$HOME/.grok/bin" ]] && export PATH="$HOME/.grok/bin:$PATH"
 
 setopt INTERACTIVE_COMMENTS
 

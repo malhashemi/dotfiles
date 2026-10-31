@@ -45,9 +45,9 @@ gui:
 
 git:
   # Use delta for beautiful diffs (if installed)
-  paging:
-    colorArg: always
-    pager: delta --dark --paging=never
+  diffRenderers:
+  - colorArg: always
+    command: delta --dark --paging=never
   
   # Auto-fetch for up-to-date branch info
   autoFetch: true

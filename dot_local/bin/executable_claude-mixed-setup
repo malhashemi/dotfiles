@@ -24,6 +24,8 @@ ROOT = HOME_DIR / '.config/cli-proxy-api'
 INPUTS = HOME_DIR / '.config/ai-setup'
 MIXED = HOME_DIR / '.claude-t3-mixed'
 BIN = HOME_DIR / '.local/bin'
+# The t3-code cask has shipped under each of these names; the current one is Beta.
+MAC_T3_APPS = ('T3 Code.app', 'T3 Code (Beta).app', 'T3 Code (Alpha).app')
 
 
 def run(args, **kwargs):
@@ -298,7 +300,7 @@ def install_packages(headless):
         for binary, package in [('codex', 'codex'), ('grok', 'grok-build')]:
             if not shutil.which(binary):
                 run([brew, 'install', '--cask', package])
-        if not headless and not Path('/Applications/T3 Code (Alpha).app').exists() and not Path('/Applications/T3 Code.app').exists():
+        if not headless and not any((Path('/Applications') / app).exists() for app in MAC_T3_APPS):
             run([brew, 'install', '--cask', 't3-code'])
         install_t3_server()
         return fresh_proxy
@@ -329,7 +331,7 @@ def install_packages(headless):
 def t3_install_version():
     # Match a desktop already installed on this host; use the shared pin headlessly.
     if sys.platform == 'darwin':
-        for app in ('T3 Code (Alpha).app', 'T3 Code.app'):
+        for app in MAC_T3_APPS:
             info = Path('/Applications') / app / 'Contents/Info.plist'
             if info.exists():
                 with info.open('rb') as stream:

@@ -1,7 +1,21 @@
 {
   "server": {
     "sidebarAutoSettleAfterDays": null,
-    "enableDeviceSupport": true
+    "enableDeviceSupport": true,
+    "providerInstances": {
+      "claudeAgent": {
+        "enabled": true
+      },
+      "opencode": {
+        "driver": "opencode",
+        "enabled": true,
+        "config": {
+          "binaryPath": "opencode",
+          "serverUrl": "",
+          "customModels": []
+        }
+      }
+    }
   },
   "client": {
     "loadBalancingEnabled": false,
