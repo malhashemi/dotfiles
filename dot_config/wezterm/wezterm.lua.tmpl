@@ -88,10 +88,43 @@ config.font = wezterm.font_with_fallback({
 config.window_decorations = "RESIZE"
 
 -- ============================================================================
+-- INPUT / KEYBOARD PROTOCOL  (Herdr migration test - 2026-06-06)
+-- ============================================================================
+-- Linchpin: forward cmd/super + ctrl+shift + ctrl/alt+digit chords to Herdr.
+-- Without kitty keyboard, macOS legacy encoding drops Super and can't encode
+-- ctrl+1 or distinguish ctrl+shift+h from ctrl+h, so Herdr never sees them.
+config.enable_kitty_keyboard = true
+
+-- THE cmd+shift FIX: by default use_ime=true and macos_forward_to_ime_modifier_mask
+-- = "SHIFT", so any SHIFT-modified chord (cmd+shift+d, cmd+shift+r, ...) is routed
+-- to the macOS IME, which swallows it before kitty-keyboard encoding -> Herdr never
+-- sees it. Disabling the IME keeps every modified chord on the key path.
+-- Safe here: Arabic (Tajawal) input is a keyboard *layout*, not a candidate-window
+-- IME, so it is unaffected. Only CJK composition would need the mask approach below.
+config.use_ime = false
+-- Alternative if you ever need CJK composition: keep use_ime=true and instead set
+--   config.macos_forward_to_ime_modifier_mask = "" (or a mask without SHIFT)
+
+-- Make option+1..9 send alt+1..9 (not composed glyphs like ¡), so Herdr's
+-- switch_tab = "alt+1..9" works.
+config.send_composed_key_when_left_alt_is_pressed = false
+config.send_composed_key_when_right_alt_is_pressed = false
+
+-- Hand keyboard control to Herdr: disable ALL WezTerm default assignments so
+-- nothing (cmd+t/n/w, cmd+1..9, etc.) shadows a Herdr chord. A small keep-list
+-- below restores clipboard, quit, and a few personal binds.
+config.disable_default_key_bindings = true
+
+-- ============================================================================
 -- KEY BINDINGS
 -- ============================================================================
 
 config.keys = {
+	-- Keep-list: clipboard + quit must be re-added since defaults are disabled.
+	{ key = "c", mods = "CMD", action = wezterm.action.CopyTo("Clipboard") },
+	{ key = "v", mods = "CMD", action = wezterm.action.PasteFrom("Clipboard") },
+	{ key = "q", mods = "CMD", action = wezterm.action.QuitApplication },
+	-- Personal binds preserved (do not conflict with Herdr test chords).
 	{
 		key = "q",
 		mods = "CTRL",
@@ -103,21 +136,6 @@ config.keys = {
 		action = wezterm.action.ClearScrollback("ScrollbackAndViewport"),
 	},
 	{
-		key = "w",
-		mods = "CMD",
-		action = wezterm.action.CloseCurrentPane({ confirm = false }),
-	},
-	{
-		key = "d",
-		mods = "CMD",
-		action = wezterm.action.SplitHorizontal({ domain = "CurrentPaneDomain" }),
-	},
-	{
-		key = "d",
-		mods = "CMD|SHIFT",
-		action = wezterm.action.SplitVertical({ domain = "CurrentPaneDomain" }),
-	},
-	{
 		key = "k",
 		mods = "CMD",
 		action = wezterm.action.Multiple({
@@ -125,20 +143,9 @@ config.keys = {
 			wezterm.action.SendKey({ key = "Enter" }),
 		}),
 	},
-	{
-		key = "t",
-		mods = "CMD|SHIFT",
-		action = wezterm.action_callback(function(win, pane)
-			pane:move_to_new_window()
-		end),
-	},
-	{
-		key = "t",
-		mods = "CMD|SHIFT|CTRL",
-		action = wezterm.action_callback(function(win, pane)
-			pane:move_to_new_tab()
-		end),
-	},
+	-- NOTE: cmd+w, cmd+d, cmd+shift+d intentionally removed - now owned by Herdr.
+	-- cmd+shift+t / cmd+shift+ctrl+t (move pane to new window/tab) also dropped:
+	-- WezTerm tabs/windows are unused now that Herdr owns multiplexing.
 }
 
 -- ============================================================================
