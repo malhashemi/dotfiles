@@ -62,6 +62,11 @@
 {{-   end -}}
 {{- end -}}
 
+{{- $autologin := false -}}
+{{- if and (eq $os "linux") (eq $role "desktop") -}}
+{{-   $autologin = promptBoolOnce . "machine.autologin" "Log in to Hyprland automatically at boot (for agent desktops)" false -}}
+{{- end -}}
+
 {{- $userName := promptStringOnce . "user.name" "Your full name" -}}
 {{- $userEmail := promptStringOnce . "user.email" "Your email" -}}
 {{- $sshUser := promptStringOnce $inputs "machine.ssh_user" "SSH username on your other machines" .chezmoi.username -}}
@@ -114,6 +119,7 @@
 [data.machine]
     role = {{ $role | quote }}
     ssh_user = {{ $sshUser | quote }}
+    autologin = {{ $autologin }}
 
 [data.ai]
     enabled = {{ $aiEnabled }}

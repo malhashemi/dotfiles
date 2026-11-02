@@ -47,6 +47,14 @@ vt = 1
 [default_session]
 command = "env GTK_USE_PORTAL=0 GDK_DEBUG=no-portals dbus-run-session cage -s -mlast -d -- regreet --style /var/lib/regreet-theme/regreet.css"
 user = "greeter"
+{{- if get (get . "machine" | default dict) "autologin" }}
+
+# Agent desktop (machine.autologin): start the user's Hyprland session once at
+# boot without the greeter. Logging out returns to regreet as usual.
+[initial_session]
+command = "uwsm start -e -D Hyprland hyprland.desktop"
+user = "{{ .chezmoi.username }}"
+{{- end }}
 EOF
 
 # 4. Static regreet config. Colors come from the --style CSS above; this sets the
