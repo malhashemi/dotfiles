@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # Serve the Hyprland session over VNC on this machine's Tailscale address only.
 #
-# Started by wayvnc.service inside the graphical session. It refuses to serve
-# unless:
-#   - ~/.config/wayvnc/config passes the strict check below (exactly one
-#     enable_auth=true, a username and a password, no duplicate or unknown keys);
-#   - agent-desktop-vnc-guard.service (nftables: tcp/5900 dropped on every
-#     interface but tailscale0 and lo) is active. Binding to the Tailscale
-#     address alone does not stop LAN hosts routing to it.
-# It then binds to the tailscale0 IPv4 address and keeps watching: if that
-# address changes or the guard goes away, it stops wayvnc and exits non-zero so
-# systemd restarts it (on the new address, or not at all without the guard).
+# Started by wayvnc.service inside the graphical session. Two independent
+# layers keep VNC off every interface but tailscale0:
+#   - the listening socket itself: created here bound to the tailscale0 address
+#     AND to the tailscale0 device (SO_BINDTODEVICE), then handed to wayvnc as
+#     an inherited fd. The kernel delivers connections to it only from
+#     tailscale0, whatever the firewall state. (Binding to the address alone
+#     does not: Linux accepts packets for a local address on any interface.)
+#   - agent-desktop-vnc-guard.service: nftables drops tcp/5900 off tailscale0.
+# It refuses to serve unless ~/.config/wayvnc/config passes the strict check
+# below and the guard unit is active. It keeps watching: if the tailscale0
+# address changes or the guard goes away, it stops wayvnc and exits non-zero
+# so systemd restarts it (on the new address, or not at all without the guard).
 # Credentials are generated on the machine, never kept in the dotfiles repo.
 # Connect from macOS Screen Sharing: vnc://<tailscale-hostname>:5900
 #
@@ -22,48 +24,73 @@ set -euo pipefail
 
 config="${XDG_CONFIG_HOME:-$HOME/.config}/wayvnc/config"
 guard=agent-desktop-vnc-guard.service
+port=5900
 
 die() {
     echo "wayvnc-tailscale: $*" >&2
     exit 1
 }
 
-# Strict reading of wayvnc's key=value format: every line must be exactly
-# `key=value` with a known key, each key at most once (wayvnc lets a later
-# duplicate win), auth on, a non-empty username and password, and no PAM or
-# legacy DES auth. Prints the first problem; never prints values.
+# Strict reading of wayvnc's key=value format. The file must be UTF-8 with no
+# NUL or other control bytes (wayvnc's C loader would cut a value at a NUL),
+# every non-empty line exactly `key=value` with a known key and no whitespace,
+# each key at most once (wayvnc lets a later duplicate win), auth on, a
+# non-empty username and password, and no PAM or legacy DES auth. Comments and
+# padded lines are rejected too: only the agent-desktop setup writes this file,
+# and it writes none. Prints the first problem; never prints values.
 check_config() {
-    [[ -f "$1" && -r "$1" ]] || {
-        echo "$1 is missing"
-        return 1
-    }
-    awk '
-        BEGIN {
-            split("address port enable_auth relax_encryption allow_broken_crypto " \
-                "enable_pam username password private_key_file certificate_file " \
-                "rsa_private_key_file use_relative_paths xkb_layout xkb_variant " \
-                "xkb_model xkb_options xkb_rules", names, " ")
-            for (i in names) known[names[i]] = 1
-        }
-        /^$/ { next }
-        !/^[a-z_]+=[^[:space:]]*$/ { print "line " NR " is not plain key=value"; bad = 1; exit }
-        {
-            key = substr($0, 1, index($0, "=") - 1)
-            value = substr($0, index($0, "=") + 1)
-            if (!(key in known)) { print "unknown key " key; bad = 1; exit }
-            if (key in seen) { print "duplicate key " key; bad = 1; exit }
-            seen[key] = 1
-            values[key] = value
-        }
-        END {
-            if (bad) exit 1
-            if (values["enable_auth"] != "true") { print "enable_auth=true is required"; exit 1 }
-            if (values["username"] == "") { print "a non-empty username is required"; exit 1 }
-            if (values["password"] == "") { print "a non-empty password is required"; exit 1 }
-            if ("enable_pam" in values && values["enable_pam"] != "false") { print "enable_pam is not allowed"; exit 1 }
-            if ("allow_broken_crypto" in values && values["allow_broken_crypto"] != "false") { print "allow_broken_crypto is not allowed"; exit 1 }
-        }
-    ' "$1"
+    python3 -I - "$1" <<'PY'
+import re
+import sys
+
+KNOWN = {
+    'address', 'port', 'enable_auth', 'relax_encryption', 'allow_broken_crypto',
+    'enable_pam', 'username', 'password', 'private_key_file', 'certificate_file',
+    'rsa_private_key_file', 'use_relative_paths', 'xkb_layout', 'xkb_variant',
+    'xkb_model', 'xkb_options', 'xkb_rules',
+}
+
+
+def fail(message):
+    print(message)
+    sys.exit(1)
+
+
+path = sys.argv[1]
+try:
+    with open(path, 'rb') as handle:
+        data = handle.read()
+except OSError:
+    fail(f'{path} is missing or unreadable')
+try:
+    text = data.decode('utf-8')
+except UnicodeDecodeError:
+    fail('the file is not valid UTF-8')
+if any(ch != '\n' and (ord(ch) < 0x20 or 0x7f <= ord(ch) <= 0x9f) for ch in text):
+    fail('the file contains NUL or other control characters')
+values = {}
+for number, line in enumerate(text.split('\n'), 1):
+    if line == '':
+        continue
+    if not re.fullmatch(r'[a-z_]+=\S*', line):
+        fail(f'line {number} is not plain key=value')
+    key, value = line.split('=', 1)
+    if key not in KNOWN:
+        fail(f'unknown key {key}')
+    if key in values:
+        fail(f'duplicate key {key}')
+    values[key] = value
+if values.get('enable_auth') != 'true':
+    fail('enable_auth=true is required')
+if not values.get('username'):
+    fail('a non-empty username is required')
+if not values.get('password'):
+    fail('a non-empty password is required')
+if values.get('enable_pam', 'false') != 'false':
+    fail('enable_pam is not allowed')
+if values.get('allow_broken_crypto', 'false') != 'false':
+    fail('allow_broken_crypto is not allowed')
+PY
 }
 
 tailscale_addr() {
@@ -92,9 +119,20 @@ if [[ "$(cat "$neatvnc_lib/built-for" 2>/dev/null)" == "$(pacman -Q neatvnc 2>/d
     export LD_LIBRARY_PATH="$neatvnc_lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
-# --render-cursor draws the pointer into the frames, so the viewer sees where
-# agents (and their uinput pointer) are pointing.
-wayvnc --config="$config" --render-cursor "$addr" 5900 &
+# Create the device-bound listener, then exec wayvnc on it (`fd:N`), keeping
+# the PID. --render-cursor draws the pointer into the frames, so the viewer
+# sees where agents (and their uinput pointer) are pointing.
+python3 -I -c '
+import os, socket, sys
+addr, port = sys.argv[1], int(sys.argv[2])
+listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+listener.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, b"tailscale0")
+listener.bind((addr, port))
+listener.listen(16)
+os.set_inheritable(listener.fileno(), True)
+os.execvp("wayvnc", ["wayvnc", *sys.argv[3:], "fd:%d" % listener.fileno()])
+' "$addr" "$port" --config="$config" --render-cursor &
 server=$!
 trap 'kill "$server" 2>/dev/null || true' EXIT
 

@@ -1,18 +1,41 @@
 {{- /*
   Agent desktop (machine.autologin) setup, and its undo.
-  - autologin on (Linux): the setup below.
-  - autologin off, but this machine was set up before (the setup leaves
-    ~/.local/state/agent-desktop/enabled-at): the opt-out transition.
+  - autologin on (Linux): the setup below. Its first action records the
+    opt-in in ~/.local/state/agent-desktop/enabled-at.
+  - autologin off on a Linux machine that carries that marker, or any piece
+    the setup installs (also covers interrupted and pre-marker installs):
+    the opt-out transition, which keeps the marker until it fully succeeds.
   - every other machine: renders empty, so nothing runs.
-  Each branch embeds the other's state file, so a later opt-in or opt-out
-  renders new content and runs again.
+  Each branch embeds the other's state, so a later opt-in or opt-out renders
+  new content and runs again.
 */ -}}
 {{- $linux := eq .chezmoi.os "linux" -}}
 {{- $enable := and $linux (get (get . "machine" | default dict) "autologin") -}}
-{{- $stateDir := joinPath .chezmoi.homeDir ".local/state/agent-desktop" -}}
+{{- $home := .chezmoi.homeDir -}}
+{{- $stateDir := joinPath $home ".local/state/agent-desktop" -}}
 {{- $enabledAt := joinPath $stateDir "enabled-at" -}}
 {{- $disabledAt := joinPath $stateDir "disabled-at" -}}
-{{- $disable := and $linux (not $enable) (stat $enabledAt) -}}
+{{- $footprint := list -}}
+{{- if and $linux (not $enable) -}}
+{{-   range $path := list $enabledAt
+        (joinPath $home ".config/systemd/user/wayvnc.service")
+        (joinPath $home ".config/systemd/user/agent-chrome.service")
+        (joinPath $home ".config/systemd/user/graphical-session.target.wants/wayvnc.service")
+        (joinPath $home ".config/systemd/user/graphical-session.target.wants/agent-chrome.service")
+        (joinPath $home ".local/bin/computer-use-linux-session")
+        (joinPath $home ".local/bin/computer-use-linux")
+        (joinPath $home ".local/bin/wayvnc-tailscale")
+        (joinPath $home ".local/lib/wayvnc")
+        "/etc/systemd/system/agent-desktop-vnc-guard.service"
+        "/etc/systemd/system/nftables.service.d/agent-desktop-vnc-guard.conf"
+        "/etc/udev/rules.d/60-agent-desktop-uinput.rules" -}}
+{{-     if stat $path }}{{ $footprint = append $footprint $path }}{{ end -}}
+{{-   end -}}
+{{-   range $config := list (joinPath $home ".codex/config.toml") (joinPath $home ".claude.json") (joinPath $home ".claude-t3-mixed/.claude.json") -}}
+{{-     if and (stat $config) (contains "computer-use-linux-session" (include $config)) }}{{ $footprint = append $footprint (printf "MCP entry in %s" $config) }}{{ end -}}
+{{-   end -}}
+{{- end -}}
+{{- $disable := gt (len $footprint) 0 -}}
 {{ if or $enable $disable -}}
 #!/usr/bin/env bash
 {{- if $enable }}
@@ -49,12 +72,17 @@
 #   last opt-out:          {{ if stat $disabledAt }}{{ include $disabledAt | trim }}{{ else }}never{{ end }}
 {{- else }}
 # Agent desktop opt-out: machine.autologin is off on a machine the agent-desktop
-# setup ran on (opted in at {{ include $enabledAt | trim }}). Undo the agent
-# access it added: MCP registrations, agent Chrome and wayvnc services, the
-# VNC firewall guard, the uinput rule, the session helpers, and hypridle's
-# no-lock policy (chezmoi has already restored hypridle.conf). Kept, because
-# they are data: the Chrome profile (~/.local/share/agent-chrome) and the
-# wayvnc credentials (~/.config/wayvnc/config).
+# setup ran on (opted in at {{ if stat $enabledAt }}{{ include $enabledAt | trim }}{{ else }}an unrecorded time{{ end }}). Undo the
+# agent access it added: MCP registrations, agent Chrome and wayvnc services,
+# the VNC firewall guard (only once nothing listens on 5900), the uinput rule,
+# the session helpers, and hypridle's no-lock policy (chezmoi has already
+# restored hypridle.conf). Any failure exits non-zero and keeps the marker, so
+# the next apply retries. Kept, because they are data: the Chrome profile
+# (~/.local/share/agent-chrome) and the wayvnc credentials.
+# Found here:
+{{- range $footprint }}
+#   - {{ . }}
+{{- end }}
 {{- end }}
 set -euo pipefail
 
@@ -71,8 +99,11 @@ wants="$user_units/graphical-session.target.wants"
 launcher="$HOME/.local/bin/computer-use-linux-session"
 vnc_config="$HOME/.config/wayvnc/config"
 neatvnc_lib="$HOME/.local/lib/wayvnc"
+vnc_restart_marker="$state_dir/wayvnc-restart-required"
 guard_unit=/etc/systemd/system/agent-desktop-vnc-guard.service
 guard_rules=/etc/agent-desktop/vnc-guard.nft
+guard_bundle=/etc/agent-desktop/nftables-with-vnc-guard.nft
+guard_dropin=/etc/systemd/system/nftables.service.d/agent-desktop-vnc-guard.conf
 uinput_rule=/etc/udev/rules.d/60-agent-desktop-uinput.rules
 uinput_module=/etc/modules-load.d/agent-desktop-uinput.conf
 
@@ -120,12 +151,25 @@ sudo -v
 
 echo "==> agent desktop: computer use, agent Chrome, wayvnc, no idle lock"
 
+# 0. Record the opt-in before changing anything, so turning machine.autologin
+#    off later runs the undo even if this run stops halfway.
+mkdir -p "$state_dir"
+[[ -s "$state_dir/enabled-at" ]] || date -Is >"$state_dir/enabled-at"
+
 # 1. VNC firewall guard, first and unconditionally: drop tcp/5900 on every
-#    interface except tailscale0 and lo. Binding wayvnc to the Tailscale address
-#    does not stop LAN hosts routing to it, and `iifname` matches interfaces
-#    that do not exist yet, so this holds before Tailscale is up. Its own
-#    system unit (not /etc/nftables.conf, whose SSH guard deliberately waits
-#    for tailscale0); wayvnc-tailscale refuses to serve while it is inactive.
+#    interface except tailscale0 and lo. It backs up the listener's own
+#    SO_BINDTODEVICE binding (see wayvnc-tailscale); `iifname` matches
+#    interfaces that do not exist yet, so it holds before Tailscale is up.
+#    - The rules file is one atomic transaction (add/delete/redefine): a reload
+#      never leaves a gap.
+#    - agent-desktop-vnc-guard.service loads it at boot and keeps it: stopping
+#      the unit never deletes the table (only the opt-out does, once nothing
+#      listens on 5900).
+#    - nftables.service, through a drop-in, loads /etc/nftables.conf and the
+#      guard in ONE transaction, so even a `flush ruleset` in that file never
+#      leaves the kernel without the guard, on restart or reload.
+#    Not part of /etc/nftables.conf itself, whose SSH guard deliberately waits
+#    for tailscale0.
 sudo pacman -S --needed --noconfirm nftables
 sudo install -d -m 0755 "$(dirname "$guard_rules")"
 sudo tee "$guard_rules" >/dev/null <<'EOF'
@@ -142,6 +186,25 @@ table inet vnc_guard {
   }
 }
 EOF
+sudo tee "$guard_bundle" >/dev/null <<EOF
+#!/usr/bin/nft -f
+# Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
+# nftables.service loads this instead of /etc/nftables.conf on agent desktops:
+# the system rules and the VNC guard in one transaction.
+include "/etc/nftables.conf"
+include "$guard_rules"
+EOF
+sudo nft -c -f "$guard_bundle"
+sudo install -d -m 0755 "$(dirname "$guard_dropin")"
+sudo tee "$guard_dropin" >/dev/null <<EOF
+# Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
+# Agent desktop: load the system rules and the VNC guard atomically.
+[Service]
+ExecStart=
+ExecStart=/usr/bin/nft -f $guard_bundle
+ExecReload=
+ExecReload=/usr/bin/nft -f $guard_bundle
+EOF
 sudo tee "$guard_unit" >/dev/null <<EOF
 # Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
 [Unit]
@@ -149,16 +212,14 @@ Description=Agent desktop: drop VNC (tcp/5900) off the Tailscale interface
 Documentation=man:nft(8)
 Wants=network-pre.target
 Before=network-pre.target
-# Re-applied whenever nftables.service is restarted.
 After=nftables.service
-PartOf=nftables.service
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/bin/nft -f $guard_rules
 ExecReload=/usr/bin/nft -f $guard_rules
-ExecStop=-/usr/bin/nft delete table inet vnc_guard
+# No ExecStop: stopping or restarting this unit never removes the guard.
 
 [Install]
 WantedBy=multi-user.target
@@ -173,12 +234,14 @@ echo "  ✓ VNC firewall guard active (tcp/5900 dropped off tailscale0)"
 #    Sharing authenticates with Apple Diffie-Hellman (username + password),
 #    which wayvnc offers only with relax_encryption; the traffic itself rides
 #    inside Tailscale's WireGuard tunnel. A config that fails the wrapper's
-#    strict check (no auth, duplicate keys, empty password, ...) is set aside
-#    and any server using it is stopped at once, before anything else here
-#    can fail.
+#    strict check (no auth, duplicate keys, empty or NUL password, ...) is set
+#    aside, and any server using it is stopped at once, before anything else
+#    here can fail. Whenever the server must pick up new files, a persistent
+#    marker records it until a restart succeeds (step 9).
 if [[ -e "$vnc_config" ]] && ! wayvnc-tailscale --check-config "$vnc_config"; then
-    if user_manager; then
-        systemctl --user stop wayvnc.service || true
+    touch "$vnc_restart_marker"
+    if user_manager && systemctl --user is-active --quiet wayvnc.service; then
+        systemctl --user stop wayvnc.service
     fi
     mv "$vnc_config" "$vnc_config.bak-$(date +%Y%m%d-%H%M%S)"
     echo "  ⚠ stopped wayvnc and set aside a wayvnc config that failed the check ($vnc_config.bak-*)"
@@ -197,6 +260,7 @@ if [[ ! -e "$vnc_config" ]]; then
     unset password
     wayvnc-tailscale --check-config "$new_config"
     chmod 0600 "$new_config"
+    touch "$vnc_restart_marker"
     mv -f "$new_config" "$vnc_config"
     trap - EXIT
     echo "  ✓ generated wayvnc credentials in $vnc_config"
@@ -292,6 +356,7 @@ if [[ "$neatvnc_pkg" == "neatvnc 1.0.3-1" ]]; then
         done
         meson setup --buildtype=release -Djpeg=enabled -Dtls=enabled "$tmp/build" "$tmp/src" >/dev/null
         meson compile -C "$tmp/build" >/dev/null
+        touch "$vnc_restart_marker" # the running server maps the old library
         rm -rf "$neatvnc_lib"
         install -d "$neatvnc_lib"
         install -m 0755 "$tmp/build/libneatvnc.so.1.0.3" "$neatvnc_lib/"
@@ -301,6 +366,7 @@ if [[ "$neatvnc_pkg" == "neatvnc 1.0.3-1" ]]; then
         echo "  ✓ built patched libneatvnc for wayvnc in $neatvnc_lib"
     fi
 elif [[ -d "$neatvnc_lib" ]]; then
+    touch "$vnc_restart_marker" # the running server maps the old library
     rm -rf "$neatvnc_lib"
     echo "  ⚠ $neatvnc_pkg is installed: wayvnc now uses it. Check that macOS"
     echo "    Screen Sharing still connects (Apple DH); see 8057ec4a in neatvnc."
@@ -334,21 +400,23 @@ if user_manager; then
     if systemctl --user is-active --quiet graphical-session.target; then
         # agent-chrome keeps running (agents may be mid-task in it).
         systemctl --user start agent-chrome.service
-        # wayvnc: start it, or restart it when it predates its config, wrapper,
-        # unit or patched library. Decided from the files on every run, so an
-        # interrupted earlier run cannot leave an old server running.
+        # wayvnc: start it, or restart it when a run (this one or an earlier,
+        # interrupted one) left the restart marker, or when it predates its
+        # config, wrapper or unit. The marker goes only after the server is
+        # back up, so an old server can never survive a lost restart.
         if systemctl --user is-active --quiet wayvnc.service; then
             since=$(date -d "$(systemctl --user show -p ActiveEnterTimestamp --value wayvnc.service)" +%s)
             newest=$({ stat -c %Y "$vnc_config" "$HOME/.local/bin/wayvnc-tailscale" \
-                "$user_units/wayvnc.service" "$neatvnc_lib/built-for" 2>/dev/null || true; } |
-                sort -n | tail -n1)
-            if ((newest >= since)); then
+                "$user_units/wayvnc.service" 2>/dev/null || true; } | sort -n | tail -n1)
+            if [[ -e "$vnc_restart_marker" ]] || ((newest >= since)); then
                 systemctl --user restart wayvnc.service
                 echo "  ✓ restarted wayvnc (its files changed since it started)"
             fi
         else
             systemctl --user start wayvnc.service
         fi
+        systemctl --user is-active --quiet wayvnc.service
+        rm -f "$vnc_restart_marker"
         # A portal activated before the session (e.g. by an SSH agent) lacks the
         # Hyprland backend; the drop-in prevents that from now on, and this
         # heals an instance that is already stuck. Only touched when broken.
@@ -366,45 +434,73 @@ else
     echo "  ⚠ no user systemd manager now; the services start at the next login"
 fi
 
-# Remember the opt-in, so turning machine.autologin off later runs the undo.
-mkdir -p "$state_dir"
-[[ -s "$state_dir/enabled-at" ]] || date -Is >"$state_dir/enabled-at"
-
 echo "✓ agent desktop ready. Check: computer-use-linux-session doctor | jq .readiness"
 echo "  wayvnc: vnc://<tailscale-host>:5900, credentials in $vnc_config"
 {{- else }}
 
 echo "==> agent desktop opt-out: removing agent access"
 
-# Remote view first: stop and disable it, then the firewall guard.
+# 1. Stop the remote view and agent Chrome. Failing to stop them aborts the
+#    opt-out (non-zero, marker kept) rather than leaving them running.
 if user_manager; then
-    systemctl --user stop wayvnc.service agent-chrome.service 2>/dev/null || true
+    for unit in wayvnc.service agent-chrome.service; do
+        if systemctl --user is-active --quiet "$unit"; then
+            systemctl --user stop "$unit"
+        fi
+    done
+fi
+if pgrep -u "$uid" -x wayvnc >/dev/null; then
+    echo "wayvnc is still running; stop it, then re-run chezmoi apply" >&2
+    exit 1
 fi
 rm -f "$wants/wayvnc.service" "$wants/agent-chrome.service" \
     "$user_units/wayvnc.service" "$user_units/agent-chrome.service" \
     "$user_units/xdg-desktop-portal.service.d/agent-desktop.conf"
 rmdir "$user_units/xdg-desktop-portal.service.d" 2>/dev/null || true
-if [[ -e "$guard_unit" ]]; then
-    sudo systemctl disable --now agent-desktop-vnc-guard.service || true
-    sudo rm -f "$guard_unit"
-    sudo systemctl daemon-reload
-fi
-sudo rm -f "$guard_rules"
-sudo rmdir "$(dirname "$guard_rules")" 2>/dev/null || true
-echo "  ✓ wayvnc, agent Chrome and the VNC guard removed"
+echo "  ✓ wayvnc and agent Chrome stopped and removed"
 
-# MCP registrations.
-if command -v codex >/dev/null 2>&1; then
-    codex mcp remove computer-use-linux >/dev/null 2>&1 || true
+# 2. The firewall guard goes only once nothing listens on 5900.
+if [[ -n "$(ss -ltnH 'sport = :5900')" ]]; then
+    echo "something still listens on tcp/5900; keeping the VNC firewall guard" >&2
+    exit 1
+fi
+sudo rm -f "$guard_dropin"
+sudo rmdir "$(dirname "$guard_dropin")" 2>/dev/null || true
+if [[ -e "$guard_unit" ]]; then
+    sudo systemctl disable agent-desktop-vnc-guard.service
+    sudo rm -f "$guard_unit"
+fi
+sudo systemctl daemon-reload
+sudo systemctl reset-failed agent-desktop-vnc-guard.service 2>/dev/null || true
+if sudo nft list table inet vnc_guard >/dev/null 2>&1; then
+    sudo nft delete table inet vnc_guard
+fi
+sudo rm -f "$guard_rules" "$guard_bundle"
+sudo rmdir "$(dirname "$guard_rules")" 2>/dev/null || true
+echo "  ✓ VNC firewall guard removed"
+
+# 3. MCP registrations; each removal is checked.
+if command -v codex >/dev/null 2>&1 && codex mcp get computer-use-linux >/dev/null 2>&1; then
+    codex mcp remove computer-use-linux >/dev/null
+    if codex mcp get computer-use-linux >/dev/null 2>&1; then
+        echo "Codex still lists computer-use-linux" >&2
+        exit 1
+    fi
 fi
 if command -v claude >/dev/null 2>&1; then
     for config_dir in "${claude_homes[@]}"; do
-        claude_in "$config_dir" mcp remove --scope user computer-use-linux >/dev/null 2>&1 || true
+        if claude_in "$config_dir" mcp get computer-use-linux >/dev/null 2>&1; then
+            claude_in "$config_dir" mcp remove --scope user computer-use-linux >/dev/null
+            if claude_in "$config_dir" mcp get computer-use-linux >/dev/null 2>&1; then
+                echo "Claude (${config_dir:-$HOME/.claude}) still lists computer-use-linux" >&2
+                exit 1
+            fi
+        fi
     done
 fi
 echo "  ✓ computer-use-linux MCP registrations removed"
 
-# Session helpers, binaries, patched library and the agent-browser link.
+# 4. Session helpers, binaries, patched library and the agent-browser link.
 rm -f "$launcher" "$HOME/.local/bin/wayvnc-tailscale" \
     "$HOME/.local/bin/computer-use-linux" "$HOME/.local/bin/computer-use-linux-cosmic" \
     "$HOME/.local/bin/computer-use-linux-indicator"
@@ -414,21 +510,22 @@ if [[ -L "$HOME/.local/bin/agent-browser" &&
     rm -f "$HOME/.local/bin/agent-browser"
 fi
 
-# uinput access rule.
+# 5. uinput access rule.
 sudo rm -f "$uinput_rule" "$uinput_module"
 sudo udevadm control --reload
 sudo udevadm trigger --action=change --name-match=uinput
 echo "  ✓ uinput rule removed"
 
-# Restored idle/lock policy for the running session.
+# 6. Restored idle/lock policy for the running session.
 if user_manager; then
     systemctl --user daemon-reload
     restart_hypridle
 fi
 
-rm -f "$state_dir/enabled-at"
+# Done: only now drop the opt-in marker.
 mkdir -p "$state_dir"
 date -Is >"$state_dir/disabled-at"
+rm -f "$vnc_restart_marker" "$state_dir/enabled-at"
 echo "✓ agent access removed. Kept: ~/.local/share/agent-chrome (Chrome profile),"
 echo "  $vnc_config (wayvnc credentials), and the toolkit-accessibility setting."
 {{- end }}
