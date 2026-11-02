@@ -51,6 +51,15 @@ fi
 if ! command -v agent-browser >/dev/null 2>&1; then
     npm install -g agent-browser || sudo npm install -g agent-browser
 fi
+# Agents run non-interactive shells (T3, `zsh -lc`) that never read .zshrc, so
+# a user-prefix npm install is off their PATH; ~/.local/bin is on it.
+if [[ -x "$HOME/.npm-global/bin/agent-browser" ]] &&
+    ! PATH=/usr/local/bin:/usr/bin:/bin command -v agent-browser >/dev/null 2>&1 &&
+    [[ ! -e "$HOME/.local/bin/agent-browser" ]]; then
+    mkdir -p "$HOME/.local/bin"
+    ln -s "$HOME/.npm-global/bin/agent-browser" "$HOME/.local/bin/agent-browser"
+    echo "  ✓ linked agent-browser into ~/.local/bin"
+fi
 
 # 2. /dev/uinput for the absolute pointer. `uaccess` grants the active seat
 #    user an ACL (no `input` group, no re-login). Same rule KDE Connect ships;
