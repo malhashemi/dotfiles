@@ -201,12 +201,12 @@ restart_hypridle() {
         hyprctl dispatch 'hl.dsp.exec_cmd("hypridle")' >/dev/null
     echo "  ✓ hypridle restarted"
 }
-
-# Prime sudo once for the whole script.
-sudo -v
 {{- if $enable }}
 
 echo "==> agent desktop: computer use, agent Chrome, wayvnc, no idle lock"
+
+# Prime sudo once for the whole setup.
+sudo -v
 
 # 0. Record the opt-in before changing anything, so turning machine.autologin
 #    off later runs the undo even if this run stops halfway.
@@ -607,6 +607,9 @@ if ((${#proven[@]} == 0)); then
     exit 0
 fi
 echo "  proven ours: ${#proven[@]} item(s)"
+
+# Prime sudo only now: a machine with nothing of ours never touches sudo.
+sudo -v
 
 # 0. Record the intent first: an install without a marker (interrupted, or
 #    older than the marker) gets one now, and it is removed only at the very
