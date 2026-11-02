@@ -12,7 +12,8 @@
 #   3. Always ignore (git, cache, development)
 #   4. Ephemeral/sensitive files
 #   5. Runtime-generated theme files
-#   6. Optional mixed-model setup
+#   6. Agent desktop (computer use, agent Chrome, wayvnc)
+#   7. Optional mixed-model setup
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -226,7 +227,24 @@ thoughts/
 .config/ncspot/config.toml
 
 # -----------------------------------------------------------------------------
-# 6. Optional Mixed-Model Setup
+# 6. Agent Desktop (machine.autologin)
+# -----------------------------------------------------------------------------
+# Computer use, the agent Chrome and the wayvnc remote view exist only on Linux
+# desktops that auto-log in to Hyprland for agents. Everywhere else, skip them.
+{{- $agentDesktop := and (eq .chezmoi.os "linux") (get (get . "machine" | default dict) "autologin") }}
+{{- if not $agentDesktop }}
+.local/bin/computer-use-linux-session
+.local/bin/wayvnc-tailscale
+.config/systemd/user/agent-chrome.service
+.config/systemd/user/wayvnc.service
+.config/systemd/user/xdg-desktop-portal.service.d/
+{{- end }}
+
+# wayvnc credentials are generated on the machine (0600); never import them.
+.config/wayvnc/
+
+# -----------------------------------------------------------------------------
+# 7. Optional Mixed-Model Setup
 # -----------------------------------------------------------------------------
 {{- $ai := get . "ai" | default dict }}
 {{- if not (get $ai "enabled") }}

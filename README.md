@@ -92,6 +92,17 @@ These start automatically with the graphical session via user services (`walker`
 
 **Extras:** system-wide mac-style editing chords (`ALT+C/V/X/A/Z`), a bilingual **US + Arabic** keyboard (toggle by pressing both `Ctrl` keys), touchpad workspace gestures, and per-app window rules. See [Key Bindings](#key-bindings) for the essentials, or press **`SUPER+K`** in the desktop for the full searchable cheatsheet.
 
+### Agent desktops (`machine.autologin`)
+
+A Linux desktop that answers yes to "Log in to Hyprland automatically at boot" is set up for AI agents that reach it over SSH (`run_onchange_after_agent-desktop.sh.tmpl`):
+
+| Piece | What it is |
+|-------|------------|
+| **No idle lock** | hypridle keeps the screen unlocked and on (no dim, lock, display-off or suspend) |
+| **Computer use** | [computer-use-linux](https://github.com/agent-sh/computer-use-linux) (pinned, sha256-checked) as the `computer-use-linux` MCP server for Codex and Claude Code. `~/.local/bin/computer-use-linux-session` borrows the live Hyprland session environment, so it works from SSH and T3 sessions: `computer-use-linux-session doctor \| jq .readiness` |
+| **Agent Chrome** | `agent-chrome.service`: Chrome with its own profile (`~/.local/share/agent-chrome`), DevTools on `127.0.0.1:9222`: `agent-browser --cdp 9222 open https://example.com` |
+| **Remote view** | `wayvnc.service` on the Tailscale address only (port 5900, also firewalled), for macOS Screen Sharing at `vnc://<tailscale-host>:5900`. Username and password are generated into `~/.config/wayvnc/config` (0600) on the machine |
+
 ---
 
 ## Voice Dictation (voice-typer)

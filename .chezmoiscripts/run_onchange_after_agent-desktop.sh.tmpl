@@ -1,0 +1,197 @@
+{{ if and (eq .chezmoi.os "linux") (get (get . "machine" | default dict) "autologin") -}}
+#!/usr/bin/env bash
+# Agent desktop (machine.autologin): make this Hyprland desktop drivable by AI
+# agents that reach it over SSH (T3, Codex, Claude Code). Delivers:
+#   - computer use: computer-use-linux (pinned release binaries, sha256-checked)
+#       in ~/.local/bin, run through ~/.local/bin/computer-use-linux-session,
+#       which borrows the live Hyprland session environment. Registered as the
+#       `computer-use-linux` MCP server for Codex and for Claude Code in both
+#       config homes (~/.claude and ~/.claude-t3-mixed, the one T3 uses).
+#   - input: /dev/uinput (absolute pointer) via a uaccess udev rule, so the
+#       logged-in seat user gets it without group changes or a re-login; text
+#       and keys go through wtype on Hyprland.
+#   - accessibility: AT-SPI on (toolkit-accessibility), for element trees.
+#   - agent Chrome: agent-chrome.service, its own profile in
+#       ~/.local/share/agent-chrome, DevTools on 127.0.0.1:9222 for agent-browser.
+#   - remote view: wayvnc.service on the Tailscale address only (port 5900),
+#       credentials generated here into ~/.config/wayvnc/config (0600).
+#   - no idle lock: hypridle.conf renders without lock/dpms/suspend listeners
+#       here; the running hypridle is restarted to pick it up.
+#
+# Idempotent; re-runs whenever this script or a hashed file below changes. It
+# never restarts the Hyprland session, T3 or running agents.
+#   hypridle.conf:         {{ include "dot_config/hypr/hypridle.conf.tmpl" | sha256sum }}
+#   agent-chrome.service:  {{ include "dot_config/systemd/user/agent-chrome.service" | sha256sum }}
+#   wayvnc.service:        {{ include "dot_config/systemd/user/wayvnc.service" | sha256sum }}
+#   portal drop-in:        {{ include "dot_config/systemd/user/xdg-desktop-portal.service.d/agent-desktop.conf" | sha256sum }}
+#   session launcher:      {{ include "dot_local/bin/executable_computer-use-linux-session" | sha256sum }}
+#   wayvnc wrapper:        {{ include "dot_local/bin/executable_wayvnc-tailscale" | sha256sum }}
+set -euo pipefail
+
+echo "==> agent desktop: computer use, agent Chrome, wayvnc, no idle lock"
+
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
+uid=$(id -u)
+runtime="/run/user/$uid"
+launcher="$HOME/.local/bin/computer-use-linux-session"
+# Tailscale SSH sessions skip pam_systemd; point user-bus tools at the session.
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-$runtime}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
+
+# Prime sudo once for the whole script.
+sudo -v
+
+# 1. Packages. wayvnc serves the session, wtype types text on Hyprland, grim
+#    backs computer-use-linux's Hyprland window capture.
+sudo pacman -S --needed --noconfirm wayvnc wtype grim jq at-spi2-core
+if ! command -v google-chrome-stable >/dev/null 2>&1; then
+    yay -S --needed --noconfirm google-chrome
+fi
+if ! command -v agent-browser >/dev/null 2>&1; then
+    npm install -g agent-browser || sudo npm install -g agent-browser
+fi
+
+# 2. /dev/uinput for the absolute pointer. `uaccess` grants the active seat
+#    user an ACL (no `input` group, no re-login). Same rule KDE Connect ships;
+#    kept here so it does not depend on that package.
+echo uinput | sudo tee /etc/modules-load.d/agent-desktop-uinput.conf >/dev/null
+sudo modprobe uinput
+sudo tee /etc/udev/rules.d/60-agent-desktop-uinput.rules >/dev/null <<'EOF'
+# Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
+# computer-use-linux synthesizes pointer input through /dev/uinput; give the
+# logged-in seat user access through a logind ACL.
+KERNEL=="uinput", SUBSYSTEM=="misc", TAG+="uaccess", OPTIONS+="static_node=uinput"
+EOF
+sudo udevadm control --reload
+sudo udevadm trigger --action=change --name-match=uinput
+
+# 3. computer-use-linux release binaries, pinned and checked against both the
+#    published .sha256 files and the hashes below. Bump all three together.
+version=0.7.36
+declare -A sha256=(
+    [computer-use-linux]=d18c837cea6fa038475a2fbc94e6f238ad6722143375e263d1835533fd42b0ff
+    [computer-use-linux-cosmic]=a75106aa2c67f1acbc68086965f73852e44abf5c38117ed058d6e5e14c3e5a0b
+    [computer-use-linux-indicator]=4014b4dc18c5c9356f6ecf982459f895b1679a82ac4ed5655e1195e1231860e0
+)
+base="https://github.com/agent-sh/computer-use-linux/releases/download/v$version"
+mkdir -p "$HOME/.local/bin"
+for binary in computer-use-linux computer-use-linux-cosmic computer-use-linux-indicator; do
+    dest="$HOME/.local/bin/$binary"
+    want="${sha256[$binary]}"
+    if [[ -x "$dest" ]] && [[ "$(sha256sum "$dest" | cut -d' ' -f1)" == "$want" ]]; then
+        echo "  ✓ $binary $version already installed"
+        continue
+    fi
+    asset="$binary-x86_64-unknown-linux-gnu"
+    tmp=$(mktemp -d)
+    curl -fsSL --retry 3 -o "$tmp/$asset" "$base/$asset"
+    curl -fsSL --retry 3 -o "$tmp/$asset.sha256" "$base/$asset.sha256"
+    (cd "$tmp" && sha256sum -c --quiet "$asset.sha256")
+    echo "$want  $tmp/$asset" | sha256sum -c --quiet
+    install -m 0755 "$tmp/$asset" "$dest"
+    rm -rf "$tmp"
+    echo "  ✓ $binary $version installed"
+done
+
+# 4. AT-SPI accessibility, so computer-use-linux can read element trees
+#    (persists in dconf; the running AT-SPI bus follows the setting).
+if command -v gsettings >/dev/null 2>&1; then
+    gsettings set org.gnome.desktop.interface toolkit-accessibility true ||
+        echo "  ⚠ could not enable toolkit-accessibility (no session bus?)"
+fi
+
+# 5. wayvnc credentials: generated once, kept only on this machine. macOS Screen
+#    Sharing authenticates with Apple Diffie-Hellman (username + password),
+#    which wayvnc offers only with relax_encryption; the traffic itself rides
+#    inside Tailscale's WireGuard tunnel.
+vnc_config="$HOME/.config/wayvnc/config"
+if [[ ! -s "$vnc_config" ]]; then
+    install -d -m 0700 "$(dirname "$vnc_config")"
+    (
+        umask 077
+        cat >"$vnc_config" <<EOF
+enable_auth=true
+relax_encryption=true
+username=$(id -un)
+password=$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')
+EOF
+    )
+    echo "  ✓ generated wayvnc credentials in $vnc_config"
+fi
+chmod 0700 "$(dirname "$vnc_config")"
+chmod 0600 "$vnc_config"
+
+# 6. MCP registration. Codex keeps its servers in ~/.codex/config.toml; Claude
+#    Code keeps user-scope servers in <config dir>/.claude.json, once for the
+#    default home and once for the T3 home (CLAUDE_CONFIG_DIR).
+if command -v codex >/dev/null 2>&1; then
+    codex mcp remove computer-use-linux >/dev/null 2>&1 || true
+    codex mcp add computer-use-linux -- "$launcher" >/dev/null
+    echo "  ✓ Codex MCP: computer-use-linux"
+fi
+claude_in() {
+    # Run claude against one config home; "" is the default (~/.claude), even
+    # when this apply runs from inside a T3 session that exported another.
+    local config_dir=$1
+    shift
+    if [[ -n "$config_dir" ]]; then
+        CLAUDE_CONFIG_DIR="$config_dir" claude "$@"
+    else
+        env -u CLAUDE_CONFIG_DIR claude "$@"
+    fi
+}
+if command -v claude >/dev/null 2>&1; then
+    for config_dir in "" "$HOME/.claude-t3-mixed"; do
+        if [[ -n "$config_dir" && ! -d "$config_dir" ]]; then
+            continue
+        fi
+        claude_in "$config_dir" mcp remove --scope user computer-use-linux >/dev/null 2>&1 || true
+        claude_in "$config_dir" mcp add --scope user computer-use-linux -- "$launcher" >/dev/null
+        echo "  ✓ Claude MCP (${config_dir:-$HOME/.claude}): computer-use-linux"
+    done
+fi
+
+# Everything below needs the per-user systemd manager (present with linger).
+if ! systemctl --user show-environment >/dev/null 2>&1; then
+    echo "  ⚠ user systemd not available; enable services later with chezmoi apply"
+    exit 0
+fi
+
+# 7. Session services. Starting them is a no-op until the graphical session is
+#    up; WantedBy=graphical-session.target starts them at every login.
+systemctl --user daemon-reload
+systemctl --user enable agent-chrome.service wayvnc.service
+if systemctl --user is-active --quiet graphical-session.target; then
+    systemctl --user start agent-chrome.service wayvnc.service
+    # A portal activated before the session (e.g. by an SSH agent) lacks the
+    # Hyprland backend; the drop-in prevents that from now on, and this heals
+    # an instance that is already stuck. Only touched when broken.
+    if systemctl --user is-active --quiet xdg-desktop-portal.service; then
+        interfaces=$(busctl --user introspect org.freedesktop.portal.Desktop \
+            /org/freedesktop/portal/desktop 2>/dev/null || true)
+        if ! grep -q '^org.freedesktop.portal.Screenshot ' <<<"$interfaces"; then
+            systemctl --user restart xdg-desktop-portal.service
+            echo "  ✓ restarted xdg-desktop-portal (it was missing the Hyprland backend)"
+        fi
+    fi
+
+    # 8. hypridle reads its config only at start: restart just that process,
+    #    inside Hyprland, so the no-lock policy applies now.
+    hypr_pid=$(pgrep -n -u "$uid" -x Hyprland || true)
+    signature=""
+    for lock in "$runtime"/hypr/*/hyprland.lock; do
+        if [[ -f "$lock" && "$(head -n1 "$lock")" == "$hypr_pid" ]]; then
+            signature=$(basename "$(dirname "$lock")")
+        fi
+    done
+    if [[ -n "$hypr_pid" && -n "$signature" ]]; then
+        pkill -u "$uid" -x hypridle || true
+        XDG_RUNTIME_DIR="$runtime" HYPRLAND_INSTANCE_SIGNATURE="$signature" \
+            hyprctl dispatch 'hl.dsp.exec_cmd("hypridle")' >/dev/null
+        echo "  ✓ hypridle restarted with the agent-desktop (no lock) config"
+    fi
+fi
+
+echo "✓ agent desktop ready. Check: computer-use-linux-session doctor | jq .readiness"
+echo "  wayvnc: vnc://<tailscale-host>:5900, credentials in $vnc_config"
+{{ end -}}

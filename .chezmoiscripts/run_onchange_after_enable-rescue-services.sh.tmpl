@@ -62,10 +62,26 @@ table inet ssh_guard {
     tcp dport 22 iifname != { "lo", "tailscale0" } drop comment "SSH: Tailscale-only"
   }
 }
+{{- if get (get . "machine" | default dict) "autologin" }}
+
+# Agent desktop (machine.autologin): the wayvnc remote view binds only to the
+# Tailscale address; also drop tcp/5900 arriving on any other interface.
+add table inet vnc_guard
+delete table inet vnc_guard
+table inet vnc_guard {
+  chain input {
+    type filter hook input priority filter; policy accept;
+    tcp dport 5900 iifname != { "lo", "tailscale0" } drop comment "wayvnc: Tailscale-only"
+  }
+}
+{{- end }}
 EOF
     sudo systemctl enable --now nftables.service
     sudo nft -f /etc/nftables.conf
     echo "  ✓ SSH firewalled to Tailscale only (tcp/22 dropped off tailscale0)"
+{{- if get (get . "machine" | default dict) "autologin" }}
+    echo "  ✓ VNC firewalled to Tailscale only (tcp/5900 dropped off tailscale0)"
+{{- end }}
 else
     echo "  ⚠ tailscale0 not up — SSH left open (firewall skipped to avoid lockout)."
     echo "    Bring up Tailscale, then re-run: chezmoi apply"

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Run computer-use-linux inside the live Hyprland session, from anywhere.
+#
+# Agents reach this desktop over SSH (T3, Codex, Claude Code), so their processes
+# carry no Wayland/Hyprland session environment. This launcher borrows it from
+# the running compositor, then execs `computer-use-linux` (default: `mcp`, the
+# stdio MCP server). Any arguments replace the default, e.g.:
+#     computer-use-linux-session doctor | jq .readiness
+#     computer-use-linux-session windows
+#
+# Agent desktops only (machine.autologin): installed by
+# .chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl, which also
+# registers this launcher as the `computer-use-linux` MCP server.
+set -euo pipefail
+
+die() {
+    echo "computer-use-linux-session: $*" >&2
+    exit 1
+}
+
+uid=$(id -u)
+bin="${COMPUTER_USE_LINUX_BIN:-$HOME/.local/bin/computer-use-linux}"
+[[ -x "$bin" ]] || die "$bin is missing; run chezmoi apply on this agent desktop."
+
+# The newest Hyprland owned by this user is the live session.
+pid=$(pgrep -n -u "$uid" -x Hyprland || true)
+[[ -n "$pid" ]] || die "no Hyprland session is running for $(id -un); log in to the desktop (it auto-logs in at boot) and retry."
+
+# Hyprland's own /proc environ predates the variables it exports to its
+# children, so take only the login basics from it ...
+while IFS= read -r -d '' entry; do
+    case "${entry%%=*}" in
+        XDG_RUNTIME_DIR | DBUS_SESSION_BUS_ADDRESS | XDG_CURRENT_DESKTOP | XDG_SESSION_DESKTOP | XDG_SESSION_TYPE)
+            export "${entry?}"
+            ;;
+    esac
+done <"/proc/$pid/environ"
+export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$uid}"
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
+
+# ... and find its instance from the lock file Hyprland writes for each
+# instance: line 1 is the compositor PID, line 2 its Wayland socket.
+signature="" wayland=""
+for lock in "$XDG_RUNTIME_DIR"/hypr/*/hyprland.lock; do
+    [[ -f "$lock" ]] || continue
+    { read -r lock_pid && read -r lock_socket; } <"$lock" || continue
+    if [[ "$lock_pid" == "$pid" ]]; then
+        signature=$(basename "$(dirname "$lock")")
+        wayland="$lock_socket"
+        break
+    fi
+done
+[[ -n "$signature" && -S "$XDG_RUNTIME_DIR/$wayland" ]] ||
+    die "Hyprland (pid $pid) is running but its instance lock or Wayland socket under $XDG_RUNTIME_DIR was not found."
+export HYPRLAND_INSTANCE_SIGNATURE="$signature" WAYLAND_DISPLAY="$wayland"
+
+# Xwayland, when running, for X11 clients and their window metadata.
+xwayland=$(pgrep -a -n -u "$uid" -x Xwayland || true)
+if [[ "$xwayland" =~ \ (:[0-9]+)(\ |$) ]]; then
+    export DISPLAY="${BASH_REMATCH[1]}"
+fi
+export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Hyprland}" XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-wayland}"
+
+# The on-screen activity overlay ships next to the main binary.
+indicator="$(dirname "$bin")/computer-use-linux-indicator"
+[[ -x "$indicator" ]] && export COMPUTER_USE_LINUX_INDICATOR_BIN="${COMPUTER_USE_LINUX_INDICATOR_BIN:-$indicator}"
+
+if (($# == 0)); then
+    set -- mcp
+fi
+exec "$bin" "$@"

@@ -1,0 +1,34 @@
+[Unit]
+Description=Google Chrome for agents (own profile, DevTools on 127.0.0.1:9222)
+Documentation=https://chromedevtools.github.io/devtools-protocol/
+# Agent desktops only (machine.autologin). A visible Chrome in the Hyprland
+# session with its own --user-data-dir, separate from the default profile, so
+# agents attach over CDP (`agent-browser --cdp 9222 ...`) and computer use sees
+# the same window. Sign-ins happen by hand over VNC; nothing here signs in.
+# Keyed off the uwsm-activated graphical-session.target so it inherits
+# WAYLAND_DISPLAY (same pattern as flameshot/walker).
+After=graphical-session.target
+PartOf=graphical-session.target
+Requisite=graphical-session.target
+
+[Service]
+Type=simple
+# Chrome serves DevTools only on loopback for a non-default --user-data-dir.
+# --force-renderer-accessibility exposes page content to AT-SPI for
+# computer-use-linux; --password-store=basic avoids keyring unlock prompts that
+# an unattended (autologin) session cannot answer.
+ExecStart=/usr/bin/google-chrome-stable \
+    --user-data-dir=%h/.local/share/agent-chrome \
+    --remote-debugging-address=127.0.0.1 \
+    --remote-debugging-port=9222 \
+    --class=agent-chrome \
+    --force-renderer-accessibility \
+    --password-store=basic \
+    --no-first-run \
+    --no-default-browser-check
+# Agents rely on it being there; bring it back if it is closed or crashes.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target
