@@ -27,6 +27,7 @@
       "computer-use-linux-indicator" "4014b4dc18c5c9356f6ecf982459f895b1679a82ac4ed5655e1195e1231860e0" -}}
 {{- $owned := list -}}
 {{- $lookalikes := list -}}
+{{- $hints := list -}}
 {{- if and $linux (not $enable) -}}
 {{-   range $path := list
         (joinPath $home ".config/systemd/user/wayvnc.service")
@@ -54,10 +55,13 @@
 {{-     end -}}
 {{-   end -}}
 {{-   range $config := list (joinPath $home ".codex/config.toml") (joinPath $home ".claude.json") (joinPath $home ".claude-t3-mixed/.claude.json") -}}
-{{-     if and (stat $config) (contains (printf "%q" $launcher) (include $config)) }}{{ $owned = append $owned (printf "MCP entry in %s" $config) }}{{ end -}}
+{{-     if and (stat $config) (contains "computer-use-linux-session" (include $config)) }}{{ $hints = append $hints $config }}{{ end -}}
 {{-   end -}}
 {{- end -}}
-{{- $disable := and $linux (not $enable) (or (stat $enabledAt) (gt (len $owned) 0)) -}}
+{{- /* MCP configs are only a hint here (templates cannot parse them safely);
+       the script's runtime gate parses them and changes nothing unless
+       something is proven ours. */ -}}
+{{- $disable := and $linux (not $enable) (or (stat $enabledAt) (gt (len $owned) 0) (gt (len $hints) 0)) -}}
 {{ if or $enable $disable -}}
 #!/usr/bin/env bash
 {{- if $enable }}
@@ -109,6 +113,11 @@
 {{- range $lookalikes }}
 #   - {{ . }}
 {{- end }}
+# MCP configs mentioning our launcher (parsed at runtime; only an entry whose
+# command is exactly our launcher counts as ours):
+{{- range $hints }}
+#   - {{ . }}
+{{- end }}
 {{- end }}
 set -euo pipefail
 
@@ -142,8 +151,21 @@ guard_dropin=/etc/systemd/system/nftables.service.d/agent-desktop-vnc-guard.conf
 uinput_rule=/etc/udev/rules.d/60-agent-desktop-uinput.rules
 uinput_module=/etc/modules-load.d/agent-desktop-uinput.conf
 
+# user_manager: 0 when the user systemd manager answers, 1 only when it is
+# positively absent (no `systemd --user` process for us and no private
+# socket). A manager that seems to exist but does not answer, or a failing
+# pgrep, aborts the script (non-zero), so no step is skipped by mistake.
 user_manager() {
-    systemctl --user show-environment >/dev/null 2>&1
+    local rc=0
+    if systemctl --user show-environment >/dev/null 2>&1; then
+        return 0
+    fi
+    pgrep -u "$uid" -x systemd >/dev/null || rc=$?
+    if ((rc == 1)) && [[ ! -S "$XDG_RUNTIME_DIR/systemd/private" ]]; then
+        return 1
+    fi
+    echo "agent-desktop: cannot tell whether the user systemd manager runs (it seems to exist but does not answer, or pgrep failed); retry with chezmoi apply" >&2
+    exit 1
 }
 
 claude_in() {
@@ -479,14 +501,6 @@ echo "  wayvnc: vnc://<tailscale-host>:5900, credentials in $vnc_config"
 
 echo "==> agent desktop opt-out: removing agent access"
 
-# 0. Record the intent first: an install without a marker (interrupted, or
-#    older than the marker) gets one now, and it is removed only at the very
-#    end, so any failure below (non-zero exit) is retried by the next apply.
-mkdir -p "$state_dir"
-if [[ ! -s "$state_dir/enabled-at" ]]; then
-    echo "unrecorded (opt-out began $(date -Is))" >"$state_dir/enabled-at"
-fi
-
 fail() {
     echo "agent-desktop opt-out: $*; nothing more removed, retry with chezmoi apply" >&2
     exit 1
@@ -563,14 +577,74 @@ else:
 PY
 }
 
+# Ownership gate, before changing anything: the same structured checks the
+# cleanup uses (ownership line, pinned hashes, parsed MCP configs whose
+# command is exactly our launcher). Nothing proven ours: change nothing.
+proven=()
+if [[ -s "$state_dir/enabled-at" ]]; then
+    proven+=("the opt-in marker")
+fi
+for path in "$user_units/wayvnc.service" "$user_units/agent-chrome.service" \
+    "$user_units/xdg-desktop-portal.service.d/agent-desktop.conf" "$launcher" \
+    "$HOME/.local/bin/wayvnc-tailscale" "$neatvnc_lib/agent-desktop-managed" \
+    "$HOME/.local/bin/computer-use-linux" "$HOME/.local/bin/computer-use-linux-cosmic" \
+    "$HOME/.local/bin/computer-use-linux-indicator" "$guard_unit" "$guard_dropin" \
+    "$guard_rules" "$guard_bundle" "$uinput_rule" "$uinput_module"; do
+    state=$(classify "$path") || fail "cannot inspect $path"
+    if [[ "$state" == owned ]]; then
+        proven+=("$path")
+    fi
+done
+for config in "$HOME/.codex/config.toml:toml" "$HOME/.claude.json:json" \
+    "$HOME/.claude-t3-mixed/.claude.json:json"; do
+    state=$(mcp_state "${config%:*}" "${config##*:}") || fail "cannot inspect ${config%:*}"
+    if [[ "$state" == owned ]]; then
+        proven+=("MCP entry in ${config%:*}")
+    fi
+done
+if ((${#proven[@]} == 0)); then
+    echo "  nothing here was provably written by the agent-desktop setup; nothing changed"
+    exit 0
+fi
+echo "  proven ours: ${#proven[@]} item(s)"
+
+# 0. Record the intent first: an install without a marker (interrupted, or
+#    older than the marker) gets one now, and it is removed only at the very
+#    end, so any failure below (non-zero exit) is retried by the next apply.
+mkdir -p "$state_dir"
+if [[ ! -s "$state_dir/enabled-at" ]]; then
+    echo "unrecorded (opt-out began $(date -Is))" >"$state_dir/enabled-at"
+fi
+
+# check_not_running LABEL PGREP-ARGS...: with no user manager we cannot stop
+# services, so succeed only if none of ours is running.
+check_not_running() {
+    local label=$1 rc=0
+    shift
+    pgrep -u "$uid" "$@" >/dev/null || rc=$?
+    case $rc in
+        0) fail "$label is running but the user systemd manager is absent; stop it first" ;;
+        1) ;;
+        *) fail "cannot check whether $label is running (pgrep failed)" ;;
+    esac
+}
+
 # 1. Stop and remove our session services (only units this setup wrote).
+if user_manager; then
+    manager=running
+else
+    manager=absent
+    check_not_running wayvnc -x wayvnc
+    check_not_running "the wayvnc-tailscale wrapper" -f "$HOME/.local/bin/wayvnc-tailscale"
+    check_not_running "the agent Chrome" -f "user-data-dir=$HOME/.local/share/agent-chrome"
+fi
 for unit in wayvnc.service agent-chrome.service; do
     state=$(classify "$user_units/$unit") || fail "cannot inspect $user_units/$unit"
     if [[ "$state" != owned ]]; then
         [[ "$state" == foreign ]] && echo "  ⚠ left $unit alone: not written by this setup"
         continue
     fi
-    if user_manager; then
+    if [[ "$manager" == running ]]; then
         active=$(systemctl --user show -p ActiveState --value "$unit") || fail "cannot query $unit"
         case $active in
             active | activating | reloading) systemctl --user stop "$unit" || fail "cannot stop $unit" ;;
@@ -655,10 +729,13 @@ remove_owned --sudo "$uinput_rule" "$uinput_module"
 sudo udevadm control --reload || fail "udevadm reload failed"
 sudo udevadm trigger --action=change --name-match=uinput || fail "udevadm trigger failed"
 
-# 6. Restored idle/lock policy for the running session.
-if user_manager; then
+# 6. Restored idle/lock policy for the running session. Without a user
+#    manager there is no session, so no hypridle may be running either.
+if [[ "$manager" == running ]]; then
     systemctl --user daemon-reload || fail "systemctl --user daemon-reload failed"
     restart_hypridle
+else
+    check_not_running hypridle -x hypridle
 fi
 
 # Done: only now drop the opt-in marker.
