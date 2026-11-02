@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# agent-desktop: managed by chezmoi (machine.autologin); the opt-out removes it.
 # Serve the Hyprland session over VNC on this machine's Tailscale address only.
 #
 # Started by wayvnc.service inside the graphical session. Two independent

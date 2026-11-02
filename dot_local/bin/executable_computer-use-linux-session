@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# agent-desktop: managed by chezmoi (machine.autologin); the opt-out removes it.
 # Run computer-use-linux inside the live Hyprland session, from anywhere.
 #
 # Agents reach this desktop over SSH (T3, Codex, Claude Code), so their processes

@@ -1,3 +1,4 @@
+# agent-desktop: managed by chezmoi (machine.autologin); the opt-out removes it.
 [Unit]
 Description=Google Chrome for agents (own profile, DevTools on 127.0.0.1:9222)
 Documentation=https://chromedevtools.github.io/devtools-protocol/
