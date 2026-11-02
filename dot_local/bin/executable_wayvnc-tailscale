@@ -1,36 +1,92 @@
 #!/usr/bin/env bash
 # Serve the Hyprland session over VNC on this machine's Tailscale address only.
 #
-# Started by wayvnc.service inside the graphical session. Binding to the
-# tailscale0 IPv4 address keeps the server off the LAN; the nftables guard in
-# run_onchange_after_enable-rescue-services.sh.tmpl also drops tcp/5900 on every
-# other interface. Credentials live in ~/.config/wayvnc/config (0600, generated
-# on the machine, never in the dotfiles repo). Connect from macOS Screen Sharing:
-#     vnc://<tailscale-hostname>:5900
+# Started by wayvnc.service inside the graphical session. It refuses to serve
+# unless:
+#   - ~/.config/wayvnc/config passes the strict check below (exactly one
+#     enable_auth=true, a username and a password, no duplicate or unknown keys);
+#   - agent-desktop-vnc-guard.service (nftables: tcp/5900 dropped on every
+#     interface but tailscale0 and lo) is active. Binding to the Tailscale
+#     address alone does not stop LAN hosts routing to it.
+# It then binds to the tailscale0 IPv4 address and keeps watching: if that
+# address changes or the guard goes away, it stops wayvnc and exits non-zero so
+# systemd restarts it (on the new address, or not at all without the guard).
+# Credentials are generated on the machine, never kept in the dotfiles repo.
+# Connect from macOS Screen Sharing: vnc://<tailscale-hostname>:5900
+#
+#     wayvnc-tailscale                 run the server (wayvnc.service does this)
+#     wayvnc-tailscale --check-config  validate the config only (exit 0 = ok)
 #
 # Agent desktops only (machine.autologin).
 set -euo pipefail
 
 config="${XDG_CONFIG_HOME:-$HOME/.config}/wayvnc/config"
-[[ -r "$config" ]] || {
-    echo "wayvnc-tailscale: $config is missing; run chezmoi apply." >&2
+guard=agent-desktop-vnc-guard.service
+
+die() {
+    echo "wayvnc-tailscale: $*" >&2
     exit 1
 }
-# Never serve the desktop without a password.
-grep -qx 'enable_auth=true' "$config" || {
-    echo "wayvnc-tailscale: $config does not set enable_auth=true; refusing to start." >&2
-    exit 1
+
+# Strict reading of wayvnc's key=value format: every line must be exactly
+# `key=value` with a known key, each key at most once (wayvnc lets a later
+# duplicate win), auth on, a non-empty username and password, and no PAM or
+# legacy DES auth. Prints the first problem; never prints values.
+check_config() {
+    [[ -f "$1" && -r "$1" ]] || {
+        echo "$1 is missing"
+        return 1
+    }
+    awk '
+        BEGIN {
+            split("address port enable_auth relax_encryption allow_broken_crypto " \
+                "enable_pam username password private_key_file certificate_file " \
+                "rsa_private_key_file use_relative_paths xkb_layout xkb_variant " \
+                "xkb_model xkb_options xkb_rules", names, " ")
+            for (i in names) known[names[i]] = 1
+        }
+        /^$/ { next }
+        !/^[a-z_]+=[^[:space:]]*$/ { print "line " NR " is not plain key=value"; bad = 1; exit }
+        {
+            key = substr($0, 1, index($0, "=") - 1)
+            value = substr($0, index($0, "=") + 1)
+            if (!(key in known)) { print "unknown key " key; bad = 1; exit }
+            if (key in seen) { print "duplicate key " key; bad = 1; exit }
+            seen[key] = 1
+            values[key] = value
+        }
+        END {
+            if (bad) exit 1
+            if (values["enable_auth"] != "true") { print "enable_auth=true is required"; exit 1 }
+            if (values["username"] == "") { print "a non-empty username is required"; exit 1 }
+            if (values["password"] == "") { print "a non-empty password is required"; exit 1 }
+            if ("enable_pam" in values && values["enable_pam"] != "false") { print "enable_pam is not allowed"; exit 1 }
+            if ("allow_broken_crypto" in values && values["allow_broken_crypto"] != "false") { print "allow_broken_crypto is not allowed"; exit 1 }
+        }
+    ' "$1"
 }
+
+tailscale_addr() {
+    ip -4 -o addr show dev tailscale0 2>/dev/null | awk '{ split($4, a, "/"); print a[1]; exit }'
+}
+
+if [[ "${1:-}" == "--check-config" ]]; then
+    problem=$(check_config "${2:-$config}") || {
+        echo "wayvnc-tailscale: ${2:-$config}: $problem" >&2
+        exit 1
+    }
+    exit 0
+fi
+
+problem=$(check_config "$config") || die "$config: $problem; refusing to start."
+systemctl is-active --quiet "$guard" || die "$guard is not active; refusing to serve VNC without the firewall guard."
 
 # tailscaled may still be connecting at boot; the unit restarts us until it is.
-addr=$(ip -4 -o addr show dev tailscale0 2>/dev/null | awk '{ split($4, a, "/"); print a[1]; exit }')
-[[ -n "$addr" ]] || {
-    echo "wayvnc-tailscale: tailscale0 has no IPv4 address yet." >&2
-    exit 1
-}
+addr=$(tailscale_addr)
+[[ -n "$addr" ]] || die "tailscale0 has no IPv4 address yet."
 
-# A patched libneatvnc (see run_onchange_after_agent-desktop.sh.tmpl, step 5b)
-# fixes the Apple DH crash; use it only while it matches the system package.
+# A patched libneatvnc (see run_onchange_after_agent-desktop.sh.tmpl) fixes the
+# Apple DH crash; use it only while it matches the system package.
 neatvnc_lib="$HOME/.local/lib/wayvnc"
 if [[ "$(cat "$neatvnc_lib/built-for" 2>/dev/null)" == "$(pacman -Q neatvnc 2>/dev/null)" ]]; then
     export LD_LIBRARY_PATH="$neatvnc_lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
@@ -38,4 +94,20 @@ fi
 
 # --render-cursor draws the pointer into the frames, so the viewer sees where
 # agents (and their uinput pointer) are pointing.
-exec wayvnc --config="$config" --render-cursor "$addr" 5900
+wayvnc --config="$config" --render-cursor "$addr" 5900 &
+server=$!
+trap 'kill "$server" 2>/dev/null || true' EXIT
+
+while kill -0 "$server" 2>/dev/null; do
+    sleep 15 &
+    wait $! || true
+    kill -0 "$server" 2>/dev/null || break
+    if [[ "$(tailscale_addr)" != "$addr" ]]; then
+        die "tailscale0 address changed from $addr; restarting on the new one."
+    fi
+    if ! systemctl is-active --quiet "$guard"; then
+        die "$guard stopped; shutting VNC down."
+    fi
+done
+trap - EXIT
+wait "$server"

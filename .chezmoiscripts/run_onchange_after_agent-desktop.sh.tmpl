@@ -1,5 +1,21 @@
-{{ if and (eq .chezmoi.os "linux") (get (get . "machine" | default dict) "autologin") -}}
+{{- /*
+  Agent desktop (machine.autologin) setup, and its undo.
+  - autologin on (Linux): the setup below.
+  - autologin off, but this machine was set up before (the setup leaves
+    ~/.local/state/agent-desktop/enabled-at): the opt-out transition.
+  - every other machine: renders empty, so nothing runs.
+  Each branch embeds the other's state file, so a later opt-in or opt-out
+  renders new content and runs again.
+*/ -}}
+{{- $linux := eq .chezmoi.os "linux" -}}
+{{- $enable := and $linux (get (get . "machine" | default dict) "autologin") -}}
+{{- $stateDir := joinPath .chezmoi.homeDir ".local/state/agent-desktop" -}}
+{{- $enabledAt := joinPath $stateDir "enabled-at" -}}
+{{- $disabledAt := joinPath $stateDir "disabled-at" -}}
+{{- $disable := and $linux (not $enable) (stat $enabledAt) -}}
+{{ if or $enable $disable -}}
 #!/usr/bin/env bash
+{{- if $enable }}
 # Agent desktop (machine.autologin): make this Hyprland desktop drivable by AI
 # agents that reach it over SSH (T3, Codex, Claude Code). Delivers:
 #   - computer use: computer-use-linux (pinned release binaries, sha256-checked)
@@ -12,61 +28,207 @@
 #       and keys go through wtype on Hyprland.
 #   - accessibility: AT-SPI on (toolkit-accessibility), for element trees.
 #   - agent Chrome: agent-chrome.service, its own profile in
-#       ~/.local/share/agent-chrome, DevTools on 127.0.0.1:9222 for agent-browser.
+#       ~/.local/share/agent-chrome, DevTools on 127.0.0.1:9222 for agent-browser
+#       (pinned, in the user's ~/.npm-global).
 #   - remote view: wayvnc.service on the Tailscale address only (port 5900),
-#       credentials generated here into ~/.config/wayvnc/config (0600), and a
-#       patched libneatvnc while Arch's build crashes on Apple DH auth.
+#       behind agent-desktop-vnc-guard.service (nftables, installed first and
+#       independent of Tailscale being up), credentials generated here into
+#       ~/.config/wayvnc/config (0600), and a patched libneatvnc while Arch's
+#       build crashes on Apple DH auth.
 #   - no idle lock: hypridle.conf renders without lock/dpms/suspend listeners
 #       here; the running hypridle is restarted to pick it up.
 #
-# Idempotent; re-runs whenever this script or a hashed file below changes. It
-# never restarts the Hyprland session, T3 or running agents.
+# Idempotent; re-runs whenever this script or a hashed file below changes, and
+# after a failed run. It never restarts the Hyprland session, T3 or agents.
 #   hypridle.conf:         {{ include "dot_config/hypr/hypridle.conf.tmpl" | sha256sum }}
 #   agent-chrome.service:  {{ include "dot_config/systemd/user/agent-chrome.service" | sha256sum }}
 #   wayvnc.service:        {{ include "dot_config/systemd/user/wayvnc.service" | sha256sum }}
 #   portal drop-in:        {{ include "dot_config/systemd/user/xdg-desktop-portal.service.d/agent-desktop.conf" | sha256sum }}
 #   session launcher:      {{ include "dot_local/bin/executable_computer-use-linux-session" | sha256sum }}
 #   wayvnc wrapper:        {{ include "dot_local/bin/executable_wayvnc-tailscale" | sha256sum }}
+#   last opt-out:          {{ if stat $disabledAt }}{{ include $disabledAt | trim }}{{ else }}never{{ end }}
+{{- else }}
+# Agent desktop opt-out: machine.autologin is off on a machine the agent-desktop
+# setup ran on (opted in at {{ include $enabledAt | trim }}). Undo the agent
+# access it added: MCP registrations, agent Chrome and wayvnc services, the
+# VNC firewall guard, the uinput rule, the session helpers, and hypridle's
+# no-lock policy (chezmoi has already restored hypridle.conf). Kept, because
+# they are data: the Chrome profile (~/.local/share/agent-chrome) and the
+# wayvnc credentials (~/.config/wayvnc/config).
+{{- end }}
 set -euo pipefail
-
-echo "==> agent desktop: computer use, agent Chrome, wayvnc, no idle lock"
 
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
 uid=$(id -u)
 runtime="/run/user/$uid"
-launcher="$HOME/.local/bin/computer-use-linux-session"
 # Tailscale SSH sessions skip pam_systemd; point user-bus tools at the session.
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-$runtime}"
 export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}"
 
+state_dir={{ $stateDir | quote }}
+user_units="$HOME/.config/systemd/user"
+wants="$user_units/graphical-session.target.wants"
+launcher="$HOME/.local/bin/computer-use-linux-session"
+vnc_config="$HOME/.config/wayvnc/config"
+neatvnc_lib="$HOME/.local/lib/wayvnc"
+guard_unit=/etc/systemd/system/agent-desktop-vnc-guard.service
+guard_rules=/etc/agent-desktop/vnc-guard.nft
+uinput_rule=/etc/udev/rules.d/60-agent-desktop-uinput.rules
+uinput_module=/etc/modules-load.d/agent-desktop-uinput.conf
+
+user_manager() {
+    systemctl --user show-environment >/dev/null 2>&1
+}
+
+claude_in() {
+    # Run claude against one config home; "" is the default (~/.claude), even
+    # when this apply runs from inside a T3 session that exported another.
+    local config_dir=$1
+    shift
+    if [[ -n "$config_dir" ]]; then
+        CLAUDE_CONFIG_DIR="$config_dir" claude "$@"
+    else
+        env -u CLAUDE_CONFIG_DIR claude "$@"
+    fi
+}
+claude_homes=("")
+if [[ -d "$HOME/.claude-t3-mixed" ]]; then
+    claude_homes+=("$HOME/.claude-t3-mixed")
+fi
+
+restart_hypridle() {
+    # hypridle reads its config only at start: restart just that process,
+    # inside the running Hyprland, so the current policy applies now.
+    local hypr_pid signature="" lock
+    hypr_pid=$(pgrep -n -u "$uid" -x Hyprland || true)
+    [[ -n "$hypr_pid" ]] || return 0
+    for lock in "$runtime"/hypr/*/hyprland.lock; do
+        if [[ -f "$lock" && "$(head -n1 "$lock")" == "$hypr_pid" ]]; then
+            signature=$(basename "$(dirname "$lock")")
+        fi
+    done
+    [[ -n "$signature" ]] || return 0
+    pkill -u "$uid" -x hypridle || true
+    XDG_RUNTIME_DIR="$runtime" HYPRLAND_INSTANCE_SIGNATURE="$signature" \
+        hyprctl dispatch 'hl.dsp.exec_cmd("hypridle")' >/dev/null
+    echo "  ✓ hypridle restarted"
+}
+
 # Prime sudo once for the whole script.
 sudo -v
+{{- if $enable }}
 
-# 1. Packages. wayvnc serves the session, wtype types text on Hyprland, grim
-#    backs computer-use-linux's Hyprland window capture.
+echo "==> agent desktop: computer use, agent Chrome, wayvnc, no idle lock"
+
+# 1. VNC firewall guard, first and unconditionally: drop tcp/5900 on every
+#    interface except tailscale0 and lo. Binding wayvnc to the Tailscale address
+#    does not stop LAN hosts routing to it, and `iifname` matches interfaces
+#    that do not exist yet, so this holds before Tailscale is up. Its own
+#    system unit (not /etc/nftables.conf, whose SSH guard deliberately waits
+#    for tailscale0); wayvnc-tailscale refuses to serve while it is inactive.
+sudo pacman -S --needed --noconfirm nftables
+sudo install -d -m 0755 "$(dirname "$guard_rules")"
+sudo tee "$guard_rules" >/dev/null <<'EOF'
+#!/usr/bin/nft -f
+# Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
+# Do not edit by hand. wayvnc: Tailscale-only. The add/delete/redefine prelude
+# makes reloading idempotent and atomic.
+add table inet vnc_guard
+delete table inet vnc_guard
+table inet vnc_guard {
+  chain input {
+    type filter hook input priority filter; policy accept;
+    tcp dport 5900 iifname != { "lo", "tailscale0" } drop comment "wayvnc: Tailscale-only"
+  }
+}
+EOF
+sudo tee "$guard_unit" >/dev/null <<EOF
+# Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
+[Unit]
+Description=Agent desktop: drop VNC (tcp/5900) off the Tailscale interface
+Documentation=man:nft(8)
+Wants=network-pre.target
+Before=network-pre.target
+# Re-applied whenever nftables.service is restarted.
+After=nftables.service
+PartOf=nftables.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/nft -f $guard_rules
+ExecReload=/usr/bin/nft -f $guard_rules
+ExecStop=-/usr/bin/nft delete table inet vnc_guard
+
+[Install]
+WantedBy=multi-user.target
+EOF
+sudo systemctl daemon-reload
+sudo systemctl enable agent-desktop-vnc-guard.service
+sudo systemctl reload-or-restart agent-desktop-vnc-guard.service
+sudo nft list table inet vnc_guard | grep -q 'wayvnc: Tailscale-only'
+echo "  ✓ VNC firewall guard active (tcp/5900 dropped off tailscale0)"
+
+# 2. wayvnc credentials: generated once, kept only on this machine. macOS Screen
+#    Sharing authenticates with Apple Diffie-Hellman (username + password),
+#    which wayvnc offers only with relax_encryption; the traffic itself rides
+#    inside Tailscale's WireGuard tunnel. A config that fails the wrapper's
+#    strict check (no auth, duplicate keys, empty password, ...) is set aside
+#    and any server using it is stopped at once, before anything else here
+#    can fail.
+if [[ -e "$vnc_config" ]] && ! wayvnc-tailscale --check-config "$vnc_config"; then
+    if user_manager; then
+        systemctl --user stop wayvnc.service || true
+    fi
+    mv "$vnc_config" "$vnc_config.bak-$(date +%Y%m%d-%H%M%S)"
+    echo "  ⚠ stopped wayvnc and set aside a wayvnc config that failed the check ($vnc_config.bak-*)"
+fi
+if [[ ! -e "$vnc_config" ]]; then
+    password=$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')
+    if [[ ! "$password" =~ ^[A-Za-z0-9_-]{24}$ ]]; then
+        echo "wayvnc password generation failed" >&2
+        exit 1
+    fi
+    install -d -m 0700 "$(dirname "$vnc_config")"
+    new_config=$(mktemp "$vnc_config.new.XXXXXX") # mktemp creates it 0600
+    trap 'rm -f "$new_config"' EXIT
+    printf 'enable_auth=true\nrelax_encryption=true\nusername=%s\npassword=%s\n' \
+        "$(id -un)" "$password" >"$new_config"
+    unset password
+    wayvnc-tailscale --check-config "$new_config"
+    chmod 0600 "$new_config"
+    mv -f "$new_config" "$vnc_config"
+    trap - EXIT
+    echo "  ✓ generated wayvnc credentials in $vnc_config"
+fi
+chmod 0700 "$(dirname "$vnc_config")"
+chmod 0600 "$vnc_config"
+
+# 3. Packages. wayvnc serves the session, wtype types text on Hyprland, grim
+#    backs computer-use-linux's Hyprland window capture. agent-browser is
+#    pinned in the user's npm prefix, never as root.
 sudo pacman -S --needed --noconfirm wayvnc wtype grim jq at-spi2-core
 if ! command -v google-chrome-stable >/dev/null 2>&1; then
     yay -S --needed --noconfirm google-chrome
 fi
-if ! command -v agent-browser >/dev/null 2>&1; then
-    npm install -g agent-browser || sudo npm install -g agent-browser
+agent_browser_version=0.27.0
+agent_browser="$HOME/.npm-global/bin/agent-browser"
+if [[ "$("$agent_browser" --version 2>/dev/null || true)" != "agent-browser $agent_browser_version" ]]; then
+    npm install -g --prefix "$HOME/.npm-global" "agent-browser@$agent_browser_version"
 fi
 # Agents run non-interactive shells (T3, `zsh -lc`) that never read .zshrc, so
-# a user-prefix npm install is off their PATH; ~/.local/bin is on it.
-if [[ -x "$HOME/.npm-global/bin/agent-browser" ]] &&
-    ! PATH=/usr/local/bin:/usr/bin:/bin command -v agent-browser >/dev/null 2>&1 &&
-    [[ ! -e "$HOME/.local/bin/agent-browser" ]]; then
-    mkdir -p "$HOME/.local/bin"
-    ln -s "$HOME/.npm-global/bin/agent-browser" "$HOME/.local/bin/agent-browser"
-    echo "  ✓ linked agent-browser into ~/.local/bin"
+# ~/.npm-global/bin is off their PATH; ~/.local/bin is on it.
+mkdir -p "$HOME/.local/bin"
+if [[ -L "$HOME/.local/bin/agent-browser" || ! -e "$HOME/.local/bin/agent-browser" ]]; then
+    ln -sfn "$agent_browser" "$HOME/.local/bin/agent-browser"
 fi
 
-# 2. /dev/uinput for the absolute pointer. `uaccess` grants the active seat
+# 4. /dev/uinput for the absolute pointer. `uaccess` grants the active seat
 #    user an ACL (no `input` group, no re-login). Same rule KDE Connect ships;
 #    kept here so it does not depend on that package.
-echo uinput | sudo tee /etc/modules-load.d/agent-desktop-uinput.conf >/dev/null
+echo uinput | sudo tee "$uinput_module" >/dev/null
 sudo modprobe uinput
-sudo tee /etc/udev/rules.d/60-agent-desktop-uinput.rules >/dev/null <<'EOF'
+sudo tee "$uinput_rule" >/dev/null <<'EOF'
 # Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
 # computer-use-linux synthesizes pointer input through /dev/uinput; give the
 # logged-in seat user access through a logind ACL.
@@ -75,7 +237,7 @@ EOF
 sudo udevadm control --reload
 sudo udevadm trigger --action=change --name-match=uinput
 
-# 3. computer-use-linux release binaries, pinned and checked against both the
+# 5. computer-use-linux release binaries, pinned and checked against both the
 #    published .sha256 files and the hashes below. Bump all three together.
 version=0.7.36
 declare -A sha256=(
@@ -84,7 +246,6 @@ declare -A sha256=(
     [computer-use-linux-indicator]=4014b4dc18c5c9356f6ecf982459f895b1679a82ac4ed5655e1195e1231860e0
 )
 base="https://github.com/agent-sh/computer-use-linux/releases/download/v$version"
-mkdir -p "$HOME/.local/bin"
 for binary in computer-use-linux computer-use-linux-cosmic computer-use-linux-indicator; do
     dest="$HOME/.local/bin/$binary"
     want="${sha256[$binary]}"
@@ -103,48 +264,19 @@ for binary in computer-use-linux computer-use-linux-cosmic computer-use-linux-in
     echo "  ✓ $binary $version installed"
 done
 
-# 4. AT-SPI accessibility, so computer-use-linux can read element trees
+# 6. AT-SPI accessibility, so computer-use-linux can read element trees
 #    (persists in dconf; the running AT-SPI bus follows the setting).
 if command -v gsettings >/dev/null 2>&1; then
     gsettings set org.gnome.desktop.interface toolkit-accessibility true ||
         echo "  ⚠ could not enable toolkit-accessibility (no session bus?)"
 fi
 
-# 5. wayvnc credentials: generated once, kept only on this machine. macOS Screen
-#    Sharing authenticates with Apple Diffie-Hellman (username + password),
-#    which wayvnc offers only with relax_encryption; the traffic itself rides
-#    inside Tailscale's WireGuard tunnel.
-#    A config without auth (e.g. from an older manual setup) is set aside and
-#    replaced, so the server never starts unauthenticated.
-vnc_config="$HOME/.config/wayvnc/config"
-if [[ -f "$vnc_config" ]] && ! { grep -qx 'enable_auth=true' "$vnc_config" && grep -q '^password=.' "$vnc_config"; }; then
-    mv "$vnc_config" "$vnc_config.bak-$(date +%Y%m%d-%H%M%S)"
-    echo "  ⚠ set aside a wayvnc config without auth ($vnc_config.bak-*)"
-fi
-if [[ ! -s "$vnc_config" ]]; then
-    install -d -m 0700 "$(dirname "$vnc_config")"
-    (
-        umask 077
-        cat >"$vnc_config" <<EOF
-enable_auth=true
-relax_encryption=true
-username=$(id -un)
-password=$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')
-EOF
-    )
-    echo "  ✓ generated wayvnc credentials in $vnc_config"
-    vnc_restart=1
-fi
-chmod 0700 "$(dirname "$vnc_config")"
-chmod 0600 "$vnc_config"
-
-# 5b. Apple Diffie-Hellman crashes wayvnc with Arch's neatvnc 1.0.3-1: its
-#     nettle 4 port lacks upstream's follow-up 8057ec4a, so the DH prime
-#     decodes to zero and GMP aborts as soon as a client picks that method.
-#     Build that release with the fix into a private dir that only
-#     wayvnc-tailscale loads, and only while the system has exactly that
-#     package; any other version falls back to the system library.
-neatvnc_lib="$HOME/.local/lib/wayvnc"
+# 7. Apple Diffie-Hellman crashes wayvnc with Arch's neatvnc 1.0.3-1: its
+#    nettle 4 port lacks upstream's follow-up 8057ec4a, so the DH prime
+#    decodes to zero and GMP aborts as soon as a client picks that method.
+#    Build that release with the fix into a private dir that only
+#    wayvnc-tailscale loads, and only while the system has exactly that
+#    package; any other version falls back to the system library.
 neatvnc_pkg=$(pacman -Q neatvnc)
 if [[ "$neatvnc_pkg" == "neatvnc 1.0.3-1" ]]; then
     if [[ "$(cat "$neatvnc_lib/built-for" 2>/dev/null)" != "$neatvnc_pkg" ]]; then
@@ -167,16 +299,14 @@ if [[ "$neatvnc_pkg" == "neatvnc 1.0.3-1" ]]; then
         echo "$neatvnc_pkg" >"$neatvnc_lib/built-for"
         rm -rf "$tmp"
         echo "  ✓ built patched libneatvnc for wayvnc in $neatvnc_lib"
-        vnc_restart=1
     fi
 elif [[ -d "$neatvnc_lib" ]]; then
     rm -rf "$neatvnc_lib"
     echo "  ⚠ $neatvnc_pkg is installed: wayvnc now uses it. Check that macOS"
     echo "    Screen Sharing still connects (Apple DH); see 8057ec4a in neatvnc."
-    vnc_restart=1
 fi
 
-# 6. MCP registration. Codex keeps its servers in ~/.codex/config.toml; Claude
+# 8. MCP registration. Codex keeps its servers in ~/.codex/config.toml; Claude
 #    Code keeps user-scope servers in <config dir>/.claude.json, once for the
 #    default home and once for the T3 home (CLAUDE_CONFIG_DIR).
 if command -v codex >/dev/null 2>&1; then
@@ -184,76 +314,122 @@ if command -v codex >/dev/null 2>&1; then
     codex mcp add computer-use-linux -- "$launcher" >/dev/null
     echo "  ✓ Codex MCP: computer-use-linux"
 fi
-claude_in() {
-    # Run claude against one config home; "" is the default (~/.claude), even
-    # when this apply runs from inside a T3 session that exported another.
-    local config_dir=$1
-    shift
-    if [[ -n "$config_dir" ]]; then
-        CLAUDE_CONFIG_DIR="$config_dir" claude "$@"
-    else
-        env -u CLAUDE_CONFIG_DIR claude "$@"
-    fi
-}
 if command -v claude >/dev/null 2>&1; then
-    for config_dir in "" "$HOME/.claude-t3-mixed"; do
-        if [[ -n "$config_dir" && ! -d "$config_dir" ]]; then
-            continue
-        fi
+    for config_dir in "${claude_homes[@]}"; do
         claude_in "$config_dir" mcp remove --scope user computer-use-linux >/dev/null 2>&1 || true
         claude_in "$config_dir" mcp add --scope user computer-use-linux -- "$launcher" >/dev/null
         echo "  ✓ Claude MCP (${config_dir:-$HOME/.claude}): computer-use-linux"
     done
 fi
 
-# Everything below needs the per-user systemd manager (present with linger).
-if ! systemctl --user show-environment >/dev/null 2>&1; then
-    echo "  ⚠ user systemd not available; enable services later with chezmoi apply"
-    exit 0
+# 9. Session services, enabled with plain symlinks (what `systemctl --user
+#    enable` writes), so this works without a running user manager; they
+#    start with graphical-session.target at every login.
+mkdir -p "$wants"
+for unit in agent-chrome.service wayvnc.service; do
+    ln -sfn "$user_units/$unit" "$wants/$unit"
+done
+if user_manager; then
+    systemctl --user daemon-reload
+    if systemctl --user is-active --quiet graphical-session.target; then
+        # agent-chrome keeps running (agents may be mid-task in it).
+        systemctl --user start agent-chrome.service
+        # wayvnc: start it, or restart it when it predates its config, wrapper,
+        # unit or patched library. Decided from the files on every run, so an
+        # interrupted earlier run cannot leave an old server running.
+        if systemctl --user is-active --quiet wayvnc.service; then
+            since=$(date -d "$(systemctl --user show -p ActiveEnterTimestamp --value wayvnc.service)" +%s)
+            newest=$({ stat -c %Y "$vnc_config" "$HOME/.local/bin/wayvnc-tailscale" \
+                "$user_units/wayvnc.service" "$neatvnc_lib/built-for" 2>/dev/null || true; } |
+                sort -n | tail -n1)
+            if ((newest >= since)); then
+                systemctl --user restart wayvnc.service
+                echo "  ✓ restarted wayvnc (its files changed since it started)"
+            fi
+        else
+            systemctl --user start wayvnc.service
+        fi
+        # A portal activated before the session (e.g. by an SSH agent) lacks the
+        # Hyprland backend; the drop-in prevents that from now on, and this
+        # heals an instance that is already stuck. Only touched when broken.
+        if systemctl --user is-active --quiet xdg-desktop-portal.service; then
+            interfaces=$(busctl --user introspect org.freedesktop.portal.Desktop \
+                /org/freedesktop/portal/desktop 2>/dev/null || true)
+            if ! grep -q '^org.freedesktop.portal.Screenshot ' <<<"$interfaces"; then
+                systemctl --user restart xdg-desktop-portal.service
+                echo "  ✓ restarted xdg-desktop-portal (it was missing the Hyprland backend)"
+            fi
+        fi
+        restart_hypridle
+    fi
+else
+    echo "  ⚠ no user systemd manager now; the services start at the next login"
 fi
 
-# 7. Session services. Starting them is a no-op until the graphical session is
-#    up; WantedBy=graphical-session.target starts them at every login.
-systemctl --user daemon-reload
-systemctl --user enable agent-chrome.service wayvnc.service
-if systemctl --user is-active --quiet graphical-session.target; then
-    # Running services keep going (agents may be mid-task in Chrome); wayvnc
-    # restarts only when its credentials were just (re)generated.
-    systemctl --user start agent-chrome.service
-    if [[ -n "${vnc_restart:-}" ]]; then
-        systemctl --user restart wayvnc.service
-    else
-        systemctl --user start wayvnc.service
-    fi
-    # A portal activated before the session (e.g. by an SSH agent) lacks the
-    # Hyprland backend; the drop-in prevents that from now on, and this heals
-    # an instance that is already stuck. Only touched when broken.
-    if systemctl --user is-active --quiet xdg-desktop-portal.service; then
-        interfaces=$(busctl --user introspect org.freedesktop.portal.Desktop \
-            /org/freedesktop/portal/desktop 2>/dev/null || true)
-        if ! grep -q '^org.freedesktop.portal.Screenshot ' <<<"$interfaces"; then
-            systemctl --user restart xdg-desktop-portal.service
-            echo "  ✓ restarted xdg-desktop-portal (it was missing the Hyprland backend)"
-        fi
-    fi
-
-    # 8. hypridle reads its config only at start: restart just that process,
-    #    inside Hyprland, so the no-lock policy applies now.
-    hypr_pid=$(pgrep -n -u "$uid" -x Hyprland || true)
-    signature=""
-    for lock in "$runtime"/hypr/*/hyprland.lock; do
-        if [[ -f "$lock" && "$(head -n1 "$lock")" == "$hypr_pid" ]]; then
-            signature=$(basename "$(dirname "$lock")")
-        fi
-    done
-    if [[ -n "$hypr_pid" && -n "$signature" ]]; then
-        pkill -u "$uid" -x hypridle || true
-        XDG_RUNTIME_DIR="$runtime" HYPRLAND_INSTANCE_SIGNATURE="$signature" \
-            hyprctl dispatch 'hl.dsp.exec_cmd("hypridle")' >/dev/null
-        echo "  ✓ hypridle restarted with the agent-desktop (no lock) config"
-    fi
-fi
+# Remember the opt-in, so turning machine.autologin off later runs the undo.
+mkdir -p "$state_dir"
+[[ -s "$state_dir/enabled-at" ]] || date -Is >"$state_dir/enabled-at"
 
 echo "✓ agent desktop ready. Check: computer-use-linux-session doctor | jq .readiness"
 echo "  wayvnc: vnc://<tailscale-host>:5900, credentials in $vnc_config"
+{{- else }}
+
+echo "==> agent desktop opt-out: removing agent access"
+
+# Remote view first: stop and disable it, then the firewall guard.
+if user_manager; then
+    systemctl --user stop wayvnc.service agent-chrome.service 2>/dev/null || true
+fi
+rm -f "$wants/wayvnc.service" "$wants/agent-chrome.service" \
+    "$user_units/wayvnc.service" "$user_units/agent-chrome.service" \
+    "$user_units/xdg-desktop-portal.service.d/agent-desktop.conf"
+rmdir "$user_units/xdg-desktop-portal.service.d" 2>/dev/null || true
+if [[ -e "$guard_unit" ]]; then
+    sudo systemctl disable --now agent-desktop-vnc-guard.service || true
+    sudo rm -f "$guard_unit"
+    sudo systemctl daemon-reload
+fi
+sudo rm -f "$guard_rules"
+sudo rmdir "$(dirname "$guard_rules")" 2>/dev/null || true
+echo "  ✓ wayvnc, agent Chrome and the VNC guard removed"
+
+# MCP registrations.
+if command -v codex >/dev/null 2>&1; then
+    codex mcp remove computer-use-linux >/dev/null 2>&1 || true
+fi
+if command -v claude >/dev/null 2>&1; then
+    for config_dir in "${claude_homes[@]}"; do
+        claude_in "$config_dir" mcp remove --scope user computer-use-linux >/dev/null 2>&1 || true
+    done
+fi
+echo "  ✓ computer-use-linux MCP registrations removed"
+
+# Session helpers, binaries, patched library and the agent-browser link.
+rm -f "$launcher" "$HOME/.local/bin/wayvnc-tailscale" \
+    "$HOME/.local/bin/computer-use-linux" "$HOME/.local/bin/computer-use-linux-cosmic" \
+    "$HOME/.local/bin/computer-use-linux-indicator"
+rm -rf "$neatvnc_lib"
+if [[ -L "$HOME/.local/bin/agent-browser" &&
+    "$(readlink "$HOME/.local/bin/agent-browser")" == "$HOME/.npm-global/bin/agent-browser" ]]; then
+    rm -f "$HOME/.local/bin/agent-browser"
+fi
+
+# uinput access rule.
+sudo rm -f "$uinput_rule" "$uinput_module"
+sudo udevadm control --reload
+sudo udevadm trigger --action=change --name-match=uinput
+echo "  ✓ uinput rule removed"
+
+# Restored idle/lock policy for the running session.
+if user_manager; then
+    systemctl --user daemon-reload
+    restart_hypridle
+fi
+
+rm -f "$state_dir/enabled-at"
+mkdir -p "$state_dir"
+date -Is >"$state_dir/disabled-at"
+echo "✓ agent access removed. Kept: ~/.local/share/agent-chrome (Chrome profile),"
+echo "  $vnc_config (wayvnc credentials), and the toolkit-accessibility setting."
+{{- end }}
 {{ end -}}
