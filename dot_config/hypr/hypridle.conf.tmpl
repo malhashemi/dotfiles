@@ -1,3 +1,14 @@
+{{- $agentDesktop := get (get . "machine" | default dict) "autologin" -}}
+{{- if $agentDesktop -}}
+# Agent desktop (machine.autologin): AI agents drive this screen through
+# computer use, and a locked, dimmed or blank display blocks them. So no idle
+# dim, lock, display-off or suspend, and no lock on manual suspend either.
+# `loginctl lock-session` still locks on demand.
+general {
+    lock_cmd = pidof hyprlock || hyprlock       # avoid starting multiple hyprlock instances
+    after_sleep_cmd = hyprctl dispatch dpms on  # avoid having to press a key twice to wake the display
+}
+{{- else -}}
 general {
     lock_cmd = pidof hyprlock || hyprlock       # avoid starting multiple hyprlock instances
     before_sleep_cmd = loginctl lock-session    # lock before suspend
@@ -29,3 +40,4 @@ listener {
     timeout = 1800
     on-timeout = systemctl suspend
 }
+{{- end }}
