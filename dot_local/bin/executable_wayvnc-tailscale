@@ -29,6 +29,13 @@ addr=$(ip -4 -o addr show dev tailscale0 2>/dev/null | awk '{ split($4, a, "/");
     exit 1
 }
 
+# A patched libneatvnc (see run_onchange_after_agent-desktop.sh.tmpl, step 5b)
+# fixes the Apple DH crash; use it only while it matches the system package.
+neatvnc_lib="$HOME/.local/lib/wayvnc"
+if [[ "$(cat "$neatvnc_lib/built-for" 2>/dev/null)" == "$(pacman -Q neatvnc 2>/dev/null)" ]]; then
+    export LD_LIBRARY_PATH="$neatvnc_lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
 # --render-cursor draws the pointer into the frames, so the viewer sees where
 # agents (and their uinput pointer) are pointing.
 exec wayvnc --config="$config" --render-cursor "$addr" 5900

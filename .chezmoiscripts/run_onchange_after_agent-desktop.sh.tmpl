@@ -14,7 +14,8 @@
 #   - agent Chrome: agent-chrome.service, its own profile in
 #       ~/.local/share/agent-chrome, DevTools on 127.0.0.1:9222 for agent-browser.
 #   - remote view: wayvnc.service on the Tailscale address only (port 5900),
-#       credentials generated here into ~/.config/wayvnc/config (0600).
+#       credentials generated here into ~/.config/wayvnc/config (0600), and a
+#       patched libneatvnc while Arch's build crashes on Apple DH auth.
 #   - no idle lock: hypridle.conf renders without lock/dpms/suspend listeners
 #       here; the running hypridle is restarted to pick it up.
 #
@@ -127,6 +128,44 @@ EOF
 fi
 chmod 0700 "$(dirname "$vnc_config")"
 chmod 0600 "$vnc_config"
+
+# 5b. Apple Diffie-Hellman crashes wayvnc with Arch's neatvnc 1.0.3-1: its
+#     nettle 4 port lacks upstream's follow-up 8057ec4a, so the DH prime
+#     decodes to zero and GMP aborts as soon as a client picks that method.
+#     Build that release with the fix into a private dir that only
+#     wayvnc-tailscale loads, and only while the system has exactly that
+#     package; any other version falls back to the system library.
+neatvnc_lib="$HOME/.local/lib/wayvnc"
+neatvnc_pkg=$(pacman -Q neatvnc)
+if [[ "$neatvnc_pkg" == "neatvnc 1.0.3-1" ]]; then
+    if [[ "$(cat "$neatvnc_lib/built-for" 2>/dev/null)" != "$neatvnc_pkg" ]]; then
+        sudo pacman -S --needed --noconfirm git meson ninja gcc pkgconf
+        tmp=$(mktemp -d)
+        git clone -q --filter=blob:none https://github.com/any1/neatvnc.git "$tmp/src"
+        git -C "$tmp/src" -c advice.detachedHead=false checkout -q 783437adc56c2d7ce2cac1ec584acad798594267 # v1.0.3
+        # Arch's two nettle 4 cherry-picks, then the base16 length fix.
+        for commit in 5b190f0fd9e6b0bfd32752a9115242f87ec36c59 \
+            f97805deaaea489a1c8c851324163a92a3125195 \
+            8057ec4ad67386213a3ad634c309acbf2c4cb168; do
+            git -C "$tmp/src" -c user.name=chezmoi -c user.email=chezmoi@localhost cherry-pick -n "$commit"
+        done
+        meson setup --buildtype=release -Djpeg=enabled -Dtls=enabled "$tmp/build" "$tmp/src" >/dev/null
+        meson compile -C "$tmp/build" >/dev/null
+        rm -rf "$neatvnc_lib"
+        install -d "$neatvnc_lib"
+        install -m 0755 "$tmp/build/libneatvnc.so.1.0.3" "$neatvnc_lib/"
+        ln -s libneatvnc.so.1.0.3 "$neatvnc_lib/libneatvnc.so.1"
+        echo "$neatvnc_pkg" >"$neatvnc_lib/built-for"
+        rm -rf "$tmp"
+        echo "  ✓ built patched libneatvnc for wayvnc in $neatvnc_lib"
+        vnc_restart=1
+    fi
+elif [[ -d "$neatvnc_lib" ]]; then
+    rm -rf "$neatvnc_lib"
+    echo "  ⚠ $neatvnc_pkg is installed: wayvnc now uses it. Check that macOS"
+    echo "    Screen Sharing still connects (Apple DH); see 8057ec4a in neatvnc."
+    vnc_restart=1
+fi
 
 # 6. MCP registration. Codex keeps its servers in ~/.codex/config.toml; Claude
 #    Code keeps user-scope servers in <config dir>/.claude.json, once for the
