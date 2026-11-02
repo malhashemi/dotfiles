@@ -104,7 +104,13 @@ fi
 #    Sharing authenticates with Apple Diffie-Hellman (username + password),
 #    which wayvnc offers only with relax_encryption; the traffic itself rides
 #    inside Tailscale's WireGuard tunnel.
+#    A config without auth (e.g. from an older manual setup) is set aside and
+#    replaced, so the server never starts unauthenticated.
 vnc_config="$HOME/.config/wayvnc/config"
+if [[ -f "$vnc_config" ]] && ! { grep -qx 'enable_auth=true' "$vnc_config" && grep -q '^password=.' "$vnc_config"; }; then
+    mv "$vnc_config" "$vnc_config.bak-$(date +%Y%m%d-%H%M%S)"
+    echo "  ⚠ set aside a wayvnc config without auth ($vnc_config.bak-*)"
+fi
 if [[ ! -s "$vnc_config" ]]; then
     install -d -m 0700 "$(dirname "$vnc_config")"
     (
@@ -117,6 +123,7 @@ password=$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')
 EOF
     )
     echo "  ✓ generated wayvnc credentials in $vnc_config"
+    vnc_restart=1
 fi
 chmod 0700 "$(dirname "$vnc_config")"
 chmod 0600 "$vnc_config"
@@ -162,7 +169,14 @@ fi
 systemctl --user daemon-reload
 systemctl --user enable agent-chrome.service wayvnc.service
 if systemctl --user is-active --quiet graphical-session.target; then
-    systemctl --user start agent-chrome.service wayvnc.service
+    # Running services keep going (agents may be mid-task in Chrome); wayvnc
+    # restarts only when its credentials were just (re)generated.
+    systemctl --user start agent-chrome.service
+    if [[ -n "${vnc_restart:-}" ]]; then
+        systemctl --user restart wayvnc.service
+    else
+        systemctl --user start wayvnc.service
+    fi
     # A portal activated before the session (e.g. by an SSH agent) lacks the
     # Hyprland backend; the drop-in prevents that from now on, and this heals
     # an instance that is already stuck. Only touched when broken.

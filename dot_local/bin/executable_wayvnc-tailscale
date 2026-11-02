@@ -16,6 +16,11 @@ config="${XDG_CONFIG_HOME:-$HOME/.config}/wayvnc/config"
     echo "wayvnc-tailscale: $config is missing; run chezmoi apply." >&2
     exit 1
 }
+# Never serve the desktop without a password.
+grep -qx 'enable_auth=true' "$config" || {
+    echo "wayvnc-tailscale: $config does not set enable_auth=true; refusing to start." >&2
+    exit 1
+}
 
 # tailscaled may still be connecting at boot; the unit restarts us until it is.
 addr=$(ip -4 -o addr show dev tailscale0 2>/dev/null | awk '{ split($4, a, "/"); print a[1]; exit }')

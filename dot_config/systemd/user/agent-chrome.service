@@ -13,6 +13,9 @@ Requisite=graphical-session.target
 
 [Service]
 Type=simple
+# Chrome joins the AT-SPI bus only when told accessibility is on; outside GNOME
+# it does not read the toolkit-accessibility setting.
+Environment=ACCESSIBILITY_ENABLED=1
 # Chrome serves DevTools only on loopback for a non-default --user-data-dir.
 # --force-renderer-accessibility exposes page content to AT-SPI for
 # computer-use-linux; --password-store=basic avoids keyring unlock prompts that
