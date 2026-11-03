@@ -25,13 +25,12 @@
       "computer-use-linux" "d18c837cea6fa038475a2fbc94e6f238ad6722143375e263d1835533fd42b0ff"
       "computer-use-linux-cosmic" "a75106aa2c67f1acbc68086965f73852e44abf5c38117ed058d6e5e14c3e5a0b"
       "computer-use-linux-indicator" "4014b4dc18c5c9356f6ecf982459f895b1679a82ac4ed5655e1195e1231860e0" -}}
-{{- /* Local neatvnc patch(es) applied on top of the pinned upstream commits;
-       embedded below, so editing one re-runs this script and rebuilds. */ -}}
-{{- $neatvncPatch := include ".patches/neatvnc/0001-server-handle-rfb-3.x-above-8-as-3.8.patch" -}}
 {{- $owned := list -}}
 {{- $lookalikes := list -}}
 {{- $hints := list -}}
 {{- if and $linux (not $enable) -}}
+{{- /* wayvnc pieces are retired (Sunshine replaced them) but still count, for
+       machines that opted in while they existed. */ -}}
 {{-   range $path := list
         (joinPath $home ".config/systemd/user/wayvnc.service")
         (joinPath $home ".config/systemd/user/agent-chrome.service")
@@ -87,17 +86,13 @@
 #   - agent Chrome: agent-chrome.service, its own profile in
 #       ~/.local/share/agent-chrome, DevTools on 127.0.0.1:9222 for agent-browser
 #       (pinned, in the user's ~/.npm-global).
-#   - remote view: wayvnc.service on the tailscale0 interface only (port 5900,
-#       IPv4 and IPv6), behind agent-desktop-vnc-guard.service (nftables,
-#       installed first and independent of Tailscale being up), credentials
-#       generated here into ~/.config/wayvnc/config (0600), and a patched
-#       libneatvnc while Arch's build fails macOS Screen Sharing (Apple DH
-#       crash, Apple's RFB 003.889 version string).
-#   - streaming: Sunshine (pinned upstream Arch package, sha256-checked) as
+#   - remote view: Sunshine (pinned upstream Arch package, sha256-checked) as
 #       sunshine.service for Moonlight: KMS capture, VAAPI encoding, bound to
-#       the tailscale0 IPv4 address behind the same nft guard, web UI with
-#       generated credentials (~/.config/sunshine/web-ui-credentials, 0600),
-#       pairing through `sunshine-pair PIN`.
+#       the tailscale0 IPv4 address behind agent-desktop-vnc-guard.service
+#       (nftables, installed first and independent of Tailscale being up), web
+#       UI with generated credentials (~/.config/sunshine/web-ui-credentials,
+#       0600), pairing through `sunshine-pair PIN`. It replaced wayvnc; what
+#       an earlier version of this setup wrote for wayvnc is removed here.
 #   - no idle lock: hypridle.conf renders without lock/dpms/suspend listeners
 #       here; the running hypridle is restarted to pick it up.
 #
@@ -105,10 +100,8 @@
 # after a failed run. It never restarts the Hyprland session, T3 or agents.
 #   hypridle.conf:         {{ include "dot_config/hypr/hypridle.conf.tmpl" | sha256sum }}
 #   agent-chrome.service:  {{ include "dot_config/systemd/user/agent-chrome.service" | sha256sum }}
-#   wayvnc.service:        {{ include "dot_config/systemd/user/wayvnc.service" | sha256sum }}
 #   portal drop-in:        {{ include "dot_config/systemd/user/xdg-desktop-portal.service.d/agent-desktop.conf" | sha256sum }}
 #   session launcher:      {{ include "dot_local/bin/executable_computer-use-linux-session" | sha256sum }}
-#   wayvnc wrapper:        {{ include "dot_local/bin/executable_wayvnc-tailscale" | sha256sum }}
 #   sunshine.service:      {{ include "dot_config/systemd/user/sunshine.service" | sha256sum }}
 #   sunshine wrapper:      {{ include "dot_local/bin/executable_sunshine-tailscale" | sha256sum }}
 #   sunshine-pair:         {{ include "dot_local/bin/executable_sunshine-pair" | sha256sum }}
@@ -117,10 +110,11 @@
 {{- else }}
 # Agent desktop opt-out: machine.autologin is off on a machine the agent-desktop
 # setup ran on (opted in at {{ if stat $enabledAt }}{{ include $enabledAt | trim }}{{ else }}an unrecorded time{{ end }}). Undo the
-# agent access it added: MCP registrations, agent Chrome, wayvnc and Sunshine
-# services, the firewall guard (only once nothing listens on 5900 or Sunshine's
-# ports), the uinput rule, the Sunshine capability hook, the session helpers,
-# and hypridle's no-lock policy (chezmoi has already restored hypridle.conf).
+# agent access it added: MCP registrations, agent Chrome and Sunshine services
+# (and wayvnc's, from older versions), the firewall guard (only once nothing
+# listens on 5900 or Sunshine's ports), the uinput rule, the Sunshine
+# capability hook, the session helpers, and hypridle's no-lock policy (chezmoi
+# has already restored hypridle.conf).
 # Any failure exits non-zero and keeps the marker, so the next apply retries.
 # Kept, because they are data: the Chrome profile (~/.local/share/agent-chrome),
 # the wayvnc credentials and ~/.config/sunshine (pairings, web UI
@@ -228,9 +222,55 @@ restart_hypridle() {
         hyprctl dispatch 'hl.dsp.exec_cmd("hypridle")' >/dev/null
     echo "  ✓ hypridle restarted"
 }
+fail() {
+    echo "agent-desktop: $*; stopping here (nothing more changed), retry with chezmoi apply" >&2
+    exit 1
+}
+
+# classify PATH -> owned | foreign | absent. Owned means it carries the
+# ownership line, or (binaries) matches a pinned hash. Exits non-zero when it
+# cannot tell, which aborts the opt-out.
+classify() {
+    local path=$1 name sum rc=0
+    if [[ ! -e "$path" && ! -L "$path" ]]; then
+        echo absent
+        return 0
+    fi
+    name=$(basename "$path")
+    if [[ -n "${bin_sha256[$name]:-}" ]]; then
+        sum=$(sha256sum -- "$path") || return 1
+        if [[ "${sum%% *}" == "${bin_sha256[$name]}" ]]; then echo owned; else echo foreign; fi
+        return 0
+    fi
+    grep -qF -- "$owner_token" "$path" || rc=$?
+    case $rc in
+        0) echo owned ;;
+        1) echo foreign ;;
+        *) return 1 ;;
+    esac
+}
+
+# remove_owned [--sudo] PATH...: delete only owned files; report look-alikes.
+remove_owned() {
+    local run=() path state
+    if [[ "$1" == --sudo ]]; then
+        run=(sudo)
+        shift
+    fi
+    for path in "$@"; do
+        state=$(classify "$path") || fail "cannot inspect $path"
+        case $state in
+            owned)
+                "${run[@]}" rm -f -- "$path" || fail "cannot remove $path"
+                echo "  ✓ removed $path"
+                ;;
+            foreign) echo "  ⚠ left $path alone: not written by this setup" ;;
+        esac
+    done
+}
 {{- if $enable }}
 
-echo "==> agent desktop: computer use, agent Chrome, wayvnc, Sunshine, no idle lock"
+echo "==> agent desktop: computer use, agent Chrome, Sunshine, no idle lock"
 
 # Prime sudo once for the whole setup.
 sudo -v
@@ -240,13 +280,13 @@ sudo -v
 mkdir -p "$state_dir"
 [[ -s "$state_dir/enabled-at" ]] || date -Is >"$state_dir/enabled-at"
 
-# 1. Firewall guard, first and unconditionally: drop tcp/5900 (wayvnc) and
-#    Sunshine's tcp and udp ports on every interface except tailscale0 and lo,
-#    for IPv4 and IPv6 (an inet table). It backs up wayvnc's own
-#    SO_BINDTODEVICE binding (see wayvnc-tailscale) and is Sunshine's boundary
-#    (it binds an address, not a device; see sunshine-tailscale). `iifname`
-#    matches interfaces that do not exist yet, so it holds before Tailscale is
-#    up. The table and unit keep their vnc_guard names from before Sunshine.
+# 1. Firewall guard, first and unconditionally: drop Sunshine's tcp and udp
+#    ports on every interface except tailscale0 and lo, for IPv4 and IPv6 (an
+#    inet table). It is Sunshine's boundary (Sunshine binds an address, not a
+#    device; see sunshine-tailscale). `iifname` matches interfaces that do not
+#    exist yet, so it holds before Tailscale is up. The table and unit keep
+#    their vnc_guard names from the wayvnc days, so existing machines and
+#    their checks stay valid.
 #    - The rules file is one atomic transaction (add/delete/redefine): a reload
 #      never leaves a gap.
 #    - agent-desktop-vnc-guard.service loads it at boot and keeps it: stopping
@@ -263,14 +303,13 @@ sudo tee "$guard_rules" >/dev/null <<EOF
 #!/usr/bin/nft -f
 $owner_header
 # Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
-# Do not edit by hand. wayvnc and Sunshine: Tailscale-only. The
-# add/delete/redefine prelude makes reloading idempotent and atomic.
+# Do not edit by hand. Sunshine: Tailscale-only. The add/delete/redefine
+# prelude makes reloading idempotent and atomic.
 add table inet vnc_guard
 delete table inet vnc_guard
 table inet vnc_guard {
   chain input {
     type filter hook input priority filter; policy accept;
-    tcp dport 5900 iifname != { "lo", "tailscale0" } drop comment "wayvnc: Tailscale-only"
     meta l4proto { tcp, udp } th dport $sunshine_ports iifname != { "lo", "tailscale0" } drop comment "sunshine: Tailscale-only"
   }
 }
@@ -280,7 +319,7 @@ sudo tee "$guard_bundle" >/dev/null <<EOF
 $owner_header
 # Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
 # nftables.service loads this instead of /etc/nftables.conf on agent desktops:
-# the system rules and the VNC guard in one transaction.
+# the system rules and the Sunshine guard in one transaction.
 include "/etc/nftables.conf"
 include "$guard_rules"
 EOF
@@ -289,7 +328,7 @@ sudo install -d -m 0755 "$(dirname "$guard_dropin")"
 sudo tee "$guard_dropin" >/dev/null <<EOF
 $owner_header
 # Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
-# Agent desktop: load the system rules and the VNC guard atomically.
+# Agent desktop: load the system rules and the Sunshine guard atomically.
 # Restart-only, like Arch's stock unit: it is a oneshot without
 # RemainAfterExit, so it is inactive after running and \`reload\` never runs.
 # Use \`systemctl restart nftables\`.
@@ -301,7 +340,7 @@ sudo tee "$guard_unit" >/dev/null <<EOF
 $owner_header
 # Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
 [Unit]
-Description=Agent desktop: drop VNC and Sunshine ports off the Tailscale interface
+Description=Agent desktop: drop Sunshine's ports off the Tailscale interface
 Documentation=man:nft(8)
 Wants=network-pre.target
 Before=network-pre.target
@@ -321,52 +360,44 @@ sudo systemctl daemon-reload
 sudo systemctl enable agent-desktop-vnc-guard.service
 sudo systemctl reload-or-restart agent-desktop-vnc-guard.service
 guard_table=$(sudo nft list table inet vnc_guard)
-grep -q 'wayvnc: Tailscale-only' <<<"$guard_table"
 grep -q 'sunshine: Tailscale-only' <<<"$guard_table"
-echo "  ✓ firewall guard active (tcp/5900 and Sunshine's $sunshine_ports dropped off tailscale0)"
-
-# 2. wayvnc credentials: generated once, kept only on this machine. macOS Screen
-#    Sharing authenticates with Apple Diffie-Hellman (username + password),
-#    which wayvnc offers only with relax_encryption; the traffic itself rides
-#    inside Tailscale's WireGuard tunnel. A config that fails the wrapper's
-#    strict check (no auth, duplicate keys, empty or NUL password, ...) is set
-#    aside, and any server using it is stopped at once, before anything else
-#    here can fail. Whenever the server must pick up new files, a persistent
-#    marker records it until a restart succeeds (step 9).
-if [[ -e "$vnc_config" ]] && ! wayvnc-tailscale --check-config "$vnc_config"; then
-    touch "$vnc_restart_marker"
-    if user_manager && systemctl --user is-active --quiet wayvnc.service; then
-        systemctl --user stop wayvnc.service
-    fi
-    mv "$vnc_config" "$vnc_config.bak-$(date +%Y%m%d-%H%M%S)"
-    echo "  ⚠ stopped wayvnc and set aside a wayvnc config that failed the check ($vnc_config.bak-*)"
+if grep -q 'wayvnc' <<<"$guard_table"; then
+    echo "agent-desktop: the vnc_guard table still has a wayvnc rule after the reload" >&2
+    exit 1
 fi
-if [[ ! -e "$vnc_config" ]]; then
-    password=$(python3 -c 'import secrets; print(secrets.token_urlsafe(18))')
-    if [[ ! "$password" =~ ^[A-Za-z0-9_-]{24}$ ]]; then
-        echo "wayvnc password generation failed" >&2
-        exit 1
-    fi
-    install -d -m 0700 "$(dirname "$vnc_config")"
-    new_config=$(mktemp "$vnc_config.new.XXXXXX") # mktemp creates it 0600
-    trap 'rm -f "$new_config"' EXIT
-    printf 'enable_auth=true\nrelax_encryption=true\nusername=%s\npassword=%s\n' \
-        "$(id -un)" "$password" >"$new_config"
-    unset password
-    wayvnc-tailscale --check-config "$new_config"
-    chmod 0600 "$new_config"
-    touch "$vnc_restart_marker"
-    mv -f "$new_config" "$vnc_config"
-    trap - EXIT
-    echo "  ✓ generated wayvnc credentials in $vnc_config"
-fi
-chmod 0700 "$(dirname "$vnc_config")"
-chmod 0600 "$vnc_config"
+echo "  ✓ firewall guard active (Sunshine's tcp and udp $sunshine_ports dropped off tailscale0)"
 
-# 3. Packages. wayvnc serves the session, wtype types text on Hyprland, grim
-#    backs computer-use-linux's Hyprland window capture. agent-browser is
-#    pinned in the user's npm prefix, never as root.
-sudo pacman -S --needed --noconfirm wayvnc wtype grim jq at-spi2-core
+# 2. wayvnc is retired (Sunshine + Moonlight replaced it). Remove what an
+#    earlier version of this setup wrote for it, with the opt-out's ownership
+#    checks: the unit and wrapper (ownership line), the patched libneatvnc
+#    (its marker), the restart marker, and the generated credentials (only in
+#    the exact shape this setup wrote them). Nothing of it runs afterwards;
+#    the wayvnc package stays installed, like every package this setup uses.
+if user_manager && systemctl --user is-active --quiet wayvnc.service; then
+    systemctl --user stop wayvnc.service
+    echo "  ✓ stopped wayvnc (retired)"
+fi
+if [[ -L "$wants/wayvnc.service" && "$(readlink "$wants/wayvnc.service")" == "$user_units/wayvnc.service" ]]; then
+    rm -f -- "$wants/wayvnc.service"
+fi
+remove_owned "$user_units/wayvnc.service" "$HOME/.local/bin/wayvnc-tailscale"
+lib_state=$(classify "$neatvnc_lib/agent-desktop-managed") || fail "cannot inspect $neatvnc_lib"
+if [[ "$lib_state" == owned ]]; then
+    rm -rf -- "$neatvnc_lib"
+    echo "  ✓ removed $neatvnc_lib (patched libneatvnc for wayvnc)"
+fi
+rm -f "$vnc_restart_marker"
+if [[ -f "$vnc_config" && ! -L "$vnc_config" &&
+    "$(cut -d= -f1 "$vnc_config" | paste -sd, -)" == enable_auth,relax_encryption,username,password ]]; then
+    rm -f -- "$vnc_config"
+    rmdir "$(dirname "$vnc_config")" 2>/dev/null || true
+    echo "  ✓ removed the generated wayvnc credentials ($vnc_config)"
+fi
+
+# 3. Packages. wtype types text on Hyprland, grim backs computer-use-linux's
+#    Hyprland window capture. agent-browser is pinned in the user's npm
+#    prefix, never as root.
+sudo pacman -S --needed --noconfirm wtype grim jq at-spi2-core
 if ! command -v google-chrome-stable >/dev/null 2>&1; then
     yay -S --needed --noconfirm google-chrome
 fi
@@ -426,61 +457,7 @@ if command -v gsettings >/dev/null 2>&1; then
         echo "  ⚠ could not enable toolkit-accessibility (no session bus?)"
 fi
 
-# 7. Arch's neatvnc 1.0.3-1 fails macOS Screen Sharing twice:
-#    - Apple Diffie-Hellman crashes wayvnc: the nettle 4 port lacks upstream's
-#      follow-up 8057ec4a, so the DH prime decodes to zero and GMP aborts as
-#      soon as a client picks that method.
-#    - Screen Sharing announces itself as "RFB 003.889", which neatvnc treats
-#      as RFB 3.3; 3.3 cannot authenticate, so every login fails. Upstream has
-#      no fix yet; the local patch (.patches/neatvnc in the dotfiles repo,
-#      embedded below) handles 3.8 and above as 3.8.
-#    Build that release with the fixes into a private dir that only
-#    wayvnc-tailscale loads, and only while the system has exactly that
-#    package; any other version falls back to the system library. The build
-#    id names the patch set, so a changed patch rebuilds.
-neatvnc_pkg=$(pacman -Q neatvnc)
-neatvnc_build="783437a+5b190f0+f97805d+8057ec4+apple-rfb-version:{{ $neatvncPatch | sha256sum | trunc 16 }}"
-if [[ "$neatvnc_pkg" == "neatvnc 1.0.3-1" ]]; then
-    if [[ "$(cat "$neatvnc_lib/built-for" 2>/dev/null)" != "$neatvnc_pkg" ||
-        "$(cat "$neatvnc_lib/build-id" 2>/dev/null)" != "$neatvnc_build" ]]; then
-        sudo pacman -S --needed --noconfirm git meson ninja gcc pkgconf
-        tmp=$(mktemp -d)
-        git clone -q --filter=blob:none https://github.com/any1/neatvnc.git "$tmp/src"
-        git -C "$tmp/src" -c advice.detachedHead=false checkout -q 783437adc56c2d7ce2cac1ec584acad798594267 # v1.0.3
-        # Arch's two nettle 4 cherry-picks, then the base16 length fix.
-        for commit in 5b190f0fd9e6b0bfd32752a9115242f87ec36c59 \
-            f97805deaaea489a1c8c851324163a92a3125195 \
-            8057ec4ad67386213a3ad634c309acbf2c4cb168; do
-            git -C "$tmp/src" -c user.name=chezmoi -c user.email=chezmoi@localhost cherry-pick -n "$commit"
-        done
-        # Apple's "RFB 003.889" handled as RFB 3.8 (local patch, not upstream).
-        git -C "$tmp/src" apply --whitespace=nowarn - <<'NEATVNC_PATCH'
-{{ $neatvncPatch | trimSuffix "\n" }}
-NEATVNC_PATCH
-        meson setup --buildtype=release -Djpeg=enabled -Dtls=enabled "$tmp/build" "$tmp/src" >/dev/null
-        meson compile -C "$tmp/build" >/dev/null
-        touch "$vnc_restart_marker" # the running server maps the old library
-        rm -rf "$neatvnc_lib"
-        install -d "$neatvnc_lib"
-        install -m 0755 "$tmp/build/libneatvnc.so.1.0.3" "$neatvnc_lib/"
-        ln -s libneatvnc.so.1.0.3 "$neatvnc_lib/libneatvnc.so.1"
-        echo "$neatvnc_pkg" >"$neatvnc_lib/built-for"
-        echo "$neatvnc_build" >"$neatvnc_lib/build-id"
-        rm -rf "$tmp"
-        echo "  ✓ built patched libneatvnc for wayvnc in $neatvnc_lib"
-    fi
-elif [[ -d "$neatvnc_lib" ]]; then
-    touch "$vnc_restart_marker" # the running server maps the old library
-    rm -rf "$neatvnc_lib"
-    echo "  ⚠ $neatvnc_pkg is installed: wayvnc now uses it. Check that macOS"
-    echo "    Screen Sharing still connects (Apple DH, see 8057ec4a in neatvnc;"
-    echo "    RFB 003.889 handled as 3.8, see .patches/neatvnc in the dotfiles)."
-fi
-if [[ -f "$neatvnc_lib/built-for" ]]; then
-    echo "$owner_header" >"$neatvnc_lib/agent-desktop-managed"
-fi
-
-# 7b. Sunshine, so Moonlight can stream this session (see sunshine-tailscale).
+# 7. Sunshine, so Moonlight can stream this session (see sunshine-tailscale).
 #    - Package: LizardByte's Arch build of a pinned release, checked against
 #      the sha256 below (GitHub's published digest), installed only when
 #      Sunshine is absent; a newer one installed later is left alone. Its
@@ -577,7 +554,7 @@ fi
 #    enable` writes), so this works without a running user manager; they
 #    start with graphical-session.target at every login.
 mkdir -p "$wants"
-for unit in agent-chrome.service wayvnc.service sunshine.service; do
+for unit in agent-chrome.service sunshine.service; do
     ln -sfn "$user_units/$unit" "$wants/$unit"
 done
 if user_manager; then
@@ -585,24 +562,10 @@ if user_manager; then
     if systemctl --user is-active --quiet graphical-session.target; then
         # agent-chrome keeps running (agents may be mid-task in it).
         systemctl --user start agent-chrome.service
-        # wayvnc: start it, or restart it when a run (this one or an earlier,
+        # Sunshine: start it, or restart it when a run (this one or an earlier,
         # interrupted one) left the restart marker, or when it predates its
-        # config, wrapper or unit. The marker goes only after the server is
-        # back up, so an old server can never survive a lost restart.
-        if systemctl --user is-active --quiet wayvnc.service; then
-            since=$(date -d "$(systemctl --user show -p ActiveEnterTimestamp --value wayvnc.service)" +%s)
-            newest=$({ stat -c %Y "$vnc_config" "$HOME/.local/bin/wayvnc-tailscale" \
-                "$user_units/wayvnc.service" 2>/dev/null || true; } | sort -n | tail -n1)
-            if [[ -e "$vnc_restart_marker" ]] || ((newest >= since)); then
-                systemctl --user restart wayvnc.service
-                echo "  ✓ restarted wayvnc (its files changed since it started)"
-            fi
-        else
-            systemctl --user start wayvnc.service
-        fi
-        systemctl --user is-active --quiet wayvnc.service
-        rm -f "$vnc_restart_marker"
-        # Sunshine: the same rule, with its own marker and files.
+        # wrapper or unit. The marker goes only after the server is back up,
+        # so an old server can never survive a lost restart.
         if systemctl --user is-active --quiet sunshine.service; then
             since=$(date -d "$(systemctl --user show -p ActiveEnterTimestamp --value sunshine.service)" +%s)
             newest=$({ stat -c %Y "$HOME/.local/bin/sunshine-tailscale" "$user_units/sunshine.service" \
@@ -634,59 +597,11 @@ else
 fi
 
 echo "✓ agent desktop ready. Check: computer-use-linux-session doctor | jq .readiness"
-echo "  wayvnc: vnc://<tailscale-host>:5900, credentials in $vnc_config"
 echo "  Sunshine: add the Tailscale IPv4 address in Moonlight, then run"
 echo "    sunshine-pair PIN here (web UI https://<tailscale IPv4>:47990, login in $sunshine_creds)"
 {{- else }}
 
 echo "==> agent desktop opt-out: removing agent access"
-
-fail() {
-    echo "agent-desktop opt-out: $*; nothing more removed, retry with chezmoi apply" >&2
-    exit 1
-}
-
-# classify PATH -> owned | foreign | absent. Owned means it carries the
-# ownership line, or (binaries) matches a pinned hash. Exits non-zero when it
-# cannot tell, which aborts the opt-out.
-classify() {
-    local path=$1 name sum rc=0
-    if [[ ! -e "$path" && ! -L "$path" ]]; then
-        echo absent
-        return 0
-    fi
-    name=$(basename "$path")
-    if [[ -n "${bin_sha256[$name]:-}" ]]; then
-        sum=$(sha256sum -- "$path") || return 1
-        if [[ "${sum%% *}" == "${bin_sha256[$name]}" ]]; then echo owned; else echo foreign; fi
-        return 0
-    fi
-    grep -qF -- "$owner_token" "$path" || rc=$?
-    case $rc in
-        0) echo owned ;;
-        1) echo foreign ;;
-        *) return 1 ;;
-    esac
-}
-
-# remove_owned [--sudo] PATH...: delete only owned files; report look-alikes.
-remove_owned() {
-    local run=() path state
-    if [[ "$1" == --sudo ]]; then
-        run=(sudo)
-        shift
-    fi
-    for path in "$@"; do
-        state=$(classify "$path") || fail "cannot inspect $path"
-        case $state in
-            owned)
-                "${run[@]}" rm -f -- "$path" || fail "cannot remove $path"
-                echo "  ✓ removed $path"
-                ;;
-            foreign) echo "  ⚠ left $path alone: not written by this setup" ;;
-        esac
-    done
-}
 
 # mcp_state CONFIG (toml|json) -> absent | owned | foreign; non-zero when the
 # file cannot be read or parsed. Owned: the command is exactly our launcher.
@@ -892,7 +807,8 @@ fi
 
 # Done: only now drop the opt-in marker.
 date -Is >"$state_dir/disabled-at"
-rm -f "$vnc_restart_marker" "$sunshine_restart_marker" "$state_dir/enabled-at"
+rm -f "$vnc_restart_marker" "$sunshine_restart_marker" "$state_dir/sunshine-credentials.lock" \
+    "$state_dir/sunshine-credentials-restart-pending" "$state_dir/enabled-at"
 echo "✓ agent access removed. Kept: ~/.local/share/agent-chrome (Chrome profile),"
 echo "  $vnc_config (wayvnc credentials), $sunshine_dir (Sunshine pairings and"
 echo "  web UI credentials), installed packages, and the toolkit-accessibility setting."

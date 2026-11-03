@@ -12,7 +12,7 @@
 #   3. Always ignore (git, cache, development)
 #   4. Ephemeral/sensitive files
 #   5. Runtime-generated theme files
-#   6. Agent desktop (computer use, agent Chrome, wayvnc)
+#   6. Agent desktop (computer use, agent Chrome, Sunshine)
 #   7. Optional mixed-model setup
 # =============================================================================
 
@@ -229,24 +229,20 @@ thoughts/
 # -----------------------------------------------------------------------------
 # 6. Agent Desktop (machine.autologin)
 # -----------------------------------------------------------------------------
-# Computer use, the agent Chrome, the wayvnc remote view and Sunshine streaming
-# exist only on Linux desktops that auto-log in to Hyprland for agents.
+# Computer use, the agent Chrome and Sunshine streaming exist only on Linux
+# desktops that auto-log in to Hyprland for agents.
 # Everywhere else, skip them.
 {{- $agentDesktop := and (eq .chezmoi.os "linux") (get (get . "machine" | default dict) "autologin") }}
 {{- if not $agentDesktop }}
 .local/bin/computer-use-linux-session
-.local/bin/wayvnc-tailscale
 .local/bin/sunshine-tailscale
 .local/bin/sunshine-pair
 .local/bin/sunshine-credentials
 .config/systemd/user/agent-chrome.service
-.config/systemd/user/wayvnc.service
 .config/systemd/user/sunshine.service
 .config/systemd/user/xdg-desktop-portal.service.d/
 {{- end }}
 
-# wayvnc credentials are generated on the machine (0600); never import them.
-.config/wayvnc/
 # Sunshine's state (pairings, keys, web UI credentials) lives on the machine.
 .config/sunshine/
 
