@@ -319,9 +319,6 @@ case ":$PATH:" in
 esac
 # pnpm end
 
-# npm global installs that use a user prefix (e.g. ~/.npmrc prefix=~/.npm-global)
-[[ -d "$HOME/.npm-global/bin" ]] && export PATH="$HOME/.npm-global/bin:$PATH"
-
 # Grok CLI (self-installer layout; completions are added before compinit above)
 [[ -d "$HOME/.grok/bin" ]] && export PATH="$HOME/.grok/bin:$PATH"
 

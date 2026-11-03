@@ -7,5 +7,9 @@ export PATH="$HOME/.local/bin:$PATH"
 # OpenCode (official installer layout; no-op where a package manager owns it)
 [ -d "$HOME/.opencode/bin" ] && export PATH="$HOME/.opencode/bin:$PATH"
 
+# npm globals in a user prefix (Linux: ~/.npm-global, where the dotfiles install
+# user npm CLIs). Here, not in .zshrc, so non-interactive agent shells see them.
+[ -d "$HOME/.npm-global/bin" ] && export PATH="$HOME/.npm-global/bin:$PATH"
+
 # Source secrets file if it exists
 [ -f ~/.secrets ] && source ~/.secrets

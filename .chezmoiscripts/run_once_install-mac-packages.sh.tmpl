@@ -82,6 +82,7 @@ brew_cask() {
         aerospace) app_name="AeroSpace" ;;
         docker-desktop) app_name="Docker" ;;
         visual-studio-code) app_name="Visual Studio Code" ;;
+        moonlight) app_name="Moonlight" ;;
         *) app_name="" ;;
     esac
     
@@ -237,8 +238,9 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────────
 
 print_header "GUI Applications"
+# moonlight: the client for agent desktops' Sunshine stream.
 for cask in wezterm ghostty neovide-app aerospace flameshot \
-            docker-desktop visual-studio-code zed zen macfuse; do
+            docker-desktop visual-studio-code zed zen macfuse moonlight; do
     brew_cask "$cask"
 done
 

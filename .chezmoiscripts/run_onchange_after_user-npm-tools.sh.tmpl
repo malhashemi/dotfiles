@@ -1,0 +1,34 @@
+{{- /*
+  User-level npm CLIs for the shared AI setup (ai.enabled), installed once and
+  left for their own updaters afterwards:
+    - Dossier (@agent964/dossier), the CLI behind the project-home skill.
+  macOS installs into npm's own (Homebrew, user-writable) prefix. Linux
+  installs into ~/.npm-global, never as root; .zshenv puts its bin on every
+  shell's PATH. A CLI already on PATH (any prefix) is left alone. Sign-in
+  (`dossier login`) stays a manual step on each machine.
+  Every other machine: renders empty, so nothing runs.
+*/ -}}
+{{- if get (get . "ai" | default dict) "enabled" -}}
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
+{{- if eq .chezmoi.os "darwin" }}
+[[ -x /opt/homebrew/bin/brew ]] && eval "$(/opt/homebrew/bin/brew shellenv)"
+{{- end }}
+command -v npm >/dev/null 2>&1 || { echo "user npm tools: npm not found; skipped" >&2; exit 0; }
+
+# binary:package (plain list: macOS ships bash 3.2, without associative arrays)
+for tool in dossier:@agent964/dossier; do
+    bin=${tool%%:*} pkg=${tool#*:}
+    if command -v "$bin" >/dev/null 2>&1; then
+        continue
+    fi
+{{- if eq .chezmoi.os "darwin" }}
+    npm install -g --no-fund --no-audit "$pkg"
+{{- else }}
+    npm install -g --no-fund --no-audit --prefix "$HOME/.npm-global" "$pkg"
+{{- end }}
+    echo "  ✓ installed $pkg (run \`$bin login\` to sign in)"
+done
+{{ end -}}
