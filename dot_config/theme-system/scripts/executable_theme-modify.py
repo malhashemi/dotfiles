@@ -173,11 +173,12 @@ def carry_marked_blocks(base: str, current: str, owner: str) -> str:
     A block the current file lacks was removed by its owner, so it is dropped
     (the way such programs drop one: the gap closes to one blank line). A block
     only the current file has goes at the end, where these programs append.
-    If the current file has none of OWNER's blocks, the base keeps its own.
+    Only a missing or empty file (a fresh machine) gets the base's own blocks;
+    an existing file without any of OWNER's blocks keeps having none.
     """
-    theirs = _marked_blocks(current, owner)
-    if not theirs:
+    if not current.strip():
         return base
+    theirs = _marked_blocks(current, owner)
     for name, block in _marked_blocks(base, owner).items():
         if name in theirs:
             base = base.replace(block, theirs.pop(name), 1)

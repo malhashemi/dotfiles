@@ -280,9 +280,50 @@ sudo -v
 mkdir -p "$state_dir"
 [[ -s "$state_dir/enabled-at" ]] || date -Is >"$state_dir/enabled-at"
 
-# 1. Firewall guard, first and unconditionally: drop Sunshine's tcp and udp
+# 1. wayvnc is retired (Sunshine + Moonlight replaced it). Undo only what an
+#    earlier version of this setup provably wrote, every step gated on that
+#    proof: the unit and wrapper on their ownership line (only an owned unit is
+#    stopped), the patched libneatvnc on its marker, and the credentials, which
+#    carry no header (wayvnc's own format), only if they are byte for byte what
+#    the setup generated: those four lines, this user, a 24-character token,
+#    mode 0600. A wayvnc set up any other way is left alone and keeps running,
+#    and step 2 keeps its tcp/5900 guard rule while anything listens there.
+#    The wayvnc package stays installed, like every package this setup uses.
+vnc_unit_state=$(classify "$user_units/wayvnc.service") || fail "cannot inspect $user_units/wayvnc.service"
+if [[ "$vnc_unit_state" == owned ]]; then
+    if user_manager && systemctl --user is-active --quiet wayvnc.service; then
+        systemctl --user stop wayvnc.service || fail "cannot stop wayvnc.service"
+        echo "  ✓ stopped wayvnc (retired)"
+    fi
+    if [[ -L "$wants/wayvnc.service" && "$(readlink "$wants/wayvnc.service")" == "$user_units/wayvnc.service" ]]; then
+        rm -f -- "$wants/wayvnc.service"
+    fi
+fi
+remove_owned "$user_units/wayvnc.service" "$HOME/.local/bin/wayvnc-tailscale"
+lib_state=$(classify "$neatvnc_lib/agent-desktop-managed") || fail "cannot inspect $neatvnc_lib"
+if [[ "$lib_state" == owned ]]; then
+    rm -rf -- "$neatvnc_lib"
+    echo "  ✓ removed $neatvnc_lib (patched libneatvnc for wayvnc)"
+fi
+rm -f "$vnc_restart_marker"
+if [[ -f "$vnc_config" && ! -L "$vnc_config" ]]; then
+    vnc_password=$(awk 'NR == 4' "$vnc_config")
+    if [[ "$(stat -c %a "$vnc_config")" == 600 && "$vnc_password" =~ ^password=[A-Za-z0-9_-]{24}$ ]] &&
+        cmp -s "$vnc_config" <(printf 'enable_auth=true\nrelax_encryption=true\nusername=%s\n%s\n' "$(id -un)" "$vnc_password"); then
+        rm -f -- "$vnc_config"
+        rmdir "$(dirname "$vnc_config")" 2>/dev/null || true
+        echo "  ✓ removed the generated wayvnc credentials ($vnc_config)"
+    else
+        echo "  ⚠ left $vnc_config alone: not the credentials this setup generated"
+    fi
+    unset vnc_password
+fi
+
+# 2. Firewall guard, unconditionally and before any listener starts: drop
+#    Sunshine's tcp and udp
 #    ports on every interface except tailscale0 and lo, for IPv4 and IPv6 (an
-#    inet table). It is Sunshine's boundary (Sunshine binds an address, not a
+#    inet table), and tcp/5900 too while anything still listens there (a
+#    wayvnc this setup did not write). It is Sunshine's boundary (Sunshine binds an address, not a
 #    device; see sunshine-tailscale). `iifname` matches interfaces that do not
 #    exist yet, so it holds before Tailscale is up. The table and unit keep
 #    their vnc_guard names from the wayvnc days, so existing machines and
@@ -298,6 +339,11 @@ mkdir -p "$state_dir"
 #    Not part of /etc/nftables.conf itself, whose SSH guard deliberately waits
 #    for tailscale0.
 sudo pacman -S --needed --noconfirm nftables
+vnc_listeners=$(ss -ltnH '( sport = :5900 )') || fail "cannot list listening sockets (ss failed)"
+vnc_rule=""
+if [[ -n "$vnc_listeners" ]]; then
+    vnc_rule='tcp dport 5900 iifname != { "lo", "tailscale0" } drop comment "wayvnc: Tailscale-only"'
+fi
 sudo install -d -m 0755 "$(dirname "$guard_rules")"
 sudo tee "$guard_rules" >/dev/null <<EOF
 #!/usr/bin/nft -f
@@ -310,6 +356,7 @@ delete table inet vnc_guard
 table inet vnc_guard {
   chain input {
     type filter hook input priority filter; policy accept;
+    $vnc_rule
     meta l4proto { tcp, udp } th dport $sunshine_ports iifname != { "lo", "tailscale0" } drop comment "sunshine: Tailscale-only"
   }
 }
@@ -361,38 +408,13 @@ sudo systemctl enable agent-desktop-vnc-guard.service
 sudo systemctl reload-or-restart agent-desktop-vnc-guard.service
 guard_table=$(sudo nft list table inet vnc_guard)
 grep -q 'sunshine: Tailscale-only' <<<"$guard_table"
-if grep -q 'wayvnc' <<<"$guard_table"; then
-    echo "agent-desktop: the vnc_guard table still has a wayvnc rule after the reload" >&2
-    exit 1
+if [[ -n "$vnc_rule" ]]; then
+    grep -q 'wayvnc: Tailscale-only' <<<"$guard_table" || fail "the guard lost its tcp/5900 rule while something listens there"
+    echo "  ⚠ something still listens on tcp/5900 (not this setup's wayvnc); its guard rule stays"
+elif grep -q 'wayvnc' <<<"$guard_table"; then
+    fail "the vnc_guard table still has a wayvnc rule after the reload"
 fi
 echo "  ✓ firewall guard active (Sunshine's tcp and udp $sunshine_ports dropped off tailscale0)"
-
-# 2. wayvnc is retired (Sunshine + Moonlight replaced it). Remove what an
-#    earlier version of this setup wrote for it, with the opt-out's ownership
-#    checks: the unit and wrapper (ownership line), the patched libneatvnc
-#    (its marker), the restart marker, and the generated credentials (only in
-#    the exact shape this setup wrote them). Nothing of it runs afterwards;
-#    the wayvnc package stays installed, like every package this setup uses.
-if user_manager && systemctl --user is-active --quiet wayvnc.service; then
-    systemctl --user stop wayvnc.service
-    echo "  ✓ stopped wayvnc (retired)"
-fi
-if [[ -L "$wants/wayvnc.service" && "$(readlink "$wants/wayvnc.service")" == "$user_units/wayvnc.service" ]]; then
-    rm -f -- "$wants/wayvnc.service"
-fi
-remove_owned "$user_units/wayvnc.service" "$HOME/.local/bin/wayvnc-tailscale"
-lib_state=$(classify "$neatvnc_lib/agent-desktop-managed") || fail "cannot inspect $neatvnc_lib"
-if [[ "$lib_state" == owned ]]; then
-    rm -rf -- "$neatvnc_lib"
-    echo "  ✓ removed $neatvnc_lib (patched libneatvnc for wayvnc)"
-fi
-rm -f "$vnc_restart_marker"
-if [[ -f "$vnc_config" && ! -L "$vnc_config" &&
-    "$(cut -d= -f1 "$vnc_config" | paste -sd, -)" == enable_auth,relax_encryption,username,password ]]; then
-    rm -f -- "$vnc_config"
-    rmdir "$(dirname "$vnc_config")" 2>/dev/null || true
-    echo "  ✓ removed the generated wayvnc credentials ($vnc_config)"
-fi
 
 # 3. Packages. wtype types text on Hyprland, grim backs computer-use-linux's
 #    Hyprland window capture. agent-browser is pinned in the user's npm
