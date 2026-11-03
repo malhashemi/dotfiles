@@ -15,6 +15,11 @@
 # widen them: the base port stays inside the guarded range, the web UI admits
 # only localhost and private ranges (with the guard: Tailscale), UPnP stays off,
 # and the credential and state store is pinned to the one file checked below.
+# That includes Sunshine's legacy `flags` option: its single characters flip
+# settings after the named ones are applied (`p` turns UPnP back on despite
+# upnp=disabled, `1` ignores the state store), so the command line replaces
+# any flags from sunshine.conf with `00`, which flips the PIN-from-stdin flag
+# twice and so changes nothing (Sunshine rejects an empty value).
 # It refuses to start unless the guard unit is active, tailscale0 has an IPv4
 # address, that store holds the login from web-ui-credentials (without one,
 # Sunshine lets the first visitor of the web UI set it; see
@@ -63,6 +68,7 @@ addr=$(tailscale_addr)
     port=47989 \
     origin_web_ui_allowed=lan \
     upnp=disabled \
+    flags=00 \
     capture=kms \
     encoder=vaapi \
     adapter_name=/dev/dri/renderD128 &
