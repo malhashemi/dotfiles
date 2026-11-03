@@ -1,0 +1,48 @@
+{{ if and (eq .chezmoi.os "linux") (not .is_headless) (lookPath "pacman") -}}
+#!/usr/bin/env bash
+# Install a fixed wtype in /usr/local/bin, ahead of Arch's /usr/bin/wtype.
+# wtype 0.4 puts the Nth distinct character of a text on evdev keycode N+8, so
+# from the 65th distinct character on it presses F7, F8, F9, F10, NumLock and
+# ScrollLock instead: Hyprland's F7 binding starts dictation and Chrome's F10
+# opens its menu, and those characters never arrive. Upstream atx/wtype fixed
+# this after 0.4 (unreleased): it types literal text only on printable keys.
+# voice-typer and anything else calling `wtype` pick this one up through PATH.
+# Once Arch ships a wtype newer than 0.4, this removes its copy again.
+set -euo pipefail
+
+commit=4b9cc29664f178cf380ccfe7f98405d38dffda3c
+bin=/usr/local/bin/wtype
+stamp=/usr/local/share/wtype-fixed/commit
+
+system=$(pacman -Q wtype 2>/dev/null | awk '{print $2}' | cut -d- -f1)
+if [[ -n "$system" && "$(vercmp "$system" 0.4)" -gt 0 ]]; then
+    if [[ -f "$stamp" ]]; then
+        sudo rm -f "$bin" "$stamp"
+        sudo rmdir /usr/local/share/wtype-fixed 2>/dev/null || true
+        echo "  ✓ Arch's wtype $system has the fix; removed the local build"
+    fi
+    exit 0
+fi
+
+if [[ -e "$bin" && ! -f "$stamp" ]]; then
+    echo "  ! $bin exists but was not installed by this script; leaving it alone" >&2
+    exit 0
+fi
+if [[ -x "$bin" && "$(cat "$stamp" 2>/dev/null)" == "$commit" ]]; then
+    echo "  ✓ fixed wtype ($commit) already installed"
+    exit 0
+fi
+
+sudo pacman -S --needed --noconfirm base-devel meson git wayland wayland-protocols libxkbcommon
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+git -C "$tmp" init -q src
+git -C "$tmp/src" fetch -q --depth 1 https://github.com/atx/wtype "$commit"
+git -C "$tmp/src" checkout -q FETCH_HEAD
+[[ "$(git -C "$tmp/src" rev-parse HEAD)" == "$commit" ]] || { echo "atx/wtype checkout is not $commit" >&2; exit 1; }
+meson setup --buildtype=release "$tmp/build" "$tmp/src" >/dev/null
+ninja -C "$tmp/build" >/dev/null
+sudo install -D -m 0755 "$tmp/build/wtype" "$bin"
+echo "$commit" | sudo install -D -m 0644 /dev/stdin "$stamp"
+echo "  ✓ fixed wtype built from atx/wtype $commit into $bin"
+{{ end -}}
