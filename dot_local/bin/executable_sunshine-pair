@@ -41,6 +41,9 @@ api() {
 
 pending=$(api GET /api/pin)
 if [[ $# -eq 0 ]]; then
+    if [[ "$(jq '.pairings | length' <<<"$pending")" == 0 ]]; then
+        echo "no pairing requests waiting (start pairing in Moonlight first)"
+    fi
     jq -r '.pairings[] | "\(.id)  \(.name)  \(.address)"' <<<"$pending"
     exit 0
 fi
