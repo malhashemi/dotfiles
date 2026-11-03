@@ -3,8 +3,9 @@
 Description=wayvnc remote view of the Hyprland session (Tailscale only)
 Documentation=man:wayvnc(1)
 # Agent desktops only (machine.autologin). Keyed off the uwsm-activated
-# graphical-session.target so it inherits WAYLAND_DISPLAY; the wrapper binds
-# only to the tailscale0 address and reads ~/.config/wayvnc/config.
+# graphical-session.target so it inherits WAYLAND_DISPLAY; the wrapper listens
+# on the tailscale0 device only (IPv4 and IPv6) and reads
+# ~/.config/wayvnc/config.
 After=graphical-session.target
 PartOf=graphical-session.target
 Requisite=graphical-session.target

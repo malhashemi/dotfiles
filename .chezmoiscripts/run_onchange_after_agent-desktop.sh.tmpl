@@ -25,6 +25,9 @@
       "computer-use-linux" "d18c837cea6fa038475a2fbc94e6f238ad6722143375e263d1835533fd42b0ff"
       "computer-use-linux-cosmic" "a75106aa2c67f1acbc68086965f73852e44abf5c38117ed058d6e5e14c3e5a0b"
       "computer-use-linux-indicator" "4014b4dc18c5c9356f6ecf982459f895b1679a82ac4ed5655e1195e1231860e0" -}}
+{{- /* Local neatvnc patch(es) applied on top of the pinned upstream commits;
+       embedded below, so editing one re-runs this script and rebuilds. */ -}}
+{{- $neatvncPatch := include ".patches/neatvnc/0001-server-handle-rfb-3.x-above-8-as-3.8.patch" -}}
 {{- $owned := list -}}
 {{- $lookalikes := list -}}
 {{- $hints := list -}}
@@ -79,11 +82,12 @@
 #   - agent Chrome: agent-chrome.service, its own profile in
 #       ~/.local/share/agent-chrome, DevTools on 127.0.0.1:9222 for agent-browser
 #       (pinned, in the user's ~/.npm-global).
-#   - remote view: wayvnc.service on the Tailscale address only (port 5900),
-#       behind agent-desktop-vnc-guard.service (nftables, installed first and
-#       independent of Tailscale being up), credentials generated here into
-#       ~/.config/wayvnc/config (0600), and a patched libneatvnc while Arch's
-#       build crashes on Apple DH auth.
+#   - remote view: wayvnc.service on the tailscale0 interface only (port 5900,
+#       IPv4 and IPv6), behind agent-desktop-vnc-guard.service (nftables,
+#       installed first and independent of Tailscale being up), credentials
+#       generated here into ~/.config/wayvnc/config (0600), and a patched
+#       libneatvnc while Arch's build fails macOS Screen Sharing (Apple DH
+#       crash, Apple's RFB 003.889 version string).
 #   - no idle lock: hypridle.conf renders without lock/dpms/suspend listeners
 #       here; the running hypridle is restarted to pick it up.
 #
@@ -393,15 +397,23 @@ if command -v gsettings >/dev/null 2>&1; then
         echo "  ⚠ could not enable toolkit-accessibility (no session bus?)"
 fi
 
-# 7. Apple Diffie-Hellman crashes wayvnc with Arch's neatvnc 1.0.3-1: its
-#    nettle 4 port lacks upstream's follow-up 8057ec4a, so the DH prime
-#    decodes to zero and GMP aborts as soon as a client picks that method.
-#    Build that release with the fix into a private dir that only
+# 7. Arch's neatvnc 1.0.3-1 fails macOS Screen Sharing twice:
+#    - Apple Diffie-Hellman crashes wayvnc: the nettle 4 port lacks upstream's
+#      follow-up 8057ec4a, so the DH prime decodes to zero and GMP aborts as
+#      soon as a client picks that method.
+#    - Screen Sharing announces itself as "RFB 003.889", which neatvnc treats
+#      as RFB 3.3; 3.3 cannot authenticate, so every login fails. Upstream has
+#      no fix yet; the local patch (.patches/neatvnc in the dotfiles repo,
+#      embedded below) handles 3.8 and above as 3.8.
+#    Build that release with the fixes into a private dir that only
 #    wayvnc-tailscale loads, and only while the system has exactly that
-#    package; any other version falls back to the system library.
+#    package; any other version falls back to the system library. The build
+#    id names the patch set, so a changed patch rebuilds.
 neatvnc_pkg=$(pacman -Q neatvnc)
+neatvnc_build="783437a+5b190f0+f97805d+8057ec4+apple-rfb-version:{{ $neatvncPatch | sha256sum | trunc 16 }}"
 if [[ "$neatvnc_pkg" == "neatvnc 1.0.3-1" ]]; then
-    if [[ "$(cat "$neatvnc_lib/built-for" 2>/dev/null)" != "$neatvnc_pkg" ]]; then
+    if [[ "$(cat "$neatvnc_lib/built-for" 2>/dev/null)" != "$neatvnc_pkg" ||
+        "$(cat "$neatvnc_lib/build-id" 2>/dev/null)" != "$neatvnc_build" ]]; then
         sudo pacman -S --needed --noconfirm git meson ninja gcc pkgconf
         tmp=$(mktemp -d)
         git clone -q --filter=blob:none https://github.com/any1/neatvnc.git "$tmp/src"
@@ -412,6 +424,10 @@ if [[ "$neatvnc_pkg" == "neatvnc 1.0.3-1" ]]; then
             8057ec4ad67386213a3ad634c309acbf2c4cb168; do
             git -C "$tmp/src" -c user.name=chezmoi -c user.email=chezmoi@localhost cherry-pick -n "$commit"
         done
+        # Apple's "RFB 003.889" handled as RFB 3.8 (local patch, not upstream).
+        git -C "$tmp/src" apply --whitespace=nowarn - <<'NEATVNC_PATCH'
+{{ $neatvncPatch | trimSuffix "\n" }}
+NEATVNC_PATCH
         meson setup --buildtype=release -Djpeg=enabled -Dtls=enabled "$tmp/build" "$tmp/src" >/dev/null
         meson compile -C "$tmp/build" >/dev/null
         touch "$vnc_restart_marker" # the running server maps the old library
@@ -420,6 +436,7 @@ if [[ "$neatvnc_pkg" == "neatvnc 1.0.3-1" ]]; then
         install -m 0755 "$tmp/build/libneatvnc.so.1.0.3" "$neatvnc_lib/"
         ln -s libneatvnc.so.1.0.3 "$neatvnc_lib/libneatvnc.so.1"
         echo "$neatvnc_pkg" >"$neatvnc_lib/built-for"
+        echo "$neatvnc_build" >"$neatvnc_lib/build-id"
         rm -rf "$tmp"
         echo "  ✓ built patched libneatvnc for wayvnc in $neatvnc_lib"
     fi
@@ -427,7 +444,8 @@ elif [[ -d "$neatvnc_lib" ]]; then
     touch "$vnc_restart_marker" # the running server maps the old library
     rm -rf "$neatvnc_lib"
     echo "  ⚠ $neatvnc_pkg is installed: wayvnc now uses it. Check that macOS"
-    echo "    Screen Sharing still connects (Apple DH); see 8057ec4a in neatvnc."
+    echo "    Screen Sharing still connects (Apple DH, see 8057ec4a in neatvnc;"
+    echo "    RFB 003.889 handled as 3.8, see .patches/neatvnc in the dotfiles)."
 fi
 if [[ -f "$neatvnc_lib/built-for" ]]; then
     echo "$owner_header" >"$neatvnc_lib/agent-desktop-managed"

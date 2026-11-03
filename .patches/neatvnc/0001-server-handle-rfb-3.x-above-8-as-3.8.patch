@@ -1,0 +1,34 @@
+From 073b1b4dc59695b580503196f822527eac09c326 Mon Sep 17 00:00:00 2001
+From: "M. Adel Alhashemi" <malhashemi.apps@gmail.com>
+Date: Tue, 3 Nov 2026 03:31:30 +0300
+Subject: [PATCH] server: Handle RFB 3.x with x > 8 as 3.8
+
+macOS Screen Sharing sends Apple's version string "RFB 003.889" and
+then follows the 3.8 handshake. The parser only knew 3.7 and 3.8, so it
+fell back to 3.3, which cannot authenticate, and every login failed with
+"Authentication required, but not supported for RFB 3.3". Treat any
+minor version of 8 or above as 3.8.
+---
+ src/server.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/src/server.c b/src/server.c
+index 6a3f067..5b1d3fb 100644
+--- a/src/server.c
++++ b/src/server.c
+@@ -373,8 +373,13 @@ static int parse_rfb_version(const char* version_string)
+ 	if (major != 3)
+ 		return -1;
+ 
+-	if (minor == 7 || minor == 8)
+-		return minor;
++	/* Clients above 3.8 speak the 3.8 handshake; macOS Screen Sharing
++	 * sends "RFB 003.889" and can only authenticate that way. */
++	if (minor >= 8)
++		return 8;
++
++	if (minor == 7)
++		return 7;
+ 
+ 	return 3;
+ }

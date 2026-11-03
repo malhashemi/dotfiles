@@ -1,19 +1,23 @@
 #!/usr/bin/env bash
 # agent-desktop: managed by chezmoi (machine.autologin); the opt-out removes it.
-# Serve the Hyprland session over VNC on this machine's Tailscale address only.
+# Serve the Hyprland session over VNC on the Tailscale interface only.
 #
 # Started by wayvnc.service inside the graphical session. Two independent
 # layers keep VNC off every interface but tailscale0:
-#   - the listening socket itself: created here bound to the tailscale0 address
-#     AND to the tailscale0 device (SO_BINDTODEVICE), then handed to wayvnc as
-#     an inherited fd. The kernel delivers connections to it only from
-#     tailscale0, whatever the firewall state. (Binding to the address alone
-#     does not: Linux accepts packets for a local address on any interface.)
-#   - agent-desktop-vnc-guard.service: nftables drops tcp/5900 off tailscale0.
+#   - the listening socket itself: one dual-stack socket created here on
+#     [::]:5900 (IPV6_V6ONLY off, so it takes IPv4 too) and bound to the
+#     tailscale0 device (SO_BINDTODEVICE), then handed to wayvnc as an
+#     inherited fd. The kernel delivers connections to it only from
+#     tailscale0, over IPv4 and IPv6 (MagicDNS names resolve to both),
+#     whatever the firewall state. Binding to the device rather than to an
+#     address means address changes need no restart.
+#   - agent-desktop-vnc-guard.service: nftables (inet, so IPv4 and IPv6) drops
+#     tcp/5900 off tailscale0.
 # It refuses to serve unless ~/.config/wayvnc/config passes the strict check
-# below and the guard unit is active. It keeps watching: if the tailscale0
-# address changes or the guard goes away, it stops wayvnc and exits non-zero
-# so systemd restarts it (on the new address, or not at all without the guard).
+# below, the guard unit is active and tailscale0 exists. It keeps watching: if
+# tailscale0 goes away or is recreated (the socket stays tied to the old
+# device) or the guard goes away, it stops wayvnc and exits non-zero so
+# systemd restarts it (on the new device, or not at all without the guard).
 # Credentials are generated on the machine, never kept in the dotfiles repo.
 # Connect from macOS Screen Sharing: vnc://<tailscale-hostname>:5900
 #
@@ -94,8 +98,9 @@ if values.get('allow_broken_crypto', 'false') != 'false':
 PY
 }
 
-tailscale_addr() {
-    ip -4 -o addr show dev tailscale0 2>/dev/null | awk '{ split($4, a, "/"); print a[1]; exit }'
+# The kernel index of tailscale0, empty when the device does not exist.
+tailscale_ifindex() {
+    cat /sys/class/net/tailscale0/ifindex 2>/dev/null || true
 }
 
 if [[ "${1:-}" == "--check-config" ]]; then
@@ -109,9 +114,9 @@ fi
 problem=$(check_config "$config") || die "$config: $problem; refusing to start."
 systemctl is-active --quiet "$guard" || die "$guard is not active; refusing to serve VNC without the firewall guard."
 
-# tailscaled may still be connecting at boot; the unit restarts us until it is.
-addr=$(tailscale_addr)
-[[ -n "$addr" ]] || die "tailscale0 has no IPv4 address yet."
+# tailscaled may still be starting at boot; the unit restarts us until it is.
+ifindex=$(tailscale_ifindex)
+[[ -n "$ifindex" ]] || die "tailscale0 does not exist yet."
 
 # A patched libneatvnc (see run_onchange_after_agent-desktop.sh.tmpl) fixes the
 # Apple DH crash; use it only while it matches the system package.
@@ -120,20 +125,21 @@ if [[ "$(cat "$neatvnc_lib/built-for" 2>/dev/null)" == "$(pacman -Q neatvnc 2>/d
     export LD_LIBRARY_PATH="$neatvnc_lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 fi
 
-# Create the device-bound listener, then exec wayvnc on it (`fd:N`), keeping
-# the PID. --render-cursor draws the pointer into the frames, so the viewer
-# sees where agents (and their uinput pointer) are pointing.
+# Create the device-bound dual-stack listener, then exec wayvnc on it
+# (`fd:N`), keeping the PID. --render-cursor draws the pointer into the
+# frames, so the viewer sees where agents (and their uinput pointer) point.
 python3 -I -c '
 import os, socket, sys
-addr, port = sys.argv[1], int(sys.argv[2])
-listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+port = int(sys.argv[1])
+listener = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+listener.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
 listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 listener.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, b"tailscale0")
-listener.bind((addr, port))
+listener.bind(("::", port))
 listener.listen(16)
 os.set_inheritable(listener.fileno(), True)
-os.execvp("wayvnc", ["wayvnc", *sys.argv[3:], "fd:%d" % listener.fileno()])
-' "$addr" "$port" --config="$config" --render-cursor &
+os.execvp("wayvnc", ["wayvnc", *sys.argv[2:], "fd:%d" % listener.fileno()])
+' "$port" --config="$config" --render-cursor &
 server=$!
 trap 'kill "$server" 2>/dev/null || true' EXIT
 
@@ -141,8 +147,8 @@ while kill -0 "$server" 2>/dev/null; do
     sleep 15 &
     wait $! || true
     kill -0 "$server" 2>/dev/null || break
-    if [[ "$(tailscale_addr)" != "$addr" ]]; then
-        die "tailscale0 address changed from $addr; restarting on the new one."
+    if [[ "$(tailscale_ifindex)" != "$ifindex" ]]; then
+        die "tailscale0 went away or was recreated; restarting on the current device."
     fi
     if ! systemctl is-active --quiet "$guard"; then
         die "$guard stopped; shutting VNC down."
