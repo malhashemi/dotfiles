@@ -39,6 +39,10 @@
         $launcher
         (joinPath $home ".local/bin/wayvnc-tailscale")
         (joinPath $home ".local/lib/wayvnc/agent-desktop-managed")
+        (joinPath $home ".config/systemd/user/sunshine.service")
+        (joinPath $home ".local/bin/sunshine-tailscale")
+        (joinPath $home ".local/bin/sunshine-pair")
+        "/etc/pacman.d/hooks/agent-desktop-sunshine-cap.hook"
         "/etc/systemd/system/agent-desktop-vnc-guard.service"
         "/etc/systemd/system/nftables.service.d/agent-desktop-vnc-guard.conf"
         "/etc/agent-desktop/vnc-guard.nft"
@@ -88,6 +92,11 @@
 #       generated here into ~/.config/wayvnc/config (0600), and a patched
 #       libneatvnc while Arch's build fails macOS Screen Sharing (Apple DH
 #       crash, Apple's RFB 003.889 version string).
+#   - streaming: Sunshine (pinned upstream Arch package, sha256-checked) as
+#       sunshine.service for Moonlight: KMS capture, VAAPI encoding, bound to
+#       the tailscale0 IPv4 address behind the same nft guard, web UI with
+#       generated credentials (~/.config/sunshine/web-ui-credentials, 0600),
+#       pairing through `sunshine-pair PIN`.
 #   - no idle lock: hypridle.conf renders without lock/dpms/suspend listeners
 #       here; the running hypridle is restarted to pick it up.
 #
@@ -99,16 +108,21 @@
 #   portal drop-in:        {{ include "dot_config/systemd/user/xdg-desktop-portal.service.d/agent-desktop.conf" | sha256sum }}
 #   session launcher:      {{ include "dot_local/bin/executable_computer-use-linux-session" | sha256sum }}
 #   wayvnc wrapper:        {{ include "dot_local/bin/executable_wayvnc-tailscale" | sha256sum }}
+#   sunshine.service:      {{ include "dot_config/systemd/user/sunshine.service" | sha256sum }}
+#   sunshine wrapper:      {{ include "dot_local/bin/executable_sunshine-tailscale" | sha256sum }}
+#   sunshine-pair:         {{ include "dot_local/bin/executable_sunshine-pair" | sha256sum }}
 #   last opt-out:          {{ if stat $disabledAt }}{{ include $disabledAt | trim }}{{ else }}never{{ end }}
 {{- else }}
 # Agent desktop opt-out: machine.autologin is off on a machine the agent-desktop
 # setup ran on (opted in at {{ if stat $enabledAt }}{{ include $enabledAt | trim }}{{ else }}an unrecorded time{{ end }}). Undo the
-# agent access it added: MCP registrations, agent Chrome and wayvnc services,
-# the VNC firewall guard (only once nothing listens on 5900), the uinput rule,
-# the session helpers, and hypridle's no-lock policy (chezmoi has already
-# restored hypridle.conf). Any failure exits non-zero and keeps the marker, so
-# the next apply retries. Kept, because they are data: the Chrome profile
-# (~/.local/share/agent-chrome) and the wayvnc credentials.
+# agent access it added: MCP registrations, agent Chrome, wayvnc and Sunshine
+# services, the firewall guard (only once nothing listens on 5900 or Sunshine's
+# ports), the uinput rule, the Sunshine capability hook, the session helpers,
+# and hypridle's no-lock policy (chezmoi has already restored hypridle.conf).
+# Any failure exits non-zero and keeps the marker, so the next apply retries.
+# Kept, because they are data: the Chrome profile (~/.local/share/agent-chrome),
+# the wayvnc credentials and ~/.config/sunshine (pairings, web UI
+# credentials); installed packages stay too.
 # Written by this setup (removed):
 {{- range $owned }}
 #   - {{ . }}
@@ -139,6 +153,14 @@ launcher="$HOME/.local/bin/computer-use-linux-session"
 vnc_config="$HOME/.config/wayvnc/config"
 neatvnc_lib="$HOME/.local/lib/wayvnc"
 vnc_restart_marker="$state_dir/wayvnc-restart-required"
+sunshine_dir="$HOME/.config/sunshine"
+sunshine_creds="$sunshine_dir/web-ui-credentials"
+sunshine_state="$sunshine_dir/sunshine_state.json"
+sunshine_restart_marker="$state_dir/sunshine-restart-required"
+sunshine_hook=/etc/pacman.d/hooks/agent-desktop-sunshine-cap.hook
+# Sunshine's ports for base port 47989 (47984-48010, tcp and udp); the wrapper
+# pins the base port so a web UI setting cannot move them out of the guard.
+sunshine_ports=47984-48010
 # Every file this setup writes carries this line; the opt-out removes only
 # files that do (plus binaries matching the pinned hashes), never look-alikes.
 owner_token='agent-desktop: managed by chezmoi'
@@ -207,7 +229,7 @@ restart_hypridle() {
 }
 {{- if $enable }}
 
-echo "==> agent desktop: computer use, agent Chrome, wayvnc, no idle lock"
+echo "==> agent desktop: computer use, agent Chrome, wayvnc, Sunshine, no idle lock"
 
 # Prime sudo once for the whole setup.
 sudo -v
@@ -217,15 +239,18 @@ sudo -v
 mkdir -p "$state_dir"
 [[ -s "$state_dir/enabled-at" ]] || date -Is >"$state_dir/enabled-at"
 
-# 1. VNC firewall guard, first and unconditionally: drop tcp/5900 on every
-#    interface except tailscale0 and lo. It backs up the listener's own
-#    SO_BINDTODEVICE binding (see wayvnc-tailscale); `iifname` matches
-#    interfaces that do not exist yet, so it holds before Tailscale is up.
+# 1. Firewall guard, first and unconditionally: drop tcp/5900 (wayvnc) and
+#    Sunshine's tcp and udp ports on every interface except tailscale0 and lo,
+#    for IPv4 and IPv6 (an inet table). It backs up wayvnc's own
+#    SO_BINDTODEVICE binding (see wayvnc-tailscale) and is Sunshine's boundary
+#    (it binds an address, not a device; see sunshine-tailscale). `iifname`
+#    matches interfaces that do not exist yet, so it holds before Tailscale is
+#    up. The table and unit keep their vnc_guard names from before Sunshine.
 #    - The rules file is one atomic transaction (add/delete/redefine): a reload
 #      never leaves a gap.
 #    - agent-desktop-vnc-guard.service loads it at boot and keeps it: stopping
 #      the unit never deletes the table (only the opt-out does, once nothing
-#      listens on 5900).
+#      listens on those ports).
 #    - nftables.service, through a drop-in, loads /etc/nftables.conf and the
 #      guard in ONE transaction, so even a `flush ruleset` in that file never
 #      leaves the kernel without the guard, on restart or reload.
@@ -233,18 +258,19 @@ mkdir -p "$state_dir"
 #    for tailscale0.
 sudo pacman -S --needed --noconfirm nftables
 sudo install -d -m 0755 "$(dirname "$guard_rules")"
-sudo tee "$guard_rules" >/dev/null <<'EOF'
+sudo tee "$guard_rules" >/dev/null <<EOF
 #!/usr/bin/nft -f
-# agent-desktop: managed by chezmoi (machine.autologin); the opt-out removes it.
+$owner_header
 # Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
-# Do not edit by hand. wayvnc: Tailscale-only. The add/delete/redefine prelude
-# makes reloading idempotent and atomic.
+# Do not edit by hand. wayvnc and Sunshine: Tailscale-only. The
+# add/delete/redefine prelude makes reloading idempotent and atomic.
 add table inet vnc_guard
 delete table inet vnc_guard
 table inet vnc_guard {
   chain input {
     type filter hook input priority filter; policy accept;
     tcp dport 5900 iifname != { "lo", "tailscale0" } drop comment "wayvnc: Tailscale-only"
+    meta l4proto { tcp, udp } th dport $sunshine_ports iifname != { "lo", "tailscale0" } drop comment "sunshine: Tailscale-only"
   }
 }
 EOF
@@ -274,7 +300,7 @@ sudo tee "$guard_unit" >/dev/null <<EOF
 $owner_header
 # Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
 [Unit]
-Description=Agent desktop: drop VNC (tcp/5900) off the Tailscale interface
+Description=Agent desktop: drop VNC and Sunshine ports off the Tailscale interface
 Documentation=man:nft(8)
 Wants=network-pre.target
 Before=network-pre.target
@@ -293,8 +319,10 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable agent-desktop-vnc-guard.service
 sudo systemctl reload-or-restart agent-desktop-vnc-guard.service
-sudo nft list table inet vnc_guard | grep -q 'wayvnc: Tailscale-only'
-echo "  ✓ VNC firewall guard active (tcp/5900 dropped off tailscale0)"
+guard_table=$(sudo nft list table inet vnc_guard)
+grep -q 'wayvnc: Tailscale-only' <<<"$guard_table"
+grep -q 'sunshine: Tailscale-only' <<<"$guard_table"
+echo "  ✓ firewall guard active (tcp/5900 and Sunshine's $sunshine_ports dropped off tailscale0)"
 
 # 2. wayvnc credentials: generated once, kept only on this machine. macOS Screen
 #    Sharing authenticates with Apple Diffie-Hellman (username + password),
@@ -451,6 +479,109 @@ if [[ -f "$neatvnc_lib/built-for" ]]; then
     echo "$owner_header" >"$neatvnc_lib/agent-desktop-managed"
 fi
 
+# 7b. Sunshine, so Moonlight can stream this session (see sunshine-tailscale).
+#    - Package: LizardByte's Arch build of a pinned release, checked against
+#      the sha256 below (GitHub's published digest), installed only when
+#      Sunshine is absent; a newer one installed later is left alone. Its
+#      install script grants /usr/bin/sunshine cap_sys_admin (KMS capture) on
+#      every install and upgrade; the pacman hook below re-applies it after
+#      any rebuild that would not, and this step repairs it now.
+#    - Web UI credentials: generated once into $sunshine_creds (0600, never in
+#      the dotfiles) and loaded into Sunshine's own store with `sunshine
+#      --creds` whenever the store does not match the file. Without them
+#      Sunshine would let the first visitor of the web UI set them.
+sunshine_pkg_version=2026.914.233613-1
+sunshine_pkg_sha256=17eb8c4d823a2693038f40aeeab56943ef0d5d6ace8ac90b3693905b0acbba87
+sunshine_pkg_url="https://github.com/LizardByte/Sunshine/releases/download/v${sunshine_pkg_version%-*}/sunshine-$sunshine_pkg_version-x86_64.pkg.tar.zst"
+sunshine_installed=$(pacman -Q sunshine 2>/dev/null || true)
+if [[ -z "$sunshine_installed" ]]; then
+    tmp=$(mktemp -d)
+    curl -fsSL --retry 3 -o "$tmp/sunshine.pkg.tar.zst" "$sunshine_pkg_url"
+    echo "$sunshine_pkg_sha256  $tmp/sunshine.pkg.tar.zst" | sha256sum -c --quiet
+    sudo pacman -U --needed --noconfirm "$tmp/sunshine.pkg.tar.zst"
+    rm -rf "$tmp"
+    touch "$sunshine_restart_marker"
+    echo "  ✓ Sunshine $sunshine_pkg_version installed"
+elif [[ "$sunshine_installed" != "sunshine $sunshine_pkg_version" ]]; then
+    echo "  ⚠ $sunshine_installed is installed (pinned here: $sunshine_pkg_version); keeping it"
+fi
+missing_libs=$(ldd /usr/bin/sunshine | awk '/not found/ { print $1 }')
+if [[ -n "$missing_libs" ]]; then
+    echo "Sunshine cannot load: $missing_libs (rebuild or update the package)" >&2
+    exit 1
+fi
+sudo install -d -m 0755 "$(dirname "$sunshine_hook")"
+sudo tee "$sunshine_hook" >/dev/null <<EOF
+$owner_header
+# Managed by chezmoi (.chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl).
+# Sunshine's KMS capture needs cap_sys_admin on its binary; keep it after
+# every install or upgrade, whichever build provides /usr/bin/sunshine.
+[Trigger]
+Operation = Install
+Operation = Upgrade
+Type = Path
+Target = usr/bin/sunshine
+
+[Action]
+Description = Agent desktop: granting Sunshine cap_sys_admin for KMS capture...
+When = PostTransaction
+Exec = /usr/bin/setcap cap_sys_admin,cap_sys_nice+p /usr/bin/sunshine
+EOF
+if ! getcap /usr/bin/sunshine | grep -q 'cap_sys_admin'; then
+    sudo setcap cap_sys_admin,cap_sys_nice+p /usr/bin/sunshine
+    touch "$sunshine_restart_marker"
+    echo "  ✓ granted Sunshine cap_sys_admin (KMS capture)"
+fi
+install -d -m 0700 "$sunshine_dir"
+if [[ ! -e "$sunshine_creds" ]]; then
+    password=$(python3 -c 'import secrets; print(secrets.token_urlsafe(24))')
+    if [[ ! "$password" =~ ^[A-Za-z0-9_-]{32}$ ]]; then
+        echo "Sunshine password generation failed" >&2
+        exit 1
+    fi
+    new_creds=$(mktemp "$sunshine_creds.new.XXXXXX") # mktemp creates it 0600
+    trap 'rm -f "$new_creds"' EXIT
+    printf '# %s (machine.autologin); the opt-out keeps it (data).\n# Sunshine web UI login (https://<tailscale-host>:47990); used by sunshine-pair.\nusername=%s\npassword=%s\n' \
+        "$owner_token" "$(id -un)" "$password" >"$new_creds"
+    unset password
+    mv -f "$new_creds" "$sunshine_creds"
+    trap - EXIT
+    echo "  ✓ generated Sunshine web UI credentials in $sunshine_creds"
+fi
+chmod 0600 "$sunshine_creds"
+# sunshine_creds_match: Sunshine's store holds the file's username and
+# sha256(password + salt), as Sunshine checks them.
+sunshine_creds_match() {
+    python3 -I - "$sunshine_creds" "$sunshine_state" <<'PY'
+import hashlib
+import json
+import sys
+
+creds = {}
+for line in open(sys.argv[1], encoding='utf-8').read().splitlines():
+    if not line.startswith('#') and '=' in line:
+        key, value = line.split('=', 1)
+        creds[key] = value
+try:
+    with open(sys.argv[2], encoding='utf-8') as handle:
+        state = json.load(handle)
+except (OSError, ValueError):
+    sys.exit(1)
+digest = hashlib.sha256((creds['password'] + state.get('salt', '')).encode()).hexdigest()
+ok = (state.get('username', '').lower() == creds['username'].lower()
+      and state.get('password', '').lower() == digest)
+sys.exit(0 if ok else 1)
+PY
+}
+if ! sunshine_creds_match; then
+    # `--creds` saves them and exits; it takes them only as arguments.
+    /usr/bin/sunshine --creds "$(sed -n 's/^username=//p' "$sunshine_creds")" \
+        "$(sed -n 's/^password=//p' "$sunshine_creds")" </dev/null >/dev/null
+    sunshine_creds_match
+    touch "$sunshine_restart_marker"
+    echo "  ✓ loaded the web UI credentials into Sunshine"
+fi
+
 # 8. MCP registration. Codex keeps its servers in ~/.codex/config.toml; Claude
 #    Code keeps user-scope servers in <config dir>/.claude.json, once for the
 #    default home and once for the T3 home (CLAUDE_CONFIG_DIR).
@@ -471,7 +602,7 @@ fi
 #    enable` writes), so this works without a running user manager; they
 #    start with graphical-session.target at every login.
 mkdir -p "$wants"
-for unit in agent-chrome.service wayvnc.service; do
+for unit in agent-chrome.service wayvnc.service sunshine.service; do
     ln -sfn "$user_units/$unit" "$wants/$unit"
 done
 if user_manager; then
@@ -496,6 +627,20 @@ if user_manager; then
         fi
         systemctl --user is-active --quiet wayvnc.service
         rm -f "$vnc_restart_marker"
+        # Sunshine: the same rule, with its own marker and files.
+        if systemctl --user is-active --quiet sunshine.service; then
+            since=$(date -d "$(systemctl --user show -p ActiveEnterTimestamp --value sunshine.service)" +%s)
+            newest=$({ stat -c %Y "$HOME/.local/bin/sunshine-tailscale" "$user_units/sunshine.service" \
+                2>/dev/null || true; } | sort -n | tail -n1)
+            if [[ -e "$sunshine_restart_marker" ]] || ((newest >= since)); then
+                systemctl --user restart sunshine.service
+                echo "  ✓ restarted Sunshine (its files changed since it started)"
+            fi
+        else
+            systemctl --user start sunshine.service
+        fi
+        systemctl --user is-active --quiet sunshine.service
+        rm -f "$sunshine_restart_marker"
         # A portal activated before the session (e.g. by an SSH agent) lacks the
         # Hyprland backend; the drop-in prevents that from now on, and this
         # heals an instance that is already stuck. Only touched when broken.
@@ -515,6 +660,8 @@ fi
 
 echo "✓ agent desktop ready. Check: computer-use-linux-session doctor | jq .readiness"
 echo "  wayvnc: vnc://<tailscale-host>:5900, credentials in $vnc_config"
+echo "  Sunshine: add the Tailscale IPv4 address in Moonlight, then run"
+echo "    sunshine-pair PIN here (web UI https://<tailscale IPv4>:47990, login in $sunshine_creds)"
 {{- else }}
 
 echo "==> agent desktop opt-out: removing agent access"
@@ -603,6 +750,8 @@ if [[ -s "$state_dir/enabled-at" ]]; then
     proven+=("the opt-in marker")
 fi
 for path in "$user_units/wayvnc.service" "$user_units/agent-chrome.service" \
+    "$user_units/sunshine.service" "$HOME/.local/bin/sunshine-tailscale" \
+    "$HOME/.local/bin/sunshine-pair" "$sunshine_hook" \
     "$user_units/xdg-desktop-portal.service.d/agent-desktop.conf" "$launcher" \
     "$HOME/.local/bin/wayvnc-tailscale" "$neatvnc_lib/agent-desktop-managed" \
     "$HOME/.local/bin/computer-use-linux" "$HOME/.local/bin/computer-use-linux-cosmic" \
@@ -658,8 +807,10 @@ else
     check_not_running wayvnc -x wayvnc
     check_not_running "the wayvnc-tailscale wrapper" -f "$HOME/.local/bin/wayvnc-tailscale"
     check_not_running "the agent Chrome" -f "user-data-dir=$HOME/.local/share/agent-chrome"
+    check_not_running Sunshine -x sunshine
+    check_not_running "the sunshine-tailscale wrapper" -f "$HOME/.local/bin/sunshine-tailscale"
 fi
-for unit in wayvnc.service agent-chrome.service; do
+for unit in wayvnc.service agent-chrome.service sunshine.service; do
     state=$(classify "$user_units/$unit") || fail "cannot inspect $user_units/$unit"
     if [[ "$state" != owned ]]; then
         [[ "$state" == foreign ]] && echo "  ⚠ left $unit alone: not written by this setup"
@@ -680,10 +831,11 @@ done
 remove_owned "$user_units/xdg-desktop-portal.service.d/agent-desktop.conf"
 rmdir "$user_units/xdg-desktop-portal.service.d" 2>/dev/null || true
 
-# 2. The firewall guard goes only once nothing listens on 5900; a failed
-#    `ss` is an error, not "nothing listening".
-listeners=$(ss -ltnH 'sport = :5900') || fail "cannot list listening sockets (ss failed)"
-[[ -z "$listeners" ]] || fail "something still listens on tcp/5900; keeping the VNC firewall guard"
+# 2. The firewall guard goes only once nothing listens on 5900 or Sunshine's
+#    ports; a failed `ss` is an error, not "nothing listening".
+listeners=$(ss -ltunH "( sport = :5900 or ( sport >= :${sunshine_ports%-*} and sport <= :${sunshine_ports#*-} ) )") ||
+    fail "cannot list listening sockets (ss failed)"
+[[ -z "$listeners" ]] || fail "something still listens on tcp/5900 or Sunshine's ports; keeping the firewall guard"
 guard_unit_state=$(classify "$guard_unit") || fail "cannot inspect $guard_unit"
 guard_rules_state=$(classify "$guard_rules") || fail "cannot inspect $guard_rules"
 remove_owned --sudo "$guard_dropin"
@@ -731,6 +883,7 @@ mcp_remove "Claude ($HOME/.claude-t3-mixed)" "$HOME/.claude-t3-mixed/.claude.jso
 
 # 4. Session helpers, binaries, the patched library and the agent-browser link.
 remove_owned "$launcher" "$HOME/.local/bin/wayvnc-tailscale" \
+    "$HOME/.local/bin/sunshine-tailscale" "$HOME/.local/bin/sunshine-pair" \
     "$HOME/.local/bin/computer-use-linux" "$HOME/.local/bin/computer-use-linux-cosmic" \
     "$HOME/.local/bin/computer-use-linux-indicator"
 lib_state=$(classify "$neatvnc_lib/agent-desktop-managed") || fail "cannot inspect $neatvnc_lib"
@@ -745,8 +898,10 @@ if [[ -L "$HOME/.local/bin/agent-browser" &&
     rm -f -- "$HOME/.local/bin/agent-browser"
 fi
 
-# 5. uinput access rule.
-remove_owned --sudo "$uinput_rule" "$uinput_module"
+# 5. uinput access rule and the Sunshine capability hook (the package and its
+#    own capability stay, like the other packages).
+remove_owned --sudo "$uinput_rule" "$uinput_module" "$sunshine_hook"
+sudo rmdir "$(dirname "$sunshine_hook")" 2>/dev/null || true
 sudo udevadm control --reload || fail "udevadm reload failed"
 sudo udevadm trigger --action=change --name-match=uinput || fail "udevadm trigger failed"
 
@@ -761,8 +916,9 @@ fi
 
 # Done: only now drop the opt-in marker.
 date -Is >"$state_dir/disabled-at"
-rm -f "$vnc_restart_marker" "$state_dir/enabled-at"
+rm -f "$vnc_restart_marker" "$sunshine_restart_marker" "$state_dir/enabled-at"
 echo "✓ agent access removed. Kept: ~/.local/share/agent-chrome (Chrome profile),"
-echo "  $vnc_config (wayvnc credentials), and the toolkit-accessibility setting."
+echo "  $vnc_config (wayvnc credentials), $sunshine_dir (Sunshine pairings and"
+echo "  web UI credentials), installed packages, and the toolkit-accessibility setting."
 {{- end }}
 {{ end -}}

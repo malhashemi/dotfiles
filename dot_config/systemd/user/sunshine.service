@@ -1,0 +1,21 @@
+# agent-desktop: managed by chezmoi (machine.autologin); the opt-out removes it.
+[Unit]
+Description=Sunshine game stream host of the Hyprland session (Tailscale only)
+Documentation=https://docs.lizardbyte.dev/projects/sunshine/
+# Agent desktops only (machine.autologin). Keyed off the uwsm-activated
+# graphical-session.target, like wayvnc.service; the wrapper binds Sunshine to
+# the tailscale0 address and refuses to run without the nft guard. Replaces
+# the package's own unit, which must not run alongside it.
+After=graphical-session.target
+PartOf=graphical-session.target
+Requisite=graphical-session.target
+Conflicts=app-dev.lizardbyte.app.Sunshine.service
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/sunshine-tailscale
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# agent-desktop: managed by chezmoi (machine.autologin); the opt-out removes it.
+# Stream the Hyprland session with Sunshine (for Moonlight) over Tailscale only.
+#
+# Started by sunshine.service inside the graphical session. Sunshine can bind
+# one address but not a device, so two layers keep it off every interface but
+# tailscale0:
+#   - agent-desktop-vnc-guard.service: nftables (inet, so IPv4 and IPv6) drops
+#     Sunshine's ports (tcp and udp 47984-48010) off tailscale0 and lo. This is
+#     the boundary: Linux accepts packets for a local address on any interface.
+#   - every Sunshine socket is bound to the tailscale0 IPv4 address (IPv4 only),
+#     so nothing listens on the LAN, docker or IPv6 addresses.
+# The security settings are passed on the command line, which overrides
+# ~/.config/sunshine/sunshine.conf, so a setting saved in the web UI cannot
+# widen them: the base port stays inside the guarded range, the web UI admits
+# only localhost and private ranges (with the guard: Tailscale), UPnP stays off.
+# It refuses to start unless the guard unit is active, tailscale0 has an IPv4
+# address and the web UI has credentials (without them, Sunshine lets the first
+# visitor set them). It keeps watching: if the address changes or the guard
+# goes away, it stops Sunshine and exits non-zero so systemd restarts it (on
+# the new address, or not at all without the guard).
+# Capture: KMS (the package grants /usr/bin/sunshine cap_sys_admin); encoding:
+# VAAPI on the first render node.
+#
+# Agent desktops only (machine.autologin).
+set -euo pipefail
+
+guard=agent-desktop-vnc-guard.service
+state="${XDG_CONFIG_HOME:-$HOME/.config}/sunshine/sunshine_state.json"
+
+die() {
+    echo "sunshine-tailscale: $*" >&2
+    exit 1
+}
+
+tailscale_addr() {
+    ip -4 -o addr show dev tailscale0 2>/dev/null | awk '{ split($4, a, "/"); print a[1]; exit }'
+}
+
+systemctl is-active --quiet "$guard" || die "$guard is not active; refusing to stream without the firewall guard."
+jq -e '(.username // "") != "" and (.password // "") != "" and (.salt // "") != ""' "$state" >/dev/null 2>&1 ||
+    die "$state has no web UI credentials; run chezmoi apply (agent-desktop setup) first."
+
+# tailscaled may still be connecting at boot; the unit restarts us until it is.
+addr=$(tailscale_addr)
+[[ -n "$addr" ]] || die "tailscale0 has no IPv4 address yet."
+
+/usr/bin/sunshine \
+    "bind_address=$addr" \
+    address_family=ipv4 \
+    port=47989 \
+    origin_web_ui_allowed=lan \
+    upnp=disabled \
+    capture=kms \
+    encoder=vaapi \
+    adapter_name=/dev/dri/renderD128 &
+server=$!
+trap 'kill "$server" 2>/dev/null || true' EXIT
+
+while kill -0 "$server" 2>/dev/null; do
+    sleep 15 &
+    wait $! || true
+    kill -0 "$server" 2>/dev/null || break
+    if [[ "$(tailscale_addr)" != "$addr" ]]; then
+        die "tailscale0 address changed from $addr; restarting on the new one."
+    fi
+    if ! systemctl is-active --quiet "$guard"; then
+        die "$guard stopped; shutting Sunshine down."
+    fi
+done
+trap - EXIT
+wait "$server"

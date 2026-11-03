@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# agent-desktop: managed by chezmoi (machine.autologin); the opt-out removes it.
+# Approve a waiting Moonlight pairing request with the PIN Moonlight shows,
+# through Sunshine's web API on this machine, so nobody has to open the web UI.
+#
+#     sunshine-pair            list waiting pairing requests
+#     sunshine-pair PIN [NAME] approve the only waiting request with PIN
+#                              (NAME: how Sunshine lists the client)
+#
+# Credentials come from ~/.config/sunshine/web-ui-credentials (0600, written by
+# the agent-desktop setup); they are passed to curl on stdin, never in argv.
+#
+# Agent desktops only (machine.autologin).
+set -euo pipefail
+
+creds="${XDG_CONFIG_HOME:-$HOME/.config}/sunshine/web-ui-credentials"
+
+die() {
+    echo "sunshine-pair: $*" >&2
+    exit 1
+}
+
+[[ -r "$creds" ]] || die "$creds is missing; run chezmoi apply (agent-desktop setup) first."
+addr=$(ip -4 -o addr show dev tailscale0 2>/dev/null | awk '{ split($4, a, "/"); print a[1]; exit }')
+[[ -n "$addr" ]] || die "tailscale0 has no IPv4 address; is Sunshine running?"
+
+# api METHOD PATH [JSON]: one authenticated request (self-signed certificate).
+api() {
+    local user password
+    user=$(sed -n 's/^username=//p' "$creds")
+    password=$(sed -n 's/^password=//p' "$creds")
+    [[ -n "$user" && -n "$password" ]] || die "$creds has no username or password."
+    {
+        printf 'user = "%s:%s"\n' "$user" "$password"
+        if [[ -n "${3:-}" ]]; then
+            printf 'header = "Content-Type: application/json"\n'
+            printf 'data = "%s"\n' "${3//\"/\\\"}"
+        fi
+    } | curl -fsS --insecure --config - -X "$1" "https://$addr:47990$2"
+}
+
+pending=$(api GET /api/pin)
+if [[ $# -eq 0 ]]; then
+    jq -r '.pairings[] | "\(.id)  \(.name)  \(.address)"' <<<"$pending"
+    exit 0
+fi
+
+pin=$1
+name=${2:-Moonlight}
+[[ "$pin" =~ ^[0-9]{4}$ ]] || die "the PIN is the 4 digits Moonlight shows."
+count=$(jq '.pairings | length' <<<"$pending")
+((count == 1)) || die "$count pairing requests are waiting (need exactly 1); run sunshine-pair to list them."
+id=$(jq -r '.pairings[0].id' <<<"$pending")
+body=$(jq -cn --arg id "$id" --arg pin "$pin" --arg name "$name" '{pairing_id: $id, pin: $pin, name: $name}')
+result=$(api POST /api/pin "$body")
+if jq -e '.status == true' <<<"$result" >/dev/null; then
+    echo "paired: $name"
+else
+    die "Sunshine rejected the PIN: $result"
+fi
