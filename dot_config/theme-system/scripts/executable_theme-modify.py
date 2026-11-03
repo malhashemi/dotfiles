@@ -16,10 +16,17 @@ touches the real config, and its log output goes nowhere near stdout.
 
 Usage (normally only from .chezmoitemplates/theme-modify.sh):
 
-    theme-modify.py APP --base FILE --theme-data FILE < current > desired
+    theme-modify.py APP --base FILE --theme-data FILE [--keep-blocks OWNER]... \
+        < current > desired
 
-With no theme data (no file, or no `theme` key) the base is printed unchanged.
-A module error exits non-zero, so chezmoi stops rather than resetting colors.
+--keep-blocks OWNER hands the regions another program fences with
+`# >>> OWNER NAME block` / `# <<< OWNER NAME block` to that program: the
+current file's blocks replace the base's. The base's blocks only seed a file
+that has none of OWNER's blocks yet.
+
+With no theme data (no file, or no `theme` key) the base is printed with only
+the kept blocks applied. A module error exits non-zero, so chezmoi stops
+rather than resetting colors.
 """
 
 import argparse
@@ -28,6 +35,7 @@ import contextlib
 import importlib
 import io
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -48,6 +56,7 @@ APPS = {
     "yazi": ("yazi", "YaziTheme"),
     "clipboard": ("clipboard", "ClipboardTheme"),
     "flameshot": ("flameshot", "FlameshotTheme"),
+    "herdr": ("herdr", "HerdrTheme"),
 }
 
 # Flameshot keys the app itself changes in normal use. The base only seeds them.
@@ -151,11 +160,49 @@ def flameshot_keep_format(desired: str, current: str) -> str:
     return desired
 
 
+def _marked_blocks(text: str, owner: str) -> dict[str, str]:
+    """OWNER's marker-fenced blocks in text, keyed by block name."""
+    o = re.escape(owner)
+    pattern = re.compile(rf"^# >>> {o} (.+?) block$.*?^# <<< {o} \1 block$", re.M | re.S)
+    return {m.group(1): m.group(0) for m in pattern.finditer(text)}
+
+
+def carry_marked_blocks(base: str, current: str, owner: str) -> str:
+    """Take OWNER's blocks from the current file, in the base's positions.
+
+    A block the current file lacks was removed by its owner, so it is dropped
+    (the way such programs drop one: the gap closes to one blank line). A block
+    only the current file has goes at the end, where these programs append.
+    If the current file has none of OWNER's blocks, the base keeps its own.
+    """
+    theirs = _marked_blocks(current, owner)
+    if not theirs:
+        return base
+    for name, block in _marked_blocks(base, owner).items():
+        if name in theirs:
+            base = base.replace(block, theirs.pop(name), 1)
+        else:
+            base = re.sub(rf"\n*{re.escape(block)}\n*", "\n\n", base, count=1)
+    for block in theirs.values():
+        base = base.rstrip("\n") + "\n\n" + block + "\n"
+    return base
+
+
+def keep_trailing_blank_lines(desired: str, current: str) -> str:
+    """herdr-radar leaves a blank line at the end when it drops its last block
+    and the herdr module trims it; neither is a change worth reporting."""
+    return current if current.rstrip("\n") == desired.rstrip("\n") else desired
+
+
 PREPARE = {"yazi": carry_yazi_flavors, "flameshot": merge_flameshot}
-FINALIZE = {"flameshot": flameshot_keep_format}
+FINALIZE = {"flameshot": flameshot_keep_format, "herdr": keep_trailing_blank_lines}
 
 
-def render(app_name: str, base: str, current: str, theme_data: dict) -> str:
+def render(
+    app_name: str, base: str, current: str, theme_data: dict, keep_blocks: tuple[str, ...] = ()
+) -> str:
+    for owner in keep_blocks:
+        base = carry_marked_blocks(base, current, owner)
     if not theme_data.get("theme"):
         return base
 
@@ -213,12 +260,13 @@ def main() -> None:
     parser.add_argument("app", choices=sorted(APPS))
     parser.add_argument("--base", type=Path, required=True)
     parser.add_argument("--theme-data", type=Path, required=True)
+    parser.add_argument("--keep-blocks", action="append", default=[], metavar="OWNER")
     args = parser.parse_args()
 
     # Bytes in and out, so nothing is newline-translated on the way through.
     current = sys.stdin.buffer.read().decode()
     base = args.base.read_bytes().decode()
-    desired = render(args.app, base, current, load_theme_data(args.theme_data))
+    desired = render(args.app, base, current, load_theme_data(args.theme_data), tuple(args.keep_blocks))
     sys.stdout.buffer.write(desired.encode())
 
 

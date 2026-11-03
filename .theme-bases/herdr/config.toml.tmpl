@@ -1,29 +1,41 @@
+{{- /*
+  Base for ~/.config/herdr/config.toml, rendered by
+  dot_config/herdr/modify_config.toml.tmpl. Three writers share the file:
+  - chezmoi owns the settings below.
+  - The theme-system's herdr module owns [theme] and [theme.custom]: it
+    regenerates both from the theme data, so the colors here are only the
+    fallback for a machine with no theme data yet. Herdr only accepts built-in
+    names in theme.name; [theme.custom] overrides its colors.
+  - The herdr-radar plugin owns the "# >>> herdr-radar ... block" regions: the
+    live file's copies are kept, and the defaults here only seed a new file.
+    Keep the sidebar block last: the plugin appends it at the end of the file
+    when its rows are turned back on.
+  Notes are template comments, because the theme-system regenerates the theme
+  block without them.
+*/ -}}
 onboarding = false
 
 [theme]
-{{- /* Built-in base theme; [theme.custom] below overrides its colors. Herdr only
-     accepts built-in names here. A template comment, because the theme-system
-     rewrites this file and drops TOML comments. */}}
-name = "{{ if eq (.theme.variant | default "dark") "light" }}catppuccin-latte{{ else }}catppuccin{{ end }}"
+name = "catppuccin"
 auto_switch = false
 
 [theme.custom]
-panel_bg = "{{ .theme.material.surface_container | default "#1e1e2e" }}"
-surface0 = "{{ .theme.material.surface_container_low | default "#313244" }}"
-surface1 = "{{ .theme.material.surface_container_high | default "#45475a" }}"
-surface_dim = "{{ .theme.material.surface_dim | default "#181825" }}"
-overlay0 = "{{ .theme.material.outline | default "#6c7086" }}"
-overlay1 = "{{ .theme.material.on_surface_variant | default "#7f849c" }}"
-text = "{{ .theme.material.on_surface | default "#cdd6f4" }}"
-subtext0 = "{{ .theme.material.on_surface_variant | default "#a6adc8" }}"
-mauve = "{{ .theme.material.primary | default "#cba6f7" }}"
-blue = "{{ .theme.material.primary | default "#89b4fa" }}"
-teal = "{{ .theme.material.tertiary | default "#94e2d5" }}"
-green = "{{ .theme.material.tertiary | default "#a6e3a1" }}"
-yellow = "{{ .theme.material.secondary | default "#f9e2af" }}"
-peach = "{{ .theme.material.secondary | default "#fab387" }}"
-red = "{{ .theme.material.error | default "#f38ba8" }}"
-accent = "{{ .theme.material.primary | default "#89b4fa" }}"
+panel_bg = "#1e1e2e"
+surface0 = "#313244"
+surface1 = "#45475a"
+surface_dim = "#181825"
+overlay0 = "#6c7086"
+overlay1 = "#7f849c"
+text = "#cdd6f4"
+subtext0 = "#a6adc8"
+mauve = "#cba6f7"
+blue = "#89b4fa"
+teal = "#94e2d5"
+green = "#a6e3a1"
+yellow = "#f9e2af"
+peach = "#fab387"
+red = "#f38ba8"
+accent = "#89b4fa"
 
 [terminal]
 shell_mode = "auto"
@@ -143,6 +155,9 @@ type = "plugin_action"
 command = "herdr-bar.open"
 description = "command bar"
 
+[experimental]
+kitty_graphics = true
+
 # >>> herdr-radar sidebar block
 [ui.sidebar.agents]
 # logo glyphs: font
@@ -190,6 +205,3 @@ rows = [
   ]
 ]
 # <<< herdr-radar sidebar block
-
-[experimental]
-kitty_graphics = true

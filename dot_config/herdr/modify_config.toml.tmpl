@@ -1,0 +1,2 @@
+{{- /* ~/.config/herdr/config.toml: base in .theme-bases/herdr/config.toml.tmpl, colors from the theme-system's herdr module, and the herdr-radar plugin's marker blocks kept as the plugin last wrote them (see .chezmoitemplates/theme-modify.sh). */ -}}
+{{- template "theme-modify.sh" (dict "app" "herdr" "base" (includeTemplate ".theme-bases/herdr/config.toml.tmpl" .) "ctx" . "keep" (list "herdr-radar")) -}}
