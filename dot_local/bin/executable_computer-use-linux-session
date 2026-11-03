@@ -62,6 +62,17 @@ if [[ "$xwayland" =~ \ (:[0-9]+)(\ |$) ]]; then
 fi
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Hyprland}" XDG_SESSION_TYPE="${XDG_SESSION_TYPE:-wayland}"
 
+# Text goes through wtype on Hyprland. Use the agent-desktop setup's pinned
+# upstream build: Arch's wtype 0.4 maps the 65th and later distinct characters
+# of a text to F7, F8, ... NumLock, which Hyprland binds and Chrome act on, so
+# symbols vanish from longer texts. Only this process tree sees it.
+agent_wtype="$HOME/.local/lib/agent-desktop/wtype/bin"
+if [[ -x "$agent_wtype/wtype" ]]; then
+    export PATH="$agent_wtype:$PATH"
+else
+    echo "computer-use-linux-session: $agent_wtype/wtype is missing (run chezmoi apply); typing falls back to the system wtype, which drops characters from longer texts." >&2
+fi
+
 # The on-screen activity overlay ships next to the main binary.
 indicator="$(dirname "$bin")/computer-use-linux-indicator"
 [[ -x "$indicator" ]] && export COMPUTER_USE_LINUX_INDICATOR_BIN="${COMPUTER_USE_LINUX_INDICATOR_BIN:-$indicator}"

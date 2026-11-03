@@ -38,6 +38,7 @@
         $launcher
         (joinPath $home ".local/bin/wayvnc-tailscale")
         (joinPath $home ".local/lib/wayvnc/agent-desktop-managed")
+        (joinPath $home ".local/lib/agent-desktop/wtype/agent-desktop-managed")
         (joinPath $home ".config/systemd/user/sunshine.service")
         (joinPath $home ".local/bin/sunshine-tailscale")
         (joinPath $home ".local/bin/sunshine-pair")
@@ -81,11 +82,14 @@
 #       config homes (~/.claude and ~/.claude-t3-mixed, the one T3 uses).
 #   - input: /dev/uinput (absolute pointer) via a uaccess udev rule, so the
 #       logged-in seat user gets it without group changes or a re-login; text
-#       and keys go through wtype on Hyprland.
+#       and keys go through wtype on Hyprland: a pinned upstream build in
+#       ~/.local/lib/agent-desktop/wtype that only the launcher puts on PATH
+#       (Arch's wtype 0.4 drops symbols from longer texts; see step 3b).
 #   - accessibility: AT-SPI on (toolkit-accessibility), for element trees.
 #   - agent Chrome: agent-chrome.service, its own profile in
 #       ~/.local/share/agent-chrome, DevTools on 127.0.0.1:9222 for agent-browser
-#       (pinned, in the user's ~/.npm-global).
+#       (pinned, in the user's ~/.npm-global), and Codex's browser use (the
+#       ChatGPT extension's native messaging host, linked into that profile).
 #   - remote view: Sunshine (pinned upstream Arch package, sha256-checked) as
 #       sunshine.service for Moonlight: KMS capture, VAAPI encoding, bound to
 #       the tailscale0 IPv4 address behind agent-desktop-vnc-guard.service
@@ -113,8 +117,9 @@
 # agent access it added: MCP registrations, agent Chrome and Sunshine services
 # (and wayvnc's, from older versions), the firewall guard (only once nothing
 # listens on 5900 or Sunshine's ports), the uinput rule, the Sunshine
-# capability hook, the session helpers, and hypridle's no-lock policy (chezmoi
-# has already restored hypridle.conf).
+# capability hook, the session helpers, the agents' wtype build, the Codex
+# native messaging link in the agent Chrome profile, and hypridle's no-lock
+# policy (chezmoi has already restored hypridle.conf).
 # Any failure exits non-zero and keeps the marker, so the next apply retries.
 # Kept, because they are data: the Chrome profile (~/.local/share/agent-chrome),
 # the wayvnc credentials and ~/.config/sunshine (pairings, web UI
@@ -148,6 +153,12 @@ wants="$user_units/graphical-session.target.wants"
 launcher="$HOME/.local/bin/computer-use-linux-session"
 vnc_config="$HOME/.config/wayvnc/config"
 neatvnc_lib="$HOME/.local/lib/wayvnc"
+agent_wtype="$HOME/.local/lib/agent-desktop/wtype"
+# Codex's native messaging host manifest (the ChatGPT Chrome extension), as
+# Codex installs it for the default Chrome profile, and its link in the agent
+# Chrome profile (step 9).
+nm_source="$HOME/.config/google-chrome/NativeMessagingHosts/com.openai.codexextension.json"
+nm_link="$HOME/.local/share/agent-chrome/NativeMessagingHosts/com.openai.codexextension.json"
 vnc_restart_marker="$state_dir/wayvnc-restart-required"
 sunshine_dir="$HOME/.config/sunshine"
 sunshine_creds="$sunshine_dir/web-ui-credentials"
@@ -416,10 +427,11 @@ elif grep -q 'wayvnc' <<<"$guard_table"; then
 fi
 echo "  ✓ firewall guard active (Sunshine's tcp and udp $sunshine_ports dropped off tailscale0)"
 
-# 3. Packages. wtype types text on Hyprland, grim backs computer-use-linux's
-#    Hyprland window capture. agent-browser is pinned in the user's npm
-#    prefix, never as root.
-sudo pacman -S --needed --noconfirm wtype grim jq at-spi2-core
+# 3. Packages. wtype types text on Hyprland (step 3b builds the one agents
+#    use; the package stays for the user's own tools), grim backs
+#    computer-use-linux's Hyprland window capture, base-devel/meson/git build
+#    wtype. agent-browser is pinned in the user's npm prefix, never as root.
+sudo pacman -S --needed --noconfirm wtype grim jq at-spi2-core base-devel meson git
 if ! command -v google-chrome-stable >/dev/null 2>&1; then
     yay -S --needed --noconfirm google-chrome
 fi
@@ -433,6 +445,46 @@ fi
 mkdir -p "$HOME/.local/bin"
 if [[ -L "$HOME/.local/bin/agent-browser" || ! -e "$HOME/.local/bin/agent-browser" ]]; then
     ln -sfn "$agent_browser" "$HOME/.local/bin/agent-browser"
+fi
+
+# 3b. wtype for agents. computer-use-linux types text on Hyprland with wtype.
+#     wtype 0.4 (Arch's) puts the Nth distinct character of a text on evdev
+#     keycode N, so in a text with more than 64 distinct characters the 65th
+#     lands on F7, the next on F8, F9, F10, NumLock: Hyprland runs its F7 bind
+#     (voice dictation here) and Chromium acts on F10 (menu focus), and those
+#     characters, plus whatever follows in Chrome, never arrive. Upstream wtype
+#     (atx/wtype, unreleased since 0.4) types literal text only on printable
+#     key positions. Build that pinned commit into a private prefix; only the
+#     computer-use-linux-session launcher puts it first on PATH, so the user's
+#     own typing (voice-typer, the wtype package) is unchanged.
+#     The marker (ownership proof for the opt-out) is written before the
+#     binary, the commit stamp last, so an interrupted build is redone.
+wtype_commit=4b9cc29664f178cf380ccfe7f98405d38dffda3c
+wtype_marker_state=$(classify "$agent_wtype/agent-desktop-managed") || fail "cannot inspect $agent_wtype"
+if [[ "$wtype_marker_state" == absent && -n "$(ls -A "$agent_wtype" 2>/dev/null)" ]]; then
+    fail "$agent_wtype exists but was not written by this setup; move it away"
+elif [[ "$wtype_marker_state" == foreign ]]; then
+    fail "$agent_wtype/agent-desktop-managed was not written by this setup; move $agent_wtype away"
+fi
+if [[ -x "$agent_wtype/bin/wtype" && "$(cat "$agent_wtype/commit" 2>/dev/null)" == "$wtype_commit" ]]; then
+    echo "  ✓ agents' wtype ($wtype_commit) already built"
+else
+    install -d -m 0755 "$agent_wtype"
+    printf '%s\n# wtype for computer-use-linux, built from atx/wtype by\n# .chezmoiscripts/run_onchange_after_agent-desktop.sh.tmpl (step 3b).\n' \
+        "$owner_header" >"$agent_wtype/agent-desktop-managed"
+    rm -f "$agent_wtype/commit"
+    install -d -m 0755 "$agent_wtype/bin"
+    tmp=$(mktemp -d)
+    git -C "$tmp" init -q src
+    git -C "$tmp/src" fetch -q --depth 1 https://github.com/atx/wtype "$wtype_commit"
+    git -C "$tmp/src" checkout -q FETCH_HEAD
+    [[ "$(git -C "$tmp/src" rev-parse HEAD)" == "$wtype_commit" ]] || fail "atx/wtype checkout is not $wtype_commit"
+    meson setup --buildtype=release "$tmp/build" "$tmp/src" >/dev/null
+    ninja -C "$tmp/build" >/dev/null
+    install -m 0755 "$tmp/build/wtype" "$agent_wtype/bin/wtype"
+    rm -rf "$tmp"
+    echo "$wtype_commit" >"$agent_wtype/commit"
+    echo "  ✓ agents' wtype built from atx/wtype $wtype_commit"
 fi
 
 # 4. /dev/uinput for the absolute pointer. `uaccess` grants the active seat
@@ -579,6 +631,23 @@ mkdir -p "$wants"
 for unit in agent-chrome.service sunshine.service; do
     ln -sfn "$user_units/$unit" "$wants/$unit"
 done
+# Codex's browser use drives the agent Chrome through the ChatGPT extension,
+# which talks to Codex's native messaging host. Codex registers that host for
+# the default Chrome profile only (~/.config/google-chrome/NativeMessagingHosts);
+# a Chrome with --user-data-dir reads <user-data-dir>/NativeMessagingHosts
+# instead. Link (not copy) the manifest there, so Codex rewriting it (a new
+# host path after an update) needs nothing here; Chrome reads it on every
+# connect. Created even before Codex has written it (then it starts working
+# when Codex does); a file or another link at that path is left alone.
+if [[ ! -e "$nm_link" && ! -L "$nm_link" ]] ||
+    [[ -L "$nm_link" && "$(readlink "$nm_link")" == "$nm_source" ]]; then
+    install -d -m 0700 "$(dirname "$nm_link")"
+    ln -sfn "$nm_source" "$nm_link"
+    [[ -e "$nm_source" ]] ||
+        echo "  ⚠ $nm_source does not exist yet (set up Codex's Chrome plugin); the agent Chrome link waits for it"
+else
+    echo "  ⚠ left $nm_link alone: not this setup's link"
+fi
 if user_manager; then
     systemctl --user daemon-reload
     if systemctl --user is-active --quiet graphical-session.target; then
@@ -611,6 +680,14 @@ if user_manager; then
                 systemctl --user restart xdg-desktop-portal.service
                 echo "  ✓ restarted xdg-desktop-portal (it was missing the Hyprland backend)"
             fi
+        fi
+        # `doctor` never captures (it always reports screenshots "unverified"),
+        # so take a real screenshot through the launcher, as agents would.
+        if shot=$(timeout 60 "$launcher" screenshot 2>&1) &&
+            jq -e '.width > 0 and .height > 0' <<<"$shot" >/dev/null 2>&1; then
+            echo "  ✓ screenshot captured ($(jq -r '"\(.coordinate_width)x\(.coordinate_height) via \(.source)"' <<<"$shot"))"
+        else
+            echo "  ⚠ screenshot capture failed: $(head -c 300 <<<"$shot")"
         fi
         restart_hypridle
     fi
@@ -666,6 +743,7 @@ for path in "$user_units/wayvnc.service" "$user_units/agent-chrome.service" \
     "$HOME/.local/bin/sunshine-pair" "$HOME/.local/bin/sunshine-credentials" "$sunshine_hook" \
     "$user_units/xdg-desktop-portal.service.d/agent-desktop.conf" "$launcher" \
     "$HOME/.local/bin/wayvnc-tailscale" "$neatvnc_lib/agent-desktop-managed" \
+    "$agent_wtype/agent-desktop-managed" \
     "$HOME/.local/bin/computer-use-linux" "$HOME/.local/bin/computer-use-linux-cosmic" \
     "$HOME/.local/bin/computer-use-linux-indicator" "$guard_unit" "$guard_dropin" \
     "$guard_rules" "$guard_bundle" "$uinput_rule" "$uinput_module"; do
@@ -793,7 +871,8 @@ mcp_remove "Claude ($HOME/.claude)" "$HOME/.claude.json" json claude \
 mcp_remove "Claude ($HOME/.claude-t3-mixed)" "$HOME/.claude-t3-mixed/.claude.json" json claude \
     env CLAUDE_CONFIG_DIR="$HOME/.claude-t3-mixed" claude mcp remove --scope user computer-use-linux
 
-# 4. Session helpers, binaries, the patched library and the agent-browser link.
+# 4. Session helpers, binaries, the patched library, the agents' wtype, the
+#    Codex native messaging link and the agent-browser link.
 remove_owned "$launcher" "$HOME/.local/bin/wayvnc-tailscale" \
     "$HOME/.local/bin/sunshine-tailscale" "$HOME/.local/bin/sunshine-pair" \
     "$HOME/.local/bin/sunshine-credentials" \
@@ -805,6 +884,19 @@ if [[ "$lib_state" == owned ]]; then
     echo "  ✓ removed $neatvnc_lib"
 elif [[ -e "$neatvnc_lib" ]]; then
     echo "  ⚠ left $neatvnc_lib alone: not written by this setup"
+fi
+wtype_state=$(classify "$agent_wtype/agent-desktop-managed") || fail "cannot inspect $agent_wtype"
+if [[ "$wtype_state" == owned ]]; then
+    rm -rf -- "$agent_wtype" || fail "cannot remove $agent_wtype"
+    rmdir "$(dirname "$agent_wtype")" 2>/dev/null || true
+    echo "  ✓ removed $agent_wtype (agents' wtype)"
+elif [[ -e "$agent_wtype" ]]; then
+    echo "  ⚠ left $agent_wtype alone: not written by this setup"
+fi
+if [[ -L "$nm_link" && "$(readlink "$nm_link")" == "$nm_source" ]]; then
+    rm -f -- "$nm_link" || fail "cannot remove $nm_link"
+    rmdir "$(dirname "$nm_link")" 2>/dev/null || true
+    echo "  ✓ removed $nm_link (Codex native messaging link)"
 fi
 if [[ -L "$HOME/.local/bin/agent-browser" &&
     "$(readlink "$HOME/.local/bin/agent-browser")" == "$HOME/.npm-global/bin/agent-browser" ]]; then

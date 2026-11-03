@@ -20,9 +20,13 @@ Environment=ACCESSIBILITY_ENABLED=1
 # Chrome serves DevTools only on loopback for a non-default --user-data-dir.
 # --force-renderer-accessibility exposes page content to AT-SPI for
 # computer-use-linux; --password-store=basic avoids keyring unlock prompts that
-# an unattended (autologin) session cannot answer.
+# an unattended (autologin) session cannot answer. --ozone-platform=wayland
+# pins the native Wayland window that computer use types into (wtype's
+# keymaps reach it directly; auto-detection falls back to XWayland whenever
+# the manager lacks XDG_SESSION_TYPE=wayland).
 ExecStart=/usr/bin/google-chrome-stable \
     --user-data-dir=%h/.local/share/agent-chrome \
+    --ozone-platform=wayland \
     --remote-debugging-address=127.0.0.1 \
     --remote-debugging-port=9222 \
     --class=agent-chrome \
