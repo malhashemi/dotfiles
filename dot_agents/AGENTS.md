@@ -44,6 +44,17 @@ Brief a computer-use seat with what to verify and on which platform, how to laun
 
 Launching apps, simulators, or browsers to verify work is fine without asking. Ask the user first only when a run could disrupt their environment beyond that, such as closing their apps, changing system settings, or acting on real accounts or data.
 
+### Browsers
+
+Pick the browser by the job, and don't try several.
+
+- **The app you're building** (localhost or the project's preview): T3's preview browser (the `preview_*` tools).
+- **Sites that need the user's sign-ins** (dashboards, consoles, admin pages): Codex uses its own browser use, through Chrome and the ChatGPT extension. Other harnesses, and Codex where that isn't available, use agent-browser. On an agent desktop, attach it to the signed-in agent Chrome with `agent-browser --cdp 9222`.
+- **Anything outside a web page** (extension popups, native dialogs, desktop apps): computer use. On Linux that's the `computer-use-linux` MCP server.
+- Don't use Claude in Chrome, Claude desktop's built-in browser, or terminal-browser.
+
+Before signing in to a service, check the fleet runbook for which account it uses; some are split between a work and a personal account. When a sign-in needs a code, passkey, or phone approval, stop and ask the user, saying which service, which account, and any number to match. Don't retry a failed verification: repeated failures lock the account.
+
 ## Shell tools
 
 <important if="you are running shell commands">
