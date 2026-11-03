@@ -13,12 +13,16 @@
 # The security settings are passed on the command line, which overrides
 # ~/.config/sunshine/sunshine.conf, so a setting saved in the web UI cannot
 # widen them: the base port stays inside the guarded range, the web UI admits
-# only localhost and private ranges (with the guard: Tailscale), UPnP stays off.
+# only localhost and private ranges (with the guard: Tailscale), UPnP stays off,
+# and the credential and state store is pinned to the one file checked below.
 # It refuses to start unless the guard unit is active, tailscale0 has an IPv4
-# address and the web UI has credentials (without them, Sunshine lets the first
-# visitor set them). It keeps watching: if the address changes or the guard
-# goes away, it stops Sunshine and exits non-zero so systemd restarts it (on
-# the new address, or not at all without the guard).
+# address, that store holds the login from web-ui-credentials (without one,
+# Sunshine lets the first visitor of the web UI set it; see
+# sunshine-credentials) and Avahi is off: Sunshine has no setting to stop
+# publishing itself over mDNS, and Avahi would announce it on every interface.
+# It keeps watching: if the address changes or the guard goes away, it stops
+# Sunshine and exits non-zero so systemd restarts it (on the new address, or
+# not at all without the guard).
 # Capture: KMS (the package grants /usr/bin/sunshine cap_sys_admin); encoding:
 # VAAPI on the first render node.
 #
@@ -26,7 +30,8 @@
 set -euo pipefail
 
 guard=agent-desktop-vnc-guard.service
-state="${XDG_CONFIG_HOME:-$HOME/.config}/sunshine/sunshine_state.json"
+# Sunshine's credential and pairing store; pinned below for both settings.
+store="${XDG_CONFIG_HOME:-$HOME/.config}/sunshine/sunshine_state.json"
 
 die() {
     echo "sunshine-tailscale: $*" >&2
@@ -38,8 +43,13 @@ tailscale_addr() {
 }
 
 systemctl is-active --quiet "$guard" || die "$guard is not active; refusing to stream without the firewall guard."
-jq -e '(.username // "") != "" and (.password // "") != "" and (.salt // "") != ""' "$state" >/dev/null 2>&1 ||
-    die "$state has no web UI credentials; run chezmoi apply (agent-desktop setup) first."
+"$HOME/.local/bin/sunshine-credentials" check ||
+    die "$store does not hold the web UI login from web-ui-credentials; run sunshine-credentials sync (or chezmoi apply)."
+for avahi in avahi-daemon.service avahi-daemon.socket; do
+    if systemctl is-active --quiet "$avahi" || systemctl is-enabled --quiet "$avahi" 2>/dev/null; then
+        die "$avahi is enabled or running; Sunshine would announce itself over mDNS on every interface. Disable Avahi or remove this check deliberately."
+    fi
+done
 
 # tailscaled may still be connecting at boot; the unit restarts us until it is.
 addr=$(tailscale_addr)
@@ -47,6 +57,8 @@ addr=$(tailscale_addr)
 
 /usr/bin/sunshine \
     "bind_address=$addr" \
+    "file_state=$store" \
+    "credentials_file=$store" \
     address_family=ipv4 \
     port=47989 \
     origin_web_ui_allowed=lan \

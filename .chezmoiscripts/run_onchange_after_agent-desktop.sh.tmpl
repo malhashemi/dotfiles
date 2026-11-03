@@ -42,6 +42,7 @@
         (joinPath $home ".config/systemd/user/sunshine.service")
         (joinPath $home ".local/bin/sunshine-tailscale")
         (joinPath $home ".local/bin/sunshine-pair")
+        (joinPath $home ".local/bin/sunshine-credentials")
         "/etc/pacman.d/hooks/agent-desktop-sunshine-cap.hook"
         "/etc/systemd/system/agent-desktop-vnc-guard.service"
         "/etc/systemd/system/nftables.service.d/agent-desktop-vnc-guard.conf"
@@ -111,6 +112,7 @@
 #   sunshine.service:      {{ include "dot_config/systemd/user/sunshine.service" | sha256sum }}
 #   sunshine wrapper:      {{ include "dot_local/bin/executable_sunshine-tailscale" | sha256sum }}
 #   sunshine-pair:         {{ include "dot_local/bin/executable_sunshine-pair" | sha256sum }}
+#   sunshine-credentials:  {{ include "dot_local/bin/executable_sunshine-credentials" | sha256sum }}
 #   last opt-out:          {{ if stat $disabledAt }}{{ include $disabledAt | trim }}{{ else }}never{{ end }}
 {{- else }}
 # Agent desktop opt-out: machine.autologin is off on a machine the agent-desktop
@@ -155,7 +157,6 @@ neatvnc_lib="$HOME/.local/lib/wayvnc"
 vnc_restart_marker="$state_dir/wayvnc-restart-required"
 sunshine_dir="$HOME/.config/sunshine"
 sunshine_creds="$sunshine_dir/web-ui-credentials"
-sunshine_state="$sunshine_dir/sunshine_state.json"
 sunshine_restart_marker="$state_dir/sunshine-restart-required"
 sunshine_hook=/etc/pacman.d/hooks/agent-desktop-sunshine-cap.hook
 # Sunshine's ports for base port 47989 (47984-48010, tcp and udp); the wrapper
@@ -487,9 +488,10 @@ fi
 #      every install and upgrade; the pacman hook below re-applies it after
 #      any rebuild that would not, and this step repairs it now.
 #    - Web UI credentials: generated once into $sunshine_creds (0600, never in
-#      the dotfiles) and loaded into Sunshine's own store with `sunshine
-#      --creds` whenever the store does not match the file. Without them
-#      Sunshine would let the first visitor of the web UI set them.
+#      the dotfiles), the source of truth, and written into Sunshine's own
+#      store by sunshine-credentials whenever the store does not match.
+#      Without them Sunshine would let the first visitor of the web UI set
+#      them.
 sunshine_pkg_version=2026.914.233613-1
 sunshine_pkg_sha256=17eb8c4d823a2693038f40aeeab56943ef0d5d6ace8ac90b3693905b0acbba87
 sunshine_pkg_url="https://github.com/LizardByte/Sunshine/releases/download/v${sunshine_pkg_version%-*}/sunshine-$sunshine_pkg_version-x86_64.pkg.tar.zst"
@@ -549,39 +551,11 @@ if [[ ! -e "$sunshine_creds" ]]; then
     echo "  ✓ generated Sunshine web UI credentials in $sunshine_creds"
 fi
 chmod 0600 "$sunshine_creds"
-# sunshine_creds_match: Sunshine's store holds the file's username and
-# sha256(password + salt), as Sunshine checks them (its hex encoder writes
-# the digest bytes last to first).
-sunshine_creds_match() {
-    python3 -I - "$sunshine_creds" "$sunshine_state" <<'PY'
-import hashlib
-import json
-import sys
-
-creds = {}
-for line in open(sys.argv[1], encoding='utf-8').read().splitlines():
-    if not line.startswith('#') and '=' in line:
-        key, value = line.split('=', 1)
-        creds[key] = value
-try:
-    with open(sys.argv[2], encoding='utf-8') as handle:
-        state = json.load(handle)
-except (OSError, ValueError):
-    sys.exit(1)
-digest = hashlib.sha256((creds['password'] + state.get('salt', '')).encode()).digest()[::-1].hex()
-ok = (state.get('username', '').lower() == creds['username'].lower()
-      and state.get('password', '').lower() == digest)
-sys.exit(0 if ok else 1)
-PY
-}
-if ! sunshine_creds_match; then
-    # `--creds` saves them and exits; it takes them only as arguments.
-    /usr/bin/sunshine --creds "$(sed -n 's/^username=//p' "$sunshine_creds")" \
-        "$(sed -n 's/^password=//p' "$sunshine_creds")" </dev/null >/dev/null
-    sunshine_creds_match
-    touch "$sunshine_restart_marker"
-    echo "  ✓ loaded the web UI credentials into Sunshine"
-fi
+# Load the login into Sunshine's store whenever it does not match (computes
+# the salted hash itself; no password in argv; pairings kept). The always-run
+# run_after_agent-desktop-sunshine-credentials script repeats this check on
+# every apply.
+"$HOME/.local/bin/sunshine-credentials" sync
 
 # 8. MCP registration. Codex keeps its servers in ~/.codex/config.toml; Claude
 #    Code keeps user-scope servers in <config dir>/.claude.json, once for the
@@ -752,7 +726,7 @@ if [[ -s "$state_dir/enabled-at" ]]; then
 fi
 for path in "$user_units/wayvnc.service" "$user_units/agent-chrome.service" \
     "$user_units/sunshine.service" "$HOME/.local/bin/sunshine-tailscale" \
-    "$HOME/.local/bin/sunshine-pair" "$sunshine_hook" \
+    "$HOME/.local/bin/sunshine-pair" "$HOME/.local/bin/sunshine-credentials" "$sunshine_hook" \
     "$user_units/xdg-desktop-portal.service.d/agent-desktop.conf" "$launcher" \
     "$HOME/.local/bin/wayvnc-tailscale" "$neatvnc_lib/agent-desktop-managed" \
     "$HOME/.local/bin/computer-use-linux" "$HOME/.local/bin/computer-use-linux-cosmic" \
@@ -885,6 +859,7 @@ mcp_remove "Claude ($HOME/.claude-t3-mixed)" "$HOME/.claude-t3-mixed/.claude.jso
 # 4. Session helpers, binaries, the patched library and the agent-browser link.
 remove_owned "$launcher" "$HOME/.local/bin/wayvnc-tailscale" \
     "$HOME/.local/bin/sunshine-tailscale" "$HOME/.local/bin/sunshine-pair" \
+    "$HOME/.local/bin/sunshine-credentials" \
     "$HOME/.local/bin/computer-use-linux" "$HOME/.local/bin/computer-use-linux-cosmic" \
     "$HOME/.local/bin/computer-use-linux-indicator"
 lib_state=$(classify "$neatvnc_lib/agent-desktop-managed") || fail "cannot inspect $neatvnc_lib"

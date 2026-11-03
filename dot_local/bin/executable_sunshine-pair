@@ -25,18 +25,18 @@ addr=$(ip -4 -o addr show dev tailscale0 2>/dev/null | awk '{ split($4, a, "/");
 [[ -n "$addr" ]] || die "tailscale0 has no IPv4 address; is Sunshine running?"
 
 # api METHOD PATH [JSON]: one authenticated request (self-signed certificate).
+# The login goes to curl as a config on stdin, the JSON body (built by jq)
+# verbatim on fd 3; neither appears in argv or needs escaping here.
 api() {
-    local user password
+    local user password body=${3:-} data=()
     user=$(sed -n 's/^username=//p' "$creds")
     password=$(sed -n 's/^password=//p' "$creds")
     [[ -n "$user" && -n "$password" ]] || die "$creds has no username or password."
-    {
-        printf 'user = "%s:%s"\n' "$user" "$password"
-        if [[ -n "${3:-}" ]]; then
-            printf 'header = "Content-Type: application/json"\n'
-            printf 'data = "%s"\n' "${3//\"/\\\"}"
-        fi
-    } | curl -fsS --insecure --config - -X "$1" "https://$addr:47990$2"
+    if [[ -n "$body" ]]; then
+        data=(--header 'Content-Type: application/json' --data-binary @/dev/fd/3)
+    fi
+    printf 'user = "%s:%s"\n' "$user" "$password" |
+        curl -fsS --insecure --config - "${data[@]}" -X "$1" "https://$addr:47990$2" 3< <(printf '%s' "$body")
 }
 
 pending=$(api GET /api/pin)
