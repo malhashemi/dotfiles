@@ -58,8 +58,8 @@ It drives T3's conversation, title and Git-text defaults, Mixed model selectors,
 and standalone Codex/Grok defaults. Astra and Sol use extra high; Fable uses
 high; Opus uses extra high; Grok uses medium. The `cli` and `t3` sections pin
 the exact Claude CLI, Grok CLI and T3 selections in use: Claude CLI `opus` at
-high, Grok CLI 4.6 at high, T3 Opus 5.5 at high on Claude Personal Mixed, and
-Grok 4.6 at medium for T3 titles and Git text. Standard Codex service tier is
+high, Grok CLI 4.6 at high, T3 Opus 5.5 at high on Claude Personal Mixed,
+Grok 4.7 Build Fast for T3 titles and Grok 4.6 at medium for Git text. Standard Codex service tier is
 explicit. Session or project overrides still work. Codex's context window and
 auto-compaction settings are not changed.
 
@@ -212,11 +212,24 @@ it uses the pin in `bootstrap.json`. Package upgrades remain explicit.
 | --- | --- | --- |
 | macOS laptop/desktop | Homebrew user service | Desktop app and CLI |
 | Arch desktop/laptop | systemd user service | Desktop app and CLI |
+| Arch agent desktop (`machine.autologin`) | systemd user service, user lingering | Persistent `t3code.service`; the desktop app connects to it |
 | Arch headless | systemd user service, user lingering | CLI and persistent `t3code.service` |
 
 The proxy listens on `127.0.0.1:8317`. Each machine generates its own gateway key.
-The headless T3 service listens on loopback; Tailscale Serve supplies HTTPS for
-remote clients. Desktop exposure is managed through selected T3 settings. This
+The T3 service listens on loopback; Tailscale Serve supplies HTTPS for
+remote clients, and other machines' T3 apps reach it over SSH as an existing
+server.
+
+Only one T3 server can use a T3 home. On an agent desktop the service owns
+`~/.t3`, so the helper turns off the desktop app's local environment
+(`localEnvironmentEnabled: false` in `desktop-settings.json`) and the app
+connects to the service like any other environment: pair it once with
+`t3 pair --label "This desktop"` and open the printed `t3code://pair` link on
+that desktop. The service is installed with the setup-owned CLI, whose version
+follows the installed desktop app, so app and service match. An existing T3
+server that is not the service (for example one another machine's app started
+over SSH) must be stopped before the first install; threads and settings in
+`~/.t3/userdata` carry over. Desktop exposure is managed through selected T3 settings. This
 package never enables public Tailscale Funnel.
 
 For a fresh installation, the dedicated after hook runs the helper after files
@@ -278,7 +291,8 @@ The updater uses the existing installation owner: Codex/Grok's native updater
 for standalone installations, Homebrew for its installations, and yay/paru for
 Arch packages. Arch updates include a full system upgrade to avoid unsupported
 partial upgrades. The T3 CLI follows the installed desktop version; headless
-maintenance uses the current npm release and updates the installed service.
+maintenance uses the current npm release. A background service then moves to
+the CLI's exact version (`t3 update <version> --yes`, which restarts it).
 No package upgrades run automatically during chezmoi apply.
 
 Installation is repeatable: existing gateway keys and subscriptions survive;

@@ -347,6 +347,12 @@ def t3_install_version():
     return read_json(INPUTS / 'bootstrap.json')['t3_version']
 
 
+def t3_cli_version():
+    """Version of the setup-owned T3 CLI, or None when it is not installed here."""
+    package = HOME_DIR / '.local/share/t3-cli/node_modules/t3/package.json'
+    return read_json(package, {}).get('version') if package.exists() else None
+
+
 def install_t3_server(update=False):
     node = shutil.which('node')
     npm = shutil.which('npm')
@@ -383,6 +389,35 @@ def install_t3_server(update=False):
     BIN.mkdir(parents=True, exist_ok=True)
     if not os.path.lexists(BIN / 't3'):
         (BIN / 't3').symlink_to(executable)
+
+
+def service_host(machine):
+    """T3 runs as its background service on headless hosts and on Linux agent desktops.
+
+    An agent desktop (machine.autologin) must keep its threads reachable while no
+    app is open, so the service owns ~/.t3 there and the desktop app connects to
+    it like any other environment (its local environment is off).
+    """
+    return machine.get('role') == 'headless' or (sys.platform == 'linux' and machine.get('autologin') is True)
+
+
+def t3_desktop_running():
+    """True while this machine's T3 desktop app runs (Electron's single-instance lock)."""
+    base = HOME_DIR / ('Library/Application Support' if sys.platform == 'darwin' else '.config')
+    try:
+        owner = os.readlink(base / 't3code-v2/SingletonLock')
+    except OSError:
+        return False
+    host, _, pid = owner.rpartition('-')
+    if host != socket.gethostname() or not pid.isdigit():
+        return False
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
 
 
 def tool_update_plan(machine):
@@ -438,19 +473,23 @@ def update_tools(machine, preview=False):
     if preview:
         for command in commands:
             print(json_text(command).strip())
-        print('Then update the setup-owned T3 CLI; update the headless service with that CLI version.')
+        print('Then update the setup-owned T3 CLI, and move the background service (if any) to that CLI version.')
         return
-    if t3_running():
-        raise ValueError('Finish active work and close T3 or stop its service before explicit tool maintenance.')
+    service = service_host(machine) and (HOME_DIR / '.config/systemd/user/t3code.service').exists()
+    if t3_running() and not service:
+        raise ValueError('Finish active work and close T3 before explicit tool maintenance.')
+    if t3_desktop_running():
+        raise ValueError('Close the T3 desktop app before explicit tool maintenance.')
     for command in commands:
         run(command)
     install_t3_server(update=True)
-    if machine.get('role') == 'headless' and (HOME_DIR / '.config/systemd/user/t3code.service').exists():
-        run([BIN / 't3', 'service', 'update'])
+    if service:
+        # Restarts the service onto the CLI's exact version; running turns are interrupted.
+        run([BIN / 't3', 'update', t3_cli_version(), '--yes'])
     print('Tool maintenance complete. Running provider processes need a new session to use updated binaries.')
 
 
-def setup_service(fresh_proxy=False, headless=False):
+def setup_service(fresh_proxy=False, linger=False):
     proxy = find_proxy()
     if not proxy:
         raise ValueError('CLIProxyAPI is not on PATH after installation.')
@@ -494,7 +533,7 @@ def setup_service(fresh_proxy=False, headless=False):
     if unit.exists() and unit.read_text() != text:
         raise ValueError('Existing mixed proxy service differs; review it before replacing it.')
     write_new(unit, text)
-    if headless:
+    if linger:
         linger = run(['loginctl', 'show-user', getpass.getuser(), '--property=Linger', '--value'], capture_output=True, text=True).stdout.strip()
         if linger != 'yes':
             run(['loginctl', 'enable-linger', getpass.getuser()])
@@ -509,7 +548,7 @@ def machine_settings(headless=False):
     role = machine.get('role', 'desktop')
     if role not in ('laptop', 'desktop', 'headless'):
         raise ValueError('machine.json has an unsupported role.')
-    for key in ('enabled', 'remote_access'):
+    for key in ('enabled', 'remote_access', 'autologin'):
         if key in machine and not isinstance(machine[key], bool):
             raise ValueError('machine.json: ' + key + ' must be a boolean.')
     return machine
@@ -619,9 +658,14 @@ def planned_t3(machine):
         for name, fields in preferences['modelMenus'].items():
             menus.setdefault(name, {}).update(fields)
         changes.append((path, current, result))
-        if machine.get('remote_access'):
-            path = state / 'desktop-settings.json'
-            current = read_json(path, {})
+        path = state / 'desktop-settings.json'
+        current = read_json(path, {})
+        if service_host(machine):
+            # The background service owns ~/.t3 (one server per T3 home), so the
+            # app runs without a local server and connects to the service instead.
+            # Remote access is the service's Tailscale Serve mapping.
+            changes.append((path, current, {**current, 'localEnvironmentEnabled': False}))
+        elif machine.get('remote_access'):
             result = {**current, 'serverExposureMode': 'network-accessible',
                       'tailscaleServeEnabled': True}
             changes.append((path, current, result))
@@ -755,9 +799,20 @@ def configure_t3(machine, allow_existing=False, models_only=False):
     # T3 watches settings.json and publishes changes to connected clients. Pure
     # model additions do not alter running sessions or client-owned preferences.
     live_model_additions = models_only and all(p.name == 'settings.json' for p, _, _ in writable)
-    if t3_running() and not live_model_additions:
+    # On a service host the desktop app owns only its client files; the server owns the rest.
+    client_files = ('client-settings.json', 'desktop-settings.json')
+    touches_server = any(p.name not in client_files for p, _, _ in writable)
+    touches_client = any(p.name in client_files for p, _, _ in writable)
+
+    def busy():
+        if service_host(machine):
+            return (touches_server and t3_running() and not live_model_additions) or (
+                touches_client and t3_desktop_running())
+        return t3_running() and not live_model_additions
+
+    if busy():
         if allow_existing:
-            raise ValueError('Close T3 or stop its headless service before applying preferences. No settings changed.')
+            raise ValueError('Close T3 or stop its background service before applying preferences. No settings changed.')
         print('T3 is running; settings creation deferred. Run --t3-diff after closing it.')
         return
     archive = HOME_DIR / '.local/share/t3-settings-backups' / ('chezmoi-' + secrets.token_hex(6))
@@ -769,7 +824,7 @@ def configure_t3(machine, allow_existing=False, models_only=False):
     written = []
     try:
         for path, before, after in writable:
-            if (t3_running() and not live_model_additions) or read_json(path, [] if isinstance(before, list) else {}) != before:
+            if busy() or read_json(path, [] if isinstance(before, list) else {}) != before:
                 raise ValueError('T3 started or its settings changed during the merge.')
             if originals[path] is not None:
                 write_new(archive / path.name, originals[path].decode())
@@ -788,16 +843,24 @@ def configure_t3(machine, allow_existing=False, models_only=False):
     print('Saved selected T3 preferences; existing-file backups:', archive if archive.exists() else 'not needed')
 
 
-def setup_headless_t3():
+def setup_t3_service(machine):
     if sys.platform != 'linux':
-        raise ValueError('The headless service setup currently supports Arch Linux.')
+        raise ValueError('The T3 background service setup currently supports Arch Linux.')
     unit = HOME_DIR / '.config/systemd/user/t3code.service'
     if unit.exists():
         # Do not reinstall, upgrade or restart an existing server during chezmoi apply.
         run(['systemctl', '--user', 'enable', '--now', 't3code.service'])
         return
     if t3_running():
-        raise ValueError('An unmanaged T3 server is running. Stop it before installing its background service.')
+        raise ValueError('A T3 server that is not the background service owns ~/.t3 (for example one that '
+                         'another machine\'s T3 app started over SSH). Stop it, then rerun claude-mixed-setup '
+                         '--install. Projects, threads and settings in ~/.t3/userdata are kept.')
+    if t3_desktop_running():
+        raise ValueError('Close the T3 desktop app on this machine, then rerun claude-mixed-setup --install.')
+    if machine.get('role') != 'headless' and t3_cli_version() != t3_install_version():
+        # `t3 service install` installs the CLI's own version; on a desktop it
+        # must match the app, which connects to this service.
+        install_t3_server(update=True)
     t3 = shutil.which('t3') or str(BIN / 't3')
     # T3 installs its service into a separate npm prefix. Limit native build
     # approvals to this invocation; never alter the user's global npm policy.
@@ -815,9 +878,32 @@ def setup_headless_t3():
         env.pop('npm_config_allow_scripts', None)
         env.pop('NPM_CONFIG_ALLOW_SCRIPTS', None)
         run([t3, 'service', 'install'], env=env)
+    if machine.get('role') != 'headless':
+        app_uses_service()
+        print('T3 now runs as t3code.service. Connect this desktop\'s T3 app to it once: run '
+              '`t3 pair --label "This desktop"` here and open the printed t3code://pair link on this desktop '
+              '(or paste its pairing URL into Settings -> Environments -> Add environment).')
 
 
-def setup_headless_https(machine):
+def app_uses_service():
+    """Turn off the desktop app's local server, which would compete for ~/.t3."""
+    path = HOME_DIR / '.t3/userdata/desktop-settings.json'
+    current = read_json(path, {})
+    if current.get('localEnvironmentEnabled') is False:
+        return
+    if t3_desktop_running():
+        print('Close the T3 app, then run claude-mixed-setup --apply-t3-changes so it uses the service.')
+        return
+    if path.exists():
+        write_new(HOME_DIR / '.local/share/t3-settings-backups' / ('service-' + secrets.token_hex(6)) / path.name,
+                  path.read_text())
+    temp = path.with_name(path.name + '.mixed-setup-' + secrets.token_hex(4))
+    write_new(temp, json_text({**current, 'localEnvironmentEnabled': False}))
+    temp.replace(path)
+    print('The T3 app on this desktop now starts without a local server and uses the service.')
+
+
+def setup_service_https(machine):
     if not machine.get('remote_access'):
         return
     tailscale = shutil.which('tailscale')
@@ -934,10 +1020,10 @@ def main():
     ensure_runtime()
     configure_proxy_headers()
     configure_t3(machine)
-    setup_service(fresh_proxy, headless)
-    if headless:
-        setup_headless_t3()
-        setup_headless_https(machine)
+    setup_service(fresh_proxy, linger=service_host(machine))
+    if service_host(machine):
+        setup_t3_service(machine)
+        setup_service_https(machine)
     print('Setup complete. Subscription login stays local: cpapi login personal, work, openai, grok.')
     print('For native T3 Codex/Grok providers, complete their own local CLI login as well.')
     print('View the saved host inventory with: claude-mixed-setup --connections')

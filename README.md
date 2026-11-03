@@ -135,8 +135,8 @@ on machines where you want the shared Claude instructions and model settings.
 
 The package includes CLIProxyAPI, Personal/Work Claude launchers, model/context
 configuration, selected T3 preferences and first-time service provisioning.
-Desktop machines use the T3 app; headless Arch machines get the persistent T3
-user service. Subscription logins and device pairings remain local.
+Desktop machines use the T3 app; headless Arch machines and agent desktops get
+the persistent T3 user service (on an agent desktop the app connects to it). Subscription logins and device pairings remain local.
 
 Private host details can come from custom fields in your existing
 `dotfiles-secrets` Bitwarden item. Use `T3_DEV_HUB_HOST`, `T3_ARCH_DESKTOP_HOST`,

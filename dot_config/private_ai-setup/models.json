@@ -106,8 +106,7 @@
     },
     "textGenerationModelSelection": {
       "instanceId": "grok",
-      "model": "grok-4.6",
-      "options": [{ "id": "reasoningEffort", "value": "medium" }]
+      "model": "grok-4.7-build-fast"
     },
     "sourceControlWriterModelSelection": {
       "instanceId": "grok",

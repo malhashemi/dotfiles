@@ -3,6 +3,7 @@
 {{- dict
     "enabled" (get $ai "enabled" | default false)
     "role" (get $machine "role" | default "desktop")
+    "autologin" (get $machine "autologin" | default false)
     "remote_access" (get $ai "remote_access" | default false)
     "ssh_user" (get $machine "ssh_user" | default .chezmoi.username)
     "hosts" (get . "tailscale_hosts" | default dict)
