@@ -550,7 +550,8 @@ if [[ ! -e "$sunshine_creds" ]]; then
 fi
 chmod 0600 "$sunshine_creds"
 # sunshine_creds_match: Sunshine's store holds the file's username and
-# sha256(password + salt), as Sunshine checks them.
+# sha256(password + salt), as Sunshine checks them (its hex encoder writes
+# the digest bytes last to first).
 sunshine_creds_match() {
     python3 -I - "$sunshine_creds" "$sunshine_state" <<'PY'
 import hashlib
@@ -567,7 +568,7 @@ try:
         state = json.load(handle)
 except (OSError, ValueError):
     sys.exit(1)
-digest = hashlib.sha256((creds['password'] + state.get('salt', '')).encode()).hexdigest()
+digest = hashlib.sha256((creds['password'] + state.get('salt', '')).encode()).digest()[::-1].hex()
 ok = (state.get('username', '').lower() == creds['username'].lower()
       and state.get('password', '').lower() == digest)
 sys.exit(0 if ok else 1)
