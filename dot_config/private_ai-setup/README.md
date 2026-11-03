@@ -216,9 +216,12 @@ it uses the pin in `bootstrap.json`. Package upgrades remain explicit.
 | Arch headless | systemd user service, user lingering | CLI and persistent `t3code.service` |
 
 The proxy listens on `127.0.0.1:8317`. Each machine generates its own gateway key.
-The T3 service listens on loopback; Tailscale Serve supplies HTTPS for
-remote clients, and other machines' T3 apps reach it over SSH as an existing
-server.
+The T3 service listens on loopback only: the helper creates
+`~/.t3/service.env` with `T3CODE_HOST=127.0.0.1` (from T3 0.1.5 a service
+otherwise listens on every private network, LAN included). Tailscale Serve
+supplies HTTPS for remote clients, and other machines' T3 apps reach it over
+SSH as an existing server. An existing `service.env` is left alone; a new one
+takes effect at the next `t3 service restart`.
 
 Only one T3 server can use a T3 home. On an agent desktop the service owns
 `~/.t3`, so the helper turns off the desktop app's local environment

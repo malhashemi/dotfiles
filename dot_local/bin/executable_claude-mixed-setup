@@ -843,14 +843,24 @@ def configure_t3(machine, allow_existing=False, models_only=False):
     print('Saved selected T3 preferences; existing-file backups:', archive if archive.exists() else 'not needed')
 
 
+SERVICE_ENV = ('# Written by claude-mixed-setup. Loopback only: other machines reach this\n'
+               '# server through Tailscale Serve HTTPS or SSH, never on the LAN or a public\n'
+               '# address (from 0.1.5 a service otherwise listens on private networks).\n'
+               'T3CODE_HOST=127.0.0.1\n')
+
+
 def setup_t3_service(machine):
     if sys.platform != 'linux':
         raise ValueError('The T3 background service setup currently supports Arch Linux.')
     unit = HOME_DIR / '.config/systemd/user/t3code.service'
+    env_file = HOME_DIR / '.t3/service.env'
     if unit.exists():
         # Do not reinstall, upgrade or restart an existing server during chezmoi apply.
+        if write_new(env_file, SERVICE_ENV):
+            print('Wrote ~/.t3/service.env (loopback only); it applies at the next `t3 service restart`.')
         run(['systemctl', '--user', 'enable', '--now', 't3code.service'])
         return
+    write_new(env_file, SERVICE_ENV)
     if t3_running():
         raise ValueError('A T3 server that is not the background service owns ~/.t3 (for example one that '
                          'another machine\'s T3 app started over SSH). Stop it, then rerun claude-mixed-setup '
