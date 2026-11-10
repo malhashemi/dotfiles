@@ -1,0 +1,3 @@
+{{- $models := include "dot_config/private_ai-setup/models.json" | fromJson -}}
+{{- /* Read by the Mixed launchers. Model routes are discovered live per account. */ -}}
+{{ dict "model" $models.providers.claude "families" $models.claudeFamilyDefaults "aliases" $models.claudeAliases | toPrettyJson }}

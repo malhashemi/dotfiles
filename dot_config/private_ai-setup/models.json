@@ -7,6 +7,14 @@
       "pickerSuffix": "[1m]"
     },
     {
+      "id": "claude-fable-5-2",
+      "name": "Claude Fable 5.2",
+      "provider": "claude",
+      "pickerSuffix": "[1m]",
+      "t3Custom": true,
+      "efforts": ["low", "medium", "high", "xhigh", "max"]
+    },
+    {
       "id": "claude-opus-5-5",
       "name": "Claude Opus 5.5",
       "provider": "claude",
@@ -64,16 +72,10 @@
     "SONNET": "claude-sonnet-5",
     "HAIKU": "claude-haiku-4-5"
   },
-  "additionalClaudeRoutes": [
-    "claude-fable-5",
-    "claude-opus-4-8",
-    "claude-opus-4-7",
-    "claude-opus-4-6",
-    "claude-opus-4-5",
-    "claude-sonnet-5",
-    "claude-sonnet-4-6",
-    "claude-haiku-4-5"
-  ],
+  "claudeAliases": {
+    "claude-haiku-4-5": "claude-haiku-4-5-20251001",
+    "claude-opus-4-5": "claude-opus-4-5-20251101"
+  },
   "providers": {
     "codex": "gpt-6-astra",
     "claude": "claude-fable-5-1",
@@ -83,6 +85,7 @@
     "gpt-6-astra": "xhigh",
     "gpt-5.6-sol": "xhigh",
     "claude-fable-5-1": "high",
+    "claude-fable-5-2": "high",
     "claude-opus-5": "xhigh",
     "grok-4.7": "medium",
     "grok-4.6": "medium",

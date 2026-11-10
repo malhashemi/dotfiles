@@ -26,7 +26,7 @@
     ".config/ai-setup/t3/profiles.json",
     ".config/cli-proxy-api/README.md",
     ".config/cli-proxy-api/claude-context-settings.json",
-    ".config/cli-proxy-api/claude-model-routes.json",
+    ".config/cli-proxy-api/claude-model-defaults.json",
     ".config/cli-proxy-api/profiles.json",
     ".config/opencode/AGENTS.md",
     ".grok/AGENTS.md",

@@ -12,7 +12,7 @@ application preferences live in [`~/.config/ai-setup/`](../ai-setup/README.md).
 | `claude-accounts.json` | Personal and Work account assignments | Account login helper and Mixed launcher |
 | `claude-settings.json` | Private environment used to connect Claude to the local proxy | Claude launchers |
 | `claude-context-settings.json` | Context budgets and related launch settings | Mixed launcher and first setup |
-| `claude-model-routes.json` | Claude model identities used for account-specific routing | Mixed launcher |
+| `claude-model-defaults.json` | Generated from the catalog: Mixed family defaults and reviewed short-ID aliases. Routes are discovered live from `/v1/models` at each Mixed launch | Mixed launchers |
 | `profiles.json` | Model defaults for the standalone `claude-openai`, `claude-grok` and `claude-multi` wrappers | Proxy launcher |
 | `claude-session-*.json`, if present | Generated per-configuration settings for those standalone wrappers | The corresponding Claude session |
 
@@ -23,6 +23,16 @@ and explains the preview/apply commands.
 Both Mixed profiles share `~/.claude/settings.json` and `~/.claude/CLAUDE.md`.
 Their launcher adds the selected account, proxy connection and context settings
 when starting Claude. Updates to launcher inputs take effect in new sessions.
+
+At each new Mixed session the launcher asks this proxy for `/v1/models` with the
+local `client-key` (loopback only, no redirects) and keeps only the selected
+account's `claude-a/` or `claude-b/` Claude models. Each bare ID is routed to that
+account's exact ID through `modelOverrides`, and the launch model and family
+defaults are rewritten to it. A model the proxy advertises is routable without a
+catalog change. If the proxy is down, returns a malformed list, advertises nothing
+for that account, or a requested Claude ID is not advertised for it, the launch
+stops with an error; it never falls back to the other account or an unprefixed
+route. A leftover `claude-model-routes.json` from earlier versions is no longer read.
 
 ```sh
 cpapi status

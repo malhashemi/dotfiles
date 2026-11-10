@@ -48,8 +48,8 @@ under `~/.local/share/claude-archives/`, outside the public dotfiles repository.
 ## What chezmoi owns
 
 The public source contains the approved `CLAUDE.md`, computer-use skill, shared
-links, model routes, context budgets, agents, workflow, CLI launchers and setup
-helper. `t3/preferences.json` contains the selected shared preferences; the helper
+links, Mixed model defaults and aliases, context budgets, agents, workflow, CLI
+launchers and setup helper. `t3/preferences.json` contains the selected shared preferences; the helper
 merges them into the app's local settings. Actual Claude, proxy and T3 session
 files are generated locally and are never copied into the repository.
 
@@ -63,9 +63,12 @@ Grok 4.7 Build Fast for T3 titles and Grok 4.6 at medium for Git text. Standard 
 explicit. Session or project overrides still work. Codex's context window and
 auto-compaction settings are not changed.
 
-The catalog includes Opus 5.5, GPT-6.1 Sol, and GPT-6 Luna as selectable
-models without changing existing defaults. Use Claude Code 2.1.280 or newer
-for the Opus 5.5 Mixed route. CLIProxyAPI
+The catalog includes Opus 5.5, Fable 5.2, GPT-6.1 Sol, and GPT-6 Luna as
+selectable models without changing existing defaults: the `fable` alias and the
+Mixed default stay on Fable 5.1. Use Claude Code 2.1.280 or newer for Opus 5.5
+and 2.1.321 or newer for Fable 5.2. Mixed launches discover each account's
+advertised Claude models from the local proxy, so routing a released model needs
+no catalog entry; see the [proxy runtime guide](../cli-proxy-api/README.md). CLIProxyAPI
 [v7.3.15](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v7.3.15)
 raised the Claude client baseline to 2.1.280 and fixed
 [issue #6054](https://github.com/router-for-me/CLIProxyAPI/issues/6054).

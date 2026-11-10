@@ -1,18 +1,52 @@
 #!/usr/bin/env python3
 """Pin a T3 Claude instance to its subscription, then exec real Claude Code.
 
+Every launch asks the local CLIProxyAPI which Claude models the selected account
+advertises (GET /v1/models with this machine's client key) and routes each bare
+Anthropic model ID to that account's exact prefixed ID. A new release is routable
+as soon as the proxy advertises it; no per-model route entry is needed.
+
 Only launch settings are merged. stdin/stdout and SDK control messages are passed
 directly to Claude Code, including native Agent and Workflow execution.
 """
 import json
 import os
 from pathlib import Path
-import sys
+import re
 import shutil
+import sys
+import urllib.error
+import urllib.parse
+import urllib.request
 
 
 ROOT = Path.home() / '.config/cli-proxy-api'
 CLAUDE = shutil.which('claude') or 'claude'
+LABELS = {'a': 'Personal', 'b': 'Work'}
+# A bare Anthropic model ID, and an account-prefixed route such as claude-a/<ID>.
+BARE = re.compile(r'claude-[a-z0-9][a-z0-9._-]*')
+ROUTED = re.compile(r'(claude-[a-z])/(.+)')
+SUFFIX = re.compile(r'\[1m\]$', re.I)
+# Launch-time model selections that must reach the proxy with this account's prefix.
+MODEL_ENV = ('ANTHROPIC_MODEL', 'ANTHROPIC_DEFAULT_FABLE_MODEL', 'ANTHROPIC_DEFAULT_OPUS_MODEL',
+             'ANTHROPIC_DEFAULT_SONNET_MODEL', 'ANTHROPIC_DEFAULT_HAIKU_MODEL',
+             'ANTHROPIC_SMALL_FAST_MODEL', 'CLAUDE_CODE_SUBAGENT_MODEL')
+MODEL_FLAGS = ('--model', '--fallback-model')
+# Settings may not replace the proxy connection that pins this account.
+CONNECTION_ENV = ('ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN', 'ANTHROPIC_API_KEY', 'CLAUDE_CODE_OAUTH_TOKEN')
+LOOPBACK = ('127.0.0.1', 'localhost', '::1')
+DISCOVERY_TIMEOUT = 5
+
+
+class LaunchError(Exception):
+    pass
+
+
+class _Missing(dict):
+    """No aliases because the generated defaults file is absent."""
+
+
+MISSING = _Missing()
 
 
 def merge_settings(left, right):
@@ -36,18 +70,120 @@ def canonical_model(model):
     return model
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    # Never follow a redirect: the gateway key must not leave the local proxy.
+    def redirect_request(self, *args, **kwargs):
+        return None
+
+
+def fetch_models(base_url, key):
+    parsed = urllib.parse.urlsplit(base_url or '')
+    if parsed.scheme != 'http' or parsed.hostname not in LOOPBACK:
+        raise LaunchError('ANTHROPIC_BASE_URL in claude-settings.json must be the local proxy '
+                          '(http://127.0.0.1:8317); refusing to send the gateway key elsewhere.')
+    request = urllib.request.Request(base_url.rstrip('/') + '/v1/models',
+                                     headers={'Authorization': 'Bearer ' + key})
+    # An empty ProxyHandler ignores http_proxy/HTTPS_PROXY for this loopback request.
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect)
+    hint = ' Check `cpapi status`, or start the proxy with `cpapi start`.'
+    try:
+        with opener.open(request, timeout=DISCOVERY_TIMEOUT) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        raise LaunchError('CLIProxyAPI answered model discovery with HTTP ' + str(error.code) + '.' + hint)
+    except (urllib.error.URLError, OSError) as error:
+        reason = getattr(error, 'reason', error)
+        raise LaunchError('Cannot reach CLIProxyAPI for model discovery (' + str(reason) + ').' + hint)
+    except ValueError:
+        raise LaunchError('CLIProxyAPI returned a malformed model list (not JSON).' + hint)
+
+
+def account_models(payload, slot):
+    """Map bare Claude IDs to this account's exact routes; other accounts are ignored."""
+    data = payload.get('data') if isinstance(payload, dict) else None
+    if not isinstance(data, list):
+        raise LaunchError('CLIProxyAPI returned a malformed model list (no "data" array).')
+    prefix = 'claude-' + slot + '/'
+    live = {}
+    for entry in data:
+        ident = entry.get('id') if isinstance(entry, dict) else None
+        if isinstance(ident, str) and ident.startswith(prefix) and BARE.fullmatch(ident[len(prefix):]):
+            live[ident[len(prefix):]] = ident
+    if not live:
+        raise LaunchError('CLIProxyAPI advertises no claude-' + slot + '/ models for Claude ' + LABELS[slot] +
+                          '. Reconnect it with `cpapi login ' + LABELS[slot].lower() + '`, then check `cpapi models`.')
+    return live
+
+
+def load_aliases():
+    """Deliberate short-ID aliases from the catalog, e.g. claude-haiku-4-5 -> its dated ID."""
+    path = ROOT / 'claude-model-defaults.json'
+    if not path.exists():
+        return MISSING
+    try:
+        aliases = json.loads(path.read_text()).get('aliases', {})
+    except (ValueError, AttributeError):
+        aliases = None
+    if not isinstance(aliases, dict) or not all(
+            isinstance(k, str) and isinstance(v, str) for k, v in aliases.items()):
+        raise LaunchError(str(path) + ' is malformed; redeploy it from the dotfiles.')
+    return aliases
+
+
+class Router:
+    def __init__(self, slot, live, aliases):
+        self.slot = slot
+        self.prefix = 'claude-' + slot
+        self.live = live
+        self.aliases = aliases
+
+    def route(self, model, where):
+        """Exact prefixed route for a Claude ID; anything else is returned unchanged."""
+        match = SUFFIX.search(model)
+        suffix = match.group(0) if match else ''
+        base = model[:len(model) - len(suffix)]
+        routed = ROUTED.fullmatch(base)
+        if routed:
+            if routed.group(1) != self.prefix:
+                raise LaunchError(where + ' selects ' + base + ', but this is Claude ' + LABELS[self.slot] +
+                                  ' (' + self.prefix + '). Refusing to use another account.')
+            bare = routed.group(2)
+        elif BARE.fullmatch(base):
+            bare = base
+        else:
+            return model
+        if bare in self.live:
+            return self.live[bare] + suffix
+        target = self.aliases.get(bare)
+        if target in self.live:
+            return self.live[target] + suffix
+        if target:
+            detail = ' Its catalog alias ' + target + ' is not advertised either.'
+        elif self.aliases is MISSING:
+            detail = ' Catalog aliases are unavailable: deploy ~/.config/cli-proxy-api/claude-model-defaults.json.'
+        else:
+            detail = ''
+        raise LaunchError(where + ' is ' + model + ', which Claude ' + LABELS[self.slot] +
+                          ' does not advertise through CLIProxyAPI.' + detail +
+                          ' Check `cpapi models` for the available ' + self.prefix + '/ IDs.')
+
+
 def prepare(args, slot):
-    if slot not in ('a', 'b'):
-        raise ValueError('Set CLAUDE_MIXED_ACCOUNT to a (Personal) or b (Work).')
+    if slot not in LABELS:
+        raise LaunchError('Set CLAUDE_MIXED_ACCOUNT to a (Personal) or b (Work).')
     accounts = json.loads((ROOT / 'claude-accounts.json').read_text())
     if slot not in accounts:
-        raise ValueError('Connect this subscription first: cpapi login claude-' + slot)
+        raise LaunchError('Connect this subscription first: cpapi login claude-' + slot)
 
     # Keep local proxy credentials out of the shared Claude preferences and argv.
     os.environ.update(json.loads((ROOT / 'claude-settings.json').read_text())['env'])
+    for key in [k for k in os.environ if k.startswith('CLAUDE_CODE_USE_')]:
+        # Another transport would bypass the proxy and this account's routes.
+        del os.environ[key]
+    aliases = load_aliases()
 
     # The SDK supplies --settings for thinking, auto-compaction and Ultracode.
-    # Preserve those values while adding account-specific native model overrides.
+    # Preserve those values while pinning account-specific model routes.
     retained = []
     settings = json.loads((ROOT / 'claude-context-settings.json').read_text())
     index = 0
@@ -60,7 +196,7 @@ def prepare(args, slot):
         if arg == '--settings':
             index += 1
             if index >= len(args):
-                raise ValueError('--settings requires a file or JSON object')
+                raise LaunchError('--settings requires a file or JSON object')
             value = args[index]
         elif arg.startswith('--settings='):
             value = arg.split('=', 1)[1]
@@ -68,28 +204,51 @@ def prepare(args, slot):
             raw = value if value.lstrip().startswith('{') else Path(value).expanduser().read_text()
             parsed = json.loads(raw)
             if not isinstance(parsed, dict):
-                raise ValueError('--settings must contain a JSON object')
+                raise LaunchError('--settings must contain a JSON object')
             settings = merge_settings(settings, parsed)
         else:
             retained.append(arg)
         index += 1
 
+    key = (ROOT / 'client-key').read_text().strip()
+    payload = fetch_models(os.environ.get('ANTHROPIC_BASE_URL', ''), key)
+    router = Router(slot, account_models(payload, slot), aliases)
+
+    def route(model, where):
+        return router.route(canonical_model(model), where)
+
     if isinstance(settings.get('model'), str):
-        settings['model'] = canonical_model(settings['model'])
+        settings['model'] = route(settings['model'], 'Settings model')
+    env = settings.get('env')
+    if isinstance(env, dict):
+        for name in list(env):
+            if name in CONNECTION_ENV or name.startswith('CLAUDE_CODE_USE_'):
+                del env[name]
+            elif name in MODEL_ENV and isinstance(env[name], str):
+                env[name] = route(env[name], 'Settings ' + name)
+        # Native discovery would list both accounts' models; routes come from here.
+        env['CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY'] = '0'
+    overrides = settings.get('modelOverrides')
+    overrides = dict(overrides) if isinstance(overrides, dict) else {}
+    for name, target in overrides.items():
+        if isinstance(target, str):
+            overrides[name] = route(target, 'modelOverrides[' + name + ']')
+    # Advertised routes win over any supplied override, so an ID never maps to
+    # another version, family or account.
+    overrides.update(router.live)
+    settings['modelOverrides'] = overrides
+
     for index, arg in enumerate(retained):
         if arg == '--':
             break
-        if arg == '--model' and index + 1 < len(retained):
-            retained[index + 1] = canonical_model(retained[index + 1])
-        elif arg.startswith('--model='):
-            retained[index] = '--model=' + canonical_model(arg.split('=', 1)[1])
-    if 'ANTHROPIC_MODEL' in os.environ:
-        os.environ['ANTHROPIC_MODEL'] = canonical_model(os.environ['ANTHROPIC_MODEL'])
-
-    routes = json.loads((ROOT / 'claude-model-routes.json').read_text())
-    settings = merge_settings(settings, {
-        'modelOverrides': {model: 'claude-' + slot + '/' + target for model, target in routes.items()}
-    })
+        if arg in MODEL_FLAGS and index + 1 < len(retained):
+            retained[index + 1] = route(retained[index + 1], arg)
+        elif arg.split('=', 1)[0] in MODEL_FLAGS and '=' in arg:
+            flag, value = arg.split('=', 1)
+            retained[index] = flag + '=' + route(value, flag)
+    for name in MODEL_ENV:
+        if name in os.environ:
+            os.environ[name] = route(os.environ[name], name)
     return ['--settings', json.dumps(settings), *retained]
 
 
@@ -99,7 +258,7 @@ if __name__ == '__main__':
         os.execv(CLAUDE, [CLAUDE, *args])
     try:
         args = prepare(args, os.environ.get('CLAUDE_MIXED_ACCOUNT', ''))
-    except (OSError, ValueError, KeyError) as error:
-        print('Mixed Claude launcher: ' + str(error), file=sys.stderr)
+    except (OSError, ValueError, KeyError, LaunchError) as error:
+        print('Mixed Claude launcher: ' + str(error) + ' No session was started.', file=sys.stderr)
         raise SystemExit(2)
     os.execv(CLAUDE, [CLAUDE, *args])

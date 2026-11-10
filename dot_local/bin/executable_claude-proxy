@@ -217,20 +217,27 @@ def launch_mixed(args, slot):
     accounts = json.loads(accounts_path.read_text()) if accounts_path.exists() else {}
     if slot not in accounts:
         raise SystemExit('Connect this account first: cpapi login claude-' + slot)
+    # Deliberate family defaults come from the catalog. claude-t3-mixed discovers
+    # this account's advertised models at launch and resolves each to its exact route.
+    path = ROOT / 'claude-model-defaults.json'
+    try:
+        defaults = json.loads(path.read_text())
+        families = defaults['families']
+        model = defaults['model']
+        if not isinstance(model, str) or set(families) != {'FABLE', 'OPUS', 'SONNET', 'HAIKU'} or \
+                not all(isinstance(value, str) for value in families.values()):
+            raise ValueError
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        raise SystemExit('Missing or malformed ' + str(path) + '; deploy it from the dotfiles.')
     env = os.environ.copy()
     env['CLAUDE_CONFIG_DIR'] = str(Path.home() / '.claude-t3-mixed')
     env['CLAUDE_MIXED_ACCOUNT'] = slot
-    routes = json.loads((ROOT / 'claude-model-routes.json').read_text())
-    for family, canonical in [('FABLE', 'claude-fable-5-1'), ('OPUS', 'claude-opus-5'),
-                              ('SONNET', 'claude-sonnet-5'), ('HAIKU', 'claude-haiku-4-5')]:
-        env['ANTHROPIC_DEFAULT_' + family + '_MODEL'] = 'claude-' + slot + '/' + routes[canonical]
+    for family, target in families.items():
+        env['ANTHROPIC_DEFAULT_' + family + '_MODEL'] = 'claude-' + slot + '/' + target
     env['ANTHROPIC_SMALL_FAST_MODEL'] = env['ANTHROPIC_DEFAULT_HAIKU_MODEL']
-    env['ANTHROPIC_MODEL'] = 'claude-fable-5-1'
-    for key in ('CLAUDE_CODE_USE_BEDROCK', 'CLAUDE_CODE_USE_VERTEX', 'CLAUDE_CODE_USE_FOUNDRY'):
-        env.pop(key, None)
-    if not any(arg in ('--help', '-h', '--version', '-v') for arg in args):
-        if ('claude-' + slot + '/claude-fable-5-1') not in {entry['id'] for entry in models()}:
-            raise SystemExit('Claude route unavailable. Run: cpapi login claude-' + slot)
+    env['ANTHROPIC_MODEL'] = model
+    for key in [k for k in env if k.startswith('CLAUDE_CODE_USE_')]:
+        env.pop(key)
     binary = str(Path.home() / '.local/bin/claude-t3-mixed')
     os.execve(binary, [binary, *args], env)
 

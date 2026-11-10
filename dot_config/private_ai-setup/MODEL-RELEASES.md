@@ -25,6 +25,19 @@ Keep model identities honest. Never make an old model ID silently call a new
 model or another family. Sonnet and Haiku retain their real routes; their use
 remains prohibited by the shared instructions.
 
+Anthropic routing needs no catalog change. Each new Mixed session discovers the
+selected account's advertised `claude-a/` or `claude-b/` models from the local
+proxy and routes every bare ID to that account's exact ID, so a model is routable
+as soon as `cpapi models` lists it for that account. Claude Code ignores a
+`modelOverrides` key it does not recognize, so the launcher also rewrites the
+session's launch model and family defaults to the exact prefixed ID: a model newer
+than the installed Claude Code works when a session starts on it, while switching
+to it mid-session needs a Claude Code version that knows the ID. Add a catalog
+entry only to make a model selectable in the pickers, set its effort options, or
+promote it. A short ID that the proxy advertises only in dated form needs a
+reviewed `claudeAliases` entry naming the same snapshot; never alias across
+versions or families.
+
 ## 2. Edit the portable catalog
 
 The source is `dot_config/private_ai-setup/models.json`; the installed copy is
@@ -41,7 +54,7 @@ The source is `dot_config/private_ai-setup/models.json`; the installed copy is
 | `effort` | Preferred effort by model ID; for a custom entry it must occur in `efforts` |
 | `providers` | Explicit default model for each provider |
 | `claudeFamilyDefaults` | Separate Fable, Opus, Sonnet, and Haiku family alias targets |
-| `additionalClaudeRoutes` | Anthropic identities kept routable outside the picker lineup |
+| `claudeAliases` | Reviewed short IDs that Anthropic defines as the same dated snapshot (for example `claude-haiku-4-5` → `claude-haiku-4-5-20251001`); used only when the short ID itself is not advertised |
 | `retired` | Former catalog IDs that a full T3 merge removes from custom entries and favorites |
 | `cli` | Exact Claude and Grok CLI defaults (`model`, `effort`); a provider left out follows `providers` and `effort` |
 | `t3` | Conversation, title, and Git-text defaults: a provider name uses that provider's default model; an object is the exact T3 selection |
@@ -56,8 +69,8 @@ Chezmoi templates derive these files from the catalog:
 
 - `~/.config/ai-setup/t3/profiles.json`: Personal and Work custom entries,
   effort options, and family aliases.
-- `~/.config/cli-proxy-api/claude-model-routes.json`: current and retained
-  Anthropic model identities. The launcher adds the selected account prefix.
+- `~/.config/cli-proxy-api/claude-model-defaults.json`: the Mixed default model,
+  family defaults, and `claudeAliases`, read by both Mixed launchers.
 - `~/.config/cli-proxy-api/claude-context-settings.json`: Claude picker entries.
 - `~/.config/cli-proxy-api/profiles.json`: standalone OpenAI/Grok wrapper defaults.
 
@@ -74,7 +87,8 @@ deleting it from the source alone leaves the private runtime value in place.
 ## 3. Review context and deliberate model choices
 
 The current context template declares a shared 500K custom-model budget and
-disables gateway discovery. The current Anthropic picker entries use `[1m]`.
+disables Claude Code's native gateway discovery, which would list both accounts'
+models in one picker; the Mixed launcher does its own per-account discovery. The current Anthropic picker entries use `[1m]`.
 `planned_cli()` in `claude-mixed-setup` also appends `[1m]` to the global Claude
 default. These are existing choices, not guarantees for a newly released model.
 
@@ -117,7 +131,9 @@ change instead when the model should stay available.
 For a refactor, render each affected template with `chezmoi execute-template
 --file <source-template>` and compare parsed JSON with the previous output.
 For a model addition, inspect the intended differences instead. Check both
-account prefixes, effort options/defaults, picker entries, and preserved routes.
+account prefixes, effort options/defaults, and picker entries. For a launcher
+change, check with a mocked `/v1/models` that each needed ID routes to the
+selected account only and that discovery failures stop the launch.
 Validate the helper's proposed CLI/T3 merges for fresh and existing settings.
 Keep temporary checks and fixtures outside the public dotfiles repository.
 
