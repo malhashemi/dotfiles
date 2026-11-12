@@ -62,7 +62,7 @@
 {{-       if and (not $info.isDir) (eq (include $path | sha256sum) $hash) }}{{ $owned = append $owned $path }}{{ else }}{{ $lookalikes = append $lookalikes $path }}{{ end -}}
 {{-     end -}}
 {{-   end -}}
-{{-   range $config := list (joinPath $home ".codex/config.toml") (joinPath $home ".claude.json") (joinPath $home ".claude-t3-mixed/.claude.json") -}}
+{{-   range $config := list (joinPath $home ".codex/config.toml") (joinPath $home ".claude.json") -}}
 {{-     if and (stat $config) (contains "computer-use-linux-session" (include $config)) }}{{ $hints = append $hints $config }}{{ end -}}
 {{-   end -}}
 {{- end -}}
@@ -78,8 +78,8 @@
 #   - computer use: computer-use-linux (pinned release binaries, sha256-checked)
 #       in ~/.local/bin, run through ~/.local/bin/computer-use-linux-session,
 #       which borrows the live Hyprland session environment. Registered as the
-#       `computer-use-linux` MCP server for Codex and for Claude Code in both
-#       config homes (~/.claude and ~/.claude-t3-mixed, the one T3 uses).
+#       `computer-use-linux` MCP server for Codex and for Claude Code in its
+#       standard config home (~/.claude, also used by T3).
 #   - input: /dev/uinput (absolute pointer) via a uaccess udev rule, so the
 #       logged-in seat user gets it without group changes or a re-login; text
 #       and keys go through wtype on Hyprland: a pinned upstream build in
@@ -212,9 +212,6 @@ claude_in() {
     fi
 }
 claude_homes=("")
-if [[ -d "$HOME/.claude-t3-mixed" ]]; then
-    claude_homes+=("$HOME/.claude-t3-mixed")
-fi
 
 restart_hypridle() {
     # hypridle reads its config only at start: restart just that process,
@@ -752,8 +749,7 @@ for path in "$user_units/wayvnc.service" "$user_units/agent-chrome.service" \
         proven+=("$path")
     fi
 done
-for config in "$HOME/.codex/config.toml:toml" "$HOME/.claude.json:json" \
-    "$HOME/.claude-t3-mixed/.claude.json:json"; do
+for config in "$HOME/.codex/config.toml:toml" "$HOME/.claude.json:json"; do
     state=$(mcp_state "${config%:*}" "${config##*:}") || fail "cannot inspect ${config%:*}"
     if [[ "$state" == owned ]]; then
         proven+=("MCP entry in ${config%:*}")
@@ -868,8 +864,6 @@ mcp_remove Codex "$HOME/.codex/config.toml" toml codex \
     codex mcp remove computer-use-linux
 mcp_remove "Claude ($HOME/.claude)" "$HOME/.claude.json" json claude \
     env -u CLAUDE_CONFIG_DIR claude mcp remove --scope user computer-use-linux
-mcp_remove "Claude ($HOME/.claude-t3-mixed)" "$HOME/.claude-t3-mixed/.claude.json" json claude \
-    env CLAUDE_CONFIG_DIR="$HOME/.claude-t3-mixed" claude mcp remove --scope user computer-use-linux
 
 # 4. Session helpers, binaries, the patched library, the agents' wtype, the
 #    Codex native messaging link and the agent-browser link.
