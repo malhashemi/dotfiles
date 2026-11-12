@@ -158,9 +158,11 @@ base_10_sizes = false
 
 #* Show CPU frequency.
 show_cpu_freq = true
+{{- if eq .chezmoi.os "linux" }}
 
 #* How to calculate CPU frequency, available values: "first", "range", "lowest", "highest" and "average".
 freq_mode = "first"
+{{- end }}
 
 #* Draw a clock at top of screen, formatting according to strftime, empty string to disable.
 #* Special formatting: /host = hostname | /user = username | /uptime = system uptime

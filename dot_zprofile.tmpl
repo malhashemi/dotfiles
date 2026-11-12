@@ -11,4 +11,8 @@ export PATH="$PATH:/Applications/Obsidian.app/Contents/MacOS"
 
 # Docker Desktop CLI tools
 [[ -d "$HOME/.docker/bin" ]] && export PATH="$PATH:$HOME/.docker/bin"
+
+# >>> Codex installer >>>
+export PATH="{{ .chezmoi.homeDir }}/.local/bin:$PATH"
+# <<< Codex installer <<<
 {{- end }}
