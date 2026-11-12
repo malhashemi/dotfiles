@@ -1,6 +1,7 @@
 """Ghostty terminal emulator theme integration"""
 
 import platform
+import re
 import subprocess
 from pathlib import Path
 from .base import BaseApp
@@ -120,107 +121,47 @@ palette = 13={mat.get("primary", "#8839ef")}
 palette = 14={mat.get("tertiary", "#179299")}
 palette = 15={mat.get("on_surface_variant", "#5c5f77")}"""
 
-    def _update_config_for_dynamic(self) -> None:
-        """Update config for dynamic theme: add config-file, comment out theme"""
-        if not self.config_file.exists():
-            return
+    # Theme lines the chezmoi template writes, active or commented out by
+    # older versions of this script. The template's "# Static:" and
+    # "# Dynamic:" documentation comments are not directives.
+    _THEME_LINE = re.compile(r"^#?\s*theme\s*=")
+    _COLORS_LINE = re.compile(r"^#?\s*config-file\s*=\s*colors-ghostty\.conf")
 
-        content = self.config_file.read_text()
-        lines = content.split("\n")
+    def _set_theme_directive(self, directive: str) -> None:
+        """Leave exactly one theme directive where the template puts it."""
+        lines = self.config_file.read_text().split("\n")
         new_lines = []
-        has_config_file = False
-
+        placed = False
         for line in lines:
             stripped = line.strip()
-
-            # Comment out theme directive for dynamic
-            if (
-                stripped.startswith("theme")
-                and "=" in stripped
-                and not stripped.startswith("#")
-            ):
-                new_lines.append(f"# {line}  # Disabled for dynamic theme")
-                continue
-
-            # Check for existing colors config-file directive
-            if stripped.startswith("config-file") and "colors-ghostty" in stripped:
-                # Uncomment if commented
-                if stripped.startswith("#"):
-                    new_lines.append("config-file = colors-ghostty.conf")
-                else:
-                    new_lines.append(line)
-                has_config_file = True
-                continue
-
-            new_lines.append(line)
-
-        # Add config-file directive if not present
-        if not has_config_file:
-            # Insert after initial comments
-            insert_idx = 0
-            for i, line in enumerate(new_lines):
-                if line.strip() and not line.strip().startswith("#"):
-                    insert_idx = i
-                    break
-            new_lines.insert(insert_idx, "config-file = colors-ghostty.conf")
-            new_lines.insert(insert_idx + 1, "")
-
+            if stripped.startswith(("# Static:", "# Dynamic:")):
+                new_lines.append(line)
+            elif self._THEME_LINE.match(stripped) or self._COLORS_LINE.match(stripped):
+                if not placed:
+                    new_lines.append(directive)
+                    placed = True
+            else:
+                new_lines.append(line)
+        if not placed:
+            # After the leading comment block, as in the template.
+            insert_idx = next((i for i, line in enumerate(new_lines)
+                               if line.strip() and not line.strip().startswith("#")), 0)
+            new_lines.insert(insert_idx, directive)
         self.config_file.write_text("\n".join(new_lines))
+
+    def _update_config_for_dynamic(self) -> None:
+        """Dynamic theme: include colors-ghostty.conf instead of a theme"""
+        if not self.config_file.exists():
+            return
+        self._set_theme_directive("config-file = colors-ghostty.conf")
         self.log_success("Updated Ghostty for dynamic theme")
 
     def _update_config_for_static(self, variant: str) -> None:
-        """Update config for static theme: set theme, comment out config-file"""
+        """Static theme: use Ghostty's built-in Catppuccin theme"""
         if not self.config_file.exists():
             return
-
         theme_name = f"Catppuccin {variant.title()}"
-        content = self.config_file.read_text()
-        lines = content.split("\n")
-        new_lines = []
-        has_theme = False
-
-        for line in lines:
-            stripped = line.strip()
-
-            # Handle theme directive
-            if (
-                "theme" in stripped
-                and "=" in stripped
-                and "config-file" not in stripped
-            ):
-                if stripped.startswith("#") and "Disabled for dynamic" in line:
-                    # Uncomment and update
-                    new_lines.append(f"theme = {theme_name}")
-                elif stripped.startswith("#"):
-                    # Other commented theme line - uncomment
-                    new_lines.append(f"theme = {theme_name}")
-                else:
-                    # Update existing
-                    new_lines.append(f"theme = {theme_name}")
-                has_theme = True
-                continue
-
-            # Comment out config-file for colors (not needed for static)
-            if stripped.startswith("config-file") and "colors-ghostty" in stripped:
-                if not stripped.startswith("#"):
-                    new_lines.append(f"# {line}  # Disabled for static theme")
-                else:
-                    new_lines.append(line)
-                continue
-
-            new_lines.append(line)
-
-        # Add theme directive if not present
-        if not has_theme:
-            insert_idx = 0
-            for i, line in enumerate(new_lines):
-                if line.strip() and not line.strip().startswith("#"):
-                    insert_idx = i
-                    break
-            new_lines.insert(insert_idx, f"theme = {theme_name}")
-            new_lines.insert(insert_idx + 1, "")
-
-        self.config_file.write_text("\n".join(new_lines))
+        self._set_theme_directive(f"theme = {theme_name}")
         self.log_success(f'Updated Ghostty: theme = "{theme_name}"')
 
     def _apply_opacity(self, theme_data: dict) -> None:

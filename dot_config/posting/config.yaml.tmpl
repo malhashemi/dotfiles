@@ -1,6 +1,6 @@
 # Posting configuration
 # Theme is managed by theme-manager.py
-theme: dynamic
+theme: {{ if eq .theme.name "dynamic" }}dynamic{{ else }}catppuccin-{{ .theme.name }}-mauve{{ end }}
 watch_themes: true
 load_user_themes: true
 load_builtin_themes: true
