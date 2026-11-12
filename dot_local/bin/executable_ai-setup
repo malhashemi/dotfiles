@@ -571,15 +571,19 @@ def t3_running():
         return True
 
 
-def pooled_model_preferences(settings):
-    """v0.1.1 server owns model preferences; clean legacy client copies too."""
+def pooled_model_preferences(settings, reset_claude_menu=True):
+    """v0.1.1 server owns model preferences; clean legacy client copies too.
+    Favorites and menus the user sets in T3 are theirs: only the retired
+    claude-mixed providers go. The one-time migration also resets the
+    claudeAgent menu, whose legacy hidden list could hide Opus 5.5."""
     result = copy.deepcopy(settings)
     result['favorites'] = [f for f in result.get('favorites', [])
-        if not f.get('provider','').startswith('claude-mixed-') and 'fable' not in f.get('model','')]
+        if not f.get('provider','').startswith('claude-mixed-')]
     favorite = {'provider':'claudeAgent','model':'claude-opus-5-5'}
     if favorite not in result['favorites']: result['favorites'].append(favorite)
     menus = result.setdefault('providerModelPreferences', {})
-    for name in ('claude-mixed-a','claude-mixed-b','claudeAgent'): menus.pop(name, None)
+    for name in ('claude-mixed-a','claude-mixed-b') + (('claudeAgent',) if reset_claude_menu else ()):
+        menus.pop(name, None)
     return result
 
 
@@ -608,7 +612,7 @@ def planned_t3(machine):
         # Keep existing provider-specific credentials, paths and enablement.
         instances.setdefault(name, {'driver': name, 'enabled': True,
                                    'config': {'binaryPath': name}, 'environment': []})
-    result = pooled_model_preferences(merge_preferences(result, preferences['server']))
+    result = pooled_model_preferences(merge_preferences(result, preferences['server']), reset_claude_menu=False)
     for field, provider in models['t3'].items():
         result[field] = model_selection(provider)
     changes = [(path, current, result)]
@@ -641,7 +645,6 @@ def planned_t3(machine):
         elsewhere = {m['id'] for m in models['catalog'] if m.get('provider') != 'claude'}
         result['favorites'] = [f for f in favorites
                                if not f.get('provider', '').startswith('claude-mixed-')
-                               and 'fable' not in f.get('model', '')
                                and f.get('model', '').rsplit('/', 1)[-1] not in retired
                                and not (f.get('provider', '').startswith('claude-mixed-')
                                         and f.get('model') in elsewhere)]
@@ -1034,7 +1037,7 @@ def migrate_pool(machine, apply=False, phase="all", export_path=None):
     # retained legacy file when present, but do not invent one on service hosts.
     if client.exists() or machine.get('role') != 'headless':
         after['loadBalancingEnabled'] = False
-        after['favorites'] = [f for f in after.get('favorites', []) if not f.get('provider','').startswith('claude-mixed-') and 'fable' not in f.get('model','')]
+        after['favorites'] = [f for f in after.get('favorites', []) if not f.get('provider','').startswith('claude-mixed-')]
         for name in ('claude-mixed-a', 'claude-mixed-b'):
             after.get('providerModelPreferences', {}).pop(name, None)
         favorite = {'provider':'claudeAgent','model':'claude-opus-5-5'}

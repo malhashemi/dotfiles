@@ -139,6 +139,14 @@ class PoolTests(unittest.TestCase):
         self.setup.migrate_pool({'role':'headless'},True)
         self.assertFalse((self.home/'.t3/userdata/client-settings.json').exists())
         self.assertIn('claudeAgent',self.pool.read(self.home/'.t3/userdata/settings.json')['providerInstances'])
+    def test_t3_plan_keeps_user_favorites_and_claude_menu(self):
+        fable={'provider':'claudeAgent','model':'claude-fable-5-2'};menu={'hiddenModels':['claude-sonnet-5']}
+        self.write(self.home/'.t3/userdata/settings.json',{'favorites':[fable,{'provider':'claude-mixed-a','model':'claude-opus-5-5'}],'providerModelPreferences':{'claudeAgent':menu}})
+        self.write(self.home/'.t3/userdata/client-settings.json',{'favorites':[fable]})
+        planned={str(path.name):after for path,_,after in self.setup.planned_t3({'role':'desktop'})}
+        server=planned['settings.json'];self.assertIn(fable,server['favorites']);self.assertEqual(server['providerModelPreferences']['claudeAgent'],menu)
+        self.assertNotIn('claude-mixed-a',[f['provider'] for f in server['favorites']])
+        self.assertIn(fable,planned['client-settings.json']['favorites'])
     def test_builtin_opus_preferences_on_server_and_repeat_export(self):
         self.write(self.home/'.t3/userdata/settings.json',{'favorites':[{'provider':'claude-mixed-b','model':'fable'}], 'providerModelPreferences':{'claudeAgent':{'hidden':['claude-opus-5-5']},'codex':{'keep':True}}})
         self.migrate()
