@@ -72,9 +72,7 @@ keybind = alt+ctrl+t=toggle_window_decorations
 
 # Transparency (managed by theme system)
 background-opacity = {{ printf "%.2f" (divf (float64 $opacity) 100.0) }}
-{{- if eq .chezmoi.os "darwin" }}
 background-blur = 80
-{{- end }}
 {{- end }}
 
 # >>> herdr-radar font block

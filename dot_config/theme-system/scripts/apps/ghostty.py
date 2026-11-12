@@ -268,9 +268,7 @@ palette = 15={mat.get("on_surface_variant", "#5c5f77")}"""
                 new_lines.append("")
                 new_lines.append("# Transparency")
                 new_lines.append(f"background-opacity = {opacity_value:.2f}")
-            # Only macOS gets blur from the config (the chezmoi template agrees);
-            # on Linux the compositor owns it.
-            if not has_blur and platform.system() == "Darwin":
+            if not has_blur:
                 new_lines.append("background-blur = 80")
 
         self.config_file.write_text("\n".join(new_lines))
