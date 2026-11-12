@@ -29,7 +29,7 @@ Use your harness's native subagent tool when it can run the role's model at the 
 
 | Role | T3 provider instance | Model | Option |
 |---|---|---|---|
-| Opus 5.5 | `claude-mixed-a`, unless the project's instructions name another | `claude-opus-5-5` | `effort: high` |
+| Opus 5.5 | `claudeAgent`, unless the project's instructions name another | `claude-opus-5-5` | `effort: high` |
 | Sol 6.1 | `codex` | `gpt-6.1-sol` | `reasoningEffort: xhigh` |
 | Grok 4.7 | `grok` | `grok-4.7` | `reasoningEffort: xhigh` |
 

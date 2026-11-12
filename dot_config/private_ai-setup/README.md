@@ -1,9 +1,123 @@
-# Shared AI setup: macOS and Arch Linux
+# Local AI setup
+
+`ai-setup` provisions the shared Claude/Codex/Grok preferences, hook venv,
+CLIProxyAPI, T3 installation, service units and Tailscale access. `--install`
+retains those responsibilities; `--update-plan` previews explicit upgrades.
+No upgrade is needed for this migration.
+
+Claude uses one local CLIProxyAPI pool. T3 uses built-in `claudeAgent`, binary
+`claude`, blank `homePath`, empty provider environment, native model discovery,
+and Opus 5.5 at high effort. Terminal Claude shares this pool through the
+private `env` in normal `~/.claude/settings.json`. Hooks, skills, MCP, project
+trust, and transcripts remain in their normal homes. The retired alternate
+home is left on disk; no history database is rewritten.
+
+Routing is fill-first with personal 300, work 200, backup 100, session affinity
+720h, subagent inheritance and persisted cooldowns. Bare model IDs use the
+pool. Existing optional prefixes remain diagnostic routes. T3 load balancing
+is off. Native Codex/Grok and OpenCode OpenAI remain independent.
+
+## Targeted rollout
+
+Deploy source-managed inputs and binaries with scripts excluded. Existing
+machines' run-once setup also refuses automatic installation and prints the
+migration command. Do not use `--install` to migrate an existing machine.
+
+1. Review `ai-setup --pool-diff` (read-only; secrets are never printed).
+2. Arrange a brief proxy maintenance window. The operator must stop its managed
+   supervisor and exclude concurrent starts, raw OAuth writers and refreshers.
+   The helper never stops/restarts anything. T3 may remain open during this phase.
+3. If duplicate tokens differ, explicitly choose the canonical credential after
+   checking identity; never infer freshness from file modification times:
+   `cpapi --proxy-stopped reconcile work claude-account-b.json` (use the actual
+   registered canonical filename). Other same-identity credentials move to private
+   `archive/`, outside watched `auth/`, with inventory quarantine records. A private
+   reconciliation journal rolls forward after interruptions; rerun the account
+   command before starting the proxy. No token is copied over the canonical file.
+4. While the proxy remains stopped, run
+   `ai-setup --proxy-stopped --apply-pool-accounts`. Metadata reads the latest
+   on-disk credential and atomically merges priority/disabled only. Upstream v8.0.20
+   live fields/status PATCH snapshots can overwrite refreshed tokens; they are not
+   used. Process/endpoint checks detect mistakes; they cannot exclude a concurrent
+   start. Operator-controlled maintenance is the safety boundary.
+5. Run `ai-setup --apply-pool-config`. It requires verified account metadata,
+   preserves unrelated configuration, and backs up replacements under
+   `~/.local/share/ai-setup-backups`. It updates proxy/Claude configuration only;
+   T3 may stay running. Resume the proxy using its existing supervisor separately.
+6. For live T3, run `ai-setup --export-pool-t3-patch /PRIVATE/NEW-PATH.json`.
+   The exclusive mode-0600 export contains `serverSettingsPatch` and
+   `clientSettingsPatch`; model favorites/menu are also patched on the server
+   which owns them in T3 0.1.1. The export is secret-bearing and must never be printed or logged.
+   The rollout owner applies it through T3's authenticated supported settings
+   APIs (server RPC `server.updateSettings`, payload `{patch: serverSettingsPatch}`),
+   re-reading current settings before applying map replacements. The helper does
+   not create an unauthenticated API or attempt authentication. Remove the private
+   export after use. Alternatively, close T3 normally and run
+   `ai-setup --apply-pool-t3-offline`; this fallback checks the server and desktop
+   are closed before writing their files. Only this T3 file phase requires closure.
+7. Verify native Claude, the local usage hub, and Fleet doctor without inference.
+   Repeated account/config/offline-T3 phases are idempotent. The combined legacy
+   `--proxy-stopped --apply-pool-changes` requires both proxy and T3 stopped.
+
+These commands do not install packages, invoke inference, restart services or
+rewrite histories. Private machine-local management keys stay loopback-only.
+The config reader supports JSON-compatible YAML, including legacy top-level and
+v8 nested `server`, `access`, and `oauth` fields. Arbitrary YAML is not supported;
+convert it privately to equivalent JSON before using these helpers.
+
+## Accounts
+
+Generic policy lives in `bootstrap.json` and `models.json`. Mutable account
+state lives in private `~/.config/cli-proxy-api/accounts.json`; auth files,
+client key, management key and inventory are excluded from chezmoi. Setup seeds
+personal/work/backup only when inventory is absent. Backup is pending and
+optional until login. Removed records are tombstones and never re-seeded.
+
+```
+cpapi list
+cpapi --proxy-stopped login personal -no-browser
+cpapi --proxy-stopped login work -no-browser
+cpapi login backup -no-browser
+cpapi add second-openai codex --priority 50
+cpapi login second-openai
+cpapi add second-grok xai --priority 25
+cpapi login second-grok
+cpapi --proxy-stopped priority backup 400
+cpapi --proxy-stopped disable backup
+cpapi --proxy-stopped enable backup
+cpapi --proxy-stopped remove backup
+```
+
+Providers `openai` and `grok` alias `codex` and `xai`; legacy `claude-a/b`
+alias personal/work. OAuth runs in an isolated auth directory, validates stable
+identity and tokens, rejects duplicate identities, and keeps the registered
+filename on refresh. Login never edits T3. Remove disables and archives the
+inventory record without deleting tokens. Use `cpapi --proxy-stopped restore NAME` to reactivate retained credentials,
+or re-add the same removed name and login again. Removed/quarantined identities
+are not active collisions; another active account's identity is protected.
+Newly added accounts are optional pending login, then required on activation.
+Adding a pending account and its first login can run while the proxy is up:
+the staged credential is published exclusively and never replaces an existing
+file. Changes to existing credentials, including relogin, require the
+proxy-stopped maintenance boundary above. OAuth staging overrides both legacy
+and v8 auth-dir fields.
+
+OpenCode uses `claude/claude-opus-5-5#high` and bare wire model IDs. Its local
+compatibility plugin keeps stripping unsupported thinking block_binding and
+its beta header. Existing threads using old Claude logical provider IDs may
+need manual model selection; no history rewrite is performed.
+
+Other setup commands remain available: `--cli-diff`, `--apply-cli-changes`,
+`--apply-claude-hooks`, `--t3-diff`, `--apply-t3-changes`, `--proxy-diff`,
+`--apply-proxy-changes`, `--connections`, `--update-plan`, `--update-tools`.
+T3 file preference merges require T3 closed; use the targeted pool action when
+only migrating the pool. CLI preference merge installs the hook venv; the
+pool action does not.
 
 ## Directory map
 
 This directory contains installation and preference inputs. Applications do not
-read it directly: `claude-mixed-setup` reads these files and merges selected values
+read it directly: `ai-setup` reads these files and merges selected values
 into each application's own settings. There is no background synchronization.
 
 | File | Purpose | Used when |
@@ -11,7 +125,7 @@ into each application's own settings. There is no background synchronization.
 | `models.json` | Shared model choices, reasoning effort and Codex service tier | CLI and T3 preference merges |
 | `cli-preferences.json` | Shared Claude and Grok preferences | CLI preference merge |
 | `t3/preferences.json` | Shared server, desktop, browser and model-menu preferences | T3 preference merge |
-| `t3/profiles.json` | Personal/Work provider definitions and custom model options | T3 preference merge |
+| `t3/profiles.json` | Native provider definitions | T3 preference merge |
 | `t3/keybindings.json` | Shared shortcuts with platform-specific modifiers | T3 preference merge |
 | `bootstrap.json` | Seed configuration for a new proxy and fallback T3 CLI version | Installation |
 | `proxy-headers.json` | Explicit provider header overrides; `null` removes a managed header | Installation or proxy header merge |
@@ -24,7 +138,7 @@ Paths below are relative to each machine's home directory.
 
 | Application | Files it actually reads |
 | --- | --- |
-| Claude, including both Mixed profiles | `~/.claude/settings.json` and `~/.claude/CLAUDE.md`; Mixed launch overrides come from the proxy directory |
+| Claude | `~/.claude/settings.json` and `~/.claude/CLAUDE.md` |
 | Codex | `~/.codex/config.toml` |
 | Grok | `~/.grok/config.toml` |
 | T3 server: providers, models, title/Git-text generation and server behavior | `~/.t3/userdata/settings.json` |
@@ -34,98 +148,17 @@ Paths below are relative to each machine's home directory.
 | CLIProxyAPI and its launchers | `~/.config/cli-proxy-api/`; see its [runtime guide](../cli-proxy-api/README.md) |
 
 Edit the chezmoi source for portable changes, then deploy only the relevant input
-files and helper. Preview with `claude-mixed-setup --cli-diff` or `--t3-diff`, then
+files and helper. Preview with `ai-setup --cli-diff` or `--t3-diff`, then
 use the corresponding `--apply-cli-changes` or `--apply-t3-changes`. Updating an
 input file alone does not change an existing app's settings. Close T3 before
 applying its preferences; start new CLI sessions to use updated defaults.
 Direct changes inside an app stay local until deliberately captured in these
 portable inputs. A later preference merge reapplies the selected shared keys.
 
-The helper is `~/.local/bin/claude-mixed-setup`. The proxy directory holds live
+The helper is `~/.local/bin/ai-setup`. The proxy directory holds live
 connection settings and credentials, while private historical backups belong
 under `~/.local/share/claude-archives/`, outside the public dotfiles repository.
 
-## What chezmoi owns
-
-The public source contains the approved `CLAUDE.md`, computer-use skill, shared
-links, Mixed model defaults and aliases, context budgets, agents, workflow, CLI
-launchers and setup helper. `t3/preferences.json` contains the selected shared preferences; the helper
-merges them into the app's local settings. Actual Claude, proxy and T3 session
-files are generated locally and are never copied into the repository.
-
-`models.json` is the shared source for model choices and effort levels.
-It drives T3's conversation, title and Git-text defaults, Mixed model selectors,
-and standalone Codex/Grok defaults. Astra and Sol use extra high; Fable uses
-high; Opus uses extra high; Grok uses medium. The `cli` and `t3` sections pin
-the exact Claude CLI, Grok CLI and T3 selections in use: Claude CLI `opus` at
-high, Grok CLI 4.6 at high, T3 Opus 5.5 at high on Claude Personal Mixed,
-Grok 4.7 Build Fast for T3 titles and Grok 4.6 at medium for Git text. Standard Codex service tier is
-explicit. Session or project overrides still work. Codex's context window and
-auto-compaction settings are not changed.
-
-The catalog includes Opus 5.5, Fable 5.2, GPT-6.1 Sol, and GPT-6 Luna as
-selectable models without changing existing defaults: the `fable` alias and the
-Mixed default stay on Fable 5.1. Use Claude Code 2.1.280 or newer for Opus 5.5
-and 2.1.321 or newer for Fable 5.2. Mixed launches discover each account's
-advertised Claude models from the local proxy, so routing a released model needs
-no catalog entry; see the [proxy runtime guide](../cli-proxy-api/README.md). CLIProxyAPI
-[v7.3.15](https://github.com/router-for-me/CLIProxyAPI/releases/tag/v7.3.15)
-raised the Claude client baseline to 2.1.280 and fixed
-[issue #6054](https://github.com/router-for-me/CLIProxyAPI/issues/6054).
-`proxy-headers.json` now removes the temporary User-Agent override so the proxy
-uses its upstream default. Confirm each machine runs v7.3.15 or newer before
-applying this removal; older installations still need the workaround.
-
-For a model-only rollout, preview `claude-mixed-setup --t3-diff --models-only`,
-then run `claude-mixed-setup --apply-t3-changes --models-only`. This adds missing
-catalog models to the server settings that T3 watches and reloads live; it does
-not restart sessions or change client menu order. Existing model options,
-defaults, favorites, and unrelated preferences remain intact. Deploy the helper
-and relevant inputs with a targeted chezmoi apply first. Full preference merges
-still require closing T3.
-
-Deploy `proxy-headers.json` and the helper with a targeted chezmoi apply, preview
-`claude-mixed-setup --proxy-diff`, then run
-`claude-mixed-setup --apply-proxy-changes`. The helper backs up the private proxy
-configuration and merges only the selected headers. CLIProxyAPI reloads its
-configuration without restarting T3. Credentials and other rules stay local.
-
-The `null` User-Agent value is a removal instruction, not a runtime override.
-Keep this entry until every machine has received the cleanup; deleting the
-input alone does not remove a value already merged into a private configuration.
-After merging, reload or restart only the proxy service; T3 can remain open.
-
-`cli-preferences.json` contains shared Claude behaviour, attribution suppression,
-the human-only `code-review` setting, Grok display preferences, and Grok's
-instruction loading: it reads the shared `~/.agents/AGENTS.md` through
-`~/.grok/AGENTS.md`, not `~/.claude/CLAUDE.md`. The status-line
-script is shared and needs Bash, Git and jq from the OS bootstrap. Shared Bash
-tool preferences use `~/.claude/hooks/prefer-modern-cli.py`; Mixed links its hooks
-directory to the same location. The setup helper installs Tree-sitter Bash in an isolated
-Python environment and merges the shared hook without replacing other handlers.
-Use `claude-mixed-setup --apply-claude-hooks` to apply only this hook configuration.
-Cargo installs `sd` in both platform bootstraps; `~/.local/bin/sd` links to the
-Cargo binary so noninteractive agents can find it. Existing machine-local hooks,
-plugin installations, MCP connections, notification integrations, project trust
-records and credentials remain local. TOML merges preserve unrelated content and
-validate the complete result before writing.
-
-Personal and Work share `~/.claude/settings.json` through a symlink in
-`~/.claude-t3-mixed/`. Edit the global file for shared preferences. The launcher
-loads proxy credentials from the private `~/.config/cli-proxy-api/claude-settings.json`;
-account routing and context budgets remain launch settings. First setup seeds a
-missing global settings file with the workflow defaults and preserves an existing
-one. On existing machines, back up the old mixed settings file and review its
-preference differences before applying the symlink. `--apply-cli-changes` merges
-legacy Mixed preferences into the global file, preserves its existing preferences
-where they conflict, then applies the selected shared defaults and archives the old
-Mixed file before linking it. Legacy proxy environment values remain in the private
-connection settings. Deploy the updated launchers and preference inputs first;
-perform this migration before applying the chezmoi-managed symlink.
-
-Sonnet and Haiku retain their real model identities. Their use is prohibited by
-the instructions rather than redirected to another model. The current GPT/Grok
-working budget is 500K; this package does not change Codex's own context settings.
 
 ## Installation inputs
 
@@ -203,20 +236,8 @@ startup files or an unlocked Bitwarden vault.
 does not encrypt the source or conceal it from Git. Never commit raw secrets,
 OAuth files, pairing codes, generated connection catalogs, or application state.
 
-## First setup
 
-The existing OS package bootstrap supplies Python, Node/npm, Tailscale and the
-package manager. The AI hook installs missing CLIProxyAPI, Claude, Codex, Grok
-Build and T3 components. Existing installations are preserved. T3's user-local
-CLI initially matches an installed desktop version when detectable, otherwise
-it uses the pin in `bootstrap.json`. Package upgrades remain explicit.
-
-| Role | Proxy | T3 |
-| --- | --- | --- |
-| macOS laptop/desktop | Homebrew user service | Desktop app and CLI |
-| Arch desktop/laptop | systemd user service | Desktop app and CLI |
-| Arch agent desktop (`machine.autologin`) | systemd user service, user lingering | Persistent `t3code.service`; the desktop app connects to it |
-| Arch headless | systemd user service, user lingering | CLI and persistent `t3code.service` |
+## T3 service layout
 
 The proxy listens on `127.0.0.1:8317`. Each machine generates its own gateway key.
 The T3 service listens on loopback only: the helper creates
@@ -238,129 +259,11 @@ over SSH) must be stopped before the first install; threads and settings in
 `~/.t3/userdata` carry over. Desktop exposure is managed through selected T3 settings. This
 package never enables public Tailscale Funnel.
 
-For a fresh installation, the dedicated after hook runs the helper after files
-and the existing package bootstrap. It includes content hashes of the helper,
-defaults, profiles and preferences, plus the role/enablement choices.
-
-For an existing machine, preview and apply only this package's targets. The
-explicit target list is in `deployment-targets.json`. Exclude scripts during
-that scoped apply and run the helper directly afterward; do not run a blanket
-apply across unrelated dotfile drift.
-
-```sh
-claude-mixed-setup                   # read-only summary
-claude-mixed-setup --install         # use the saved role and remote-access choice
-claude-mixed-setup --cli-diff         # selected Claude/Codex/Grok changes only
-claude-mixed-setup --apply-cli-changes
-claude-mixed-setup --t3-diff          # selected T3 changes only
-# Close T3; on a headless host, stop its service after active work finishes.
-claude-mixed-setup --apply-t3-changes
-# Reopen T3 or start its headless service when finished.
-```
-
-On first setup, missing settings files are created with shared preferences.
-Existing files are left alone by `--install`; explicit preference application
-makes a private backup and merges only selected keys. Model identities, existing
-provider environments, credentials, other providers, project-specific state,
-window geometry, and unrelated shortcuts are preserved. Existing Personal/Work
-paths, launch arguments, extra custom models and private environment variables
-are preserved; shared model catalog entries and routing variables are refreshed.
-Shared favorites are added only when missing; locally added favorites and their
-order are retained.
-
-Browser preferences, load balancing, appearance, sidebar behaviour, confirmation
-settings, Git/worktree defaults and source-control writing style are portable.
-The shared preferences also include notification, composer, snapshot, and browser
-recording behaviour. T3's color palette follows the separate
-[theme-system adapter](../theme-system/README.md#t3-code); glass opacity stays a
-client preference. When capturing live settings, keep onboarding, browser profile
-identities, project overrides, and project-script shortcuts local.
-`t3/keybindings.json` keeps shared shortcuts and uses Control for thread digits
-on macOS and the platform modifier on Linux. User-added shortcuts survive.
-Keybindings belong to the server, including on a headless host; client appearance
-preferences are applied only to desktop roles.
-
-Close the desktop app, or finish active work and stop the headless service, before
-applying T3 preferences. Desktop preferences are held in memory and can otherwise
-overwrite a file edit. The helper checks for concurrent file changes and keeps
-private backups. Never use a broad chezmoi apply for this migration.
-
-Tool maintenance is a separate, explicit operation:
-
-```sh
-claude-mixed-setup --update-plan
-# Finish active work and close T3 / stop its headless service first.
-claude-mixed-setup --update-tools
-```
-
-The updater uses the existing installation owner: Codex/Grok's native updater
-for standalone installations, Homebrew for its installations, and yay/paru for
-Arch packages. Arch updates include a full system upgrade to avoid unsupported
-partial upgrades. The T3 CLI follows the installed desktop version; headless
-maintenance uses the current npm release. A background service then moves to
-the CLI's exact version (`t3 update <version> --yes`, which restarts it).
-No package upgrades run automatically during chezmoi apply.
-
-Installation is repeatable: existing gateway keys and subscriptions survive;
-running services are not restarted and existing packages are not upgraded.
-A conflicting service or Tailscale Serve mapping requires review. Existing T3
-settings cannot be modified while its backend is running.
-
-T3's service installer creates a separate npm runtime. Native script approval is
-limited to `node-pty` and `msgpackr-extract` in a temporary npm configuration for
-that installation, with the user's other npm settings retained. No global npm
-policy is changed. Arch setup may require local sudo authentication and lingering
-permission. Missing Tailscale login is reported for completion on that machine.
-
-## Subscription login
-
-Run these on the host where the agents execute:
-
-```sh
-cpapi login personal
-cpapi login work
-cpapi login openai
-cpapi login grok
-cpapi status
-```
-
-Personal and Work use separate Claude subscriptions and share that machine's
-connected OpenAI/Grok subscriptions. The helper prevents pinning the same Claude
-account/workspace to both names. Login enables the corresponding mixed profile.
-For browser callbacks over SSH, use the provider's login options and the indicated
-callback port forwarding; never paste tokens into the repository.
-
-**Re-authentication:** use `cpapi login personal` or `cpapi login work` again,
-and select the matching account/workspace in the browser. The helper stages the
-login, preserves the profile's registered credential filename, and restores its
-`claude-a` (Personal) or `claude-b` (Work) routing prefix.
-
-Do not refresh these named profiles with raw `cliproxyapi -claude-login`. Default
-authentication can create a separate email-named credential without a profile
-prefix. Copying that credential over the registered profile file drops the prefix
-that OpenCode and T3 expect. Symptoms include
-`unknown provider for model claude-b/...` or repeated API failures. After logging
-in, use `cpapi models` to confirm the selected profile's prefixed models are
-advertised. Keep credentials and `claude-accounts.json` local; never add them to
-the public dotfiles repository.
-
-The native Codex and Grok providers in T3 use their own CLI login stores. Complete
-those logins locally too if using them for default tasks, titles or Git text.
-CLIProxyAPI login does not automatically sign those separate clients in.
-
-Ordinary terminal use is available through `claude-personal` and `claude-work`.
-For an on-demand workflow snapshot, run `~/.claude/scripts/claude-workflow-status <session-directory> <workflow-id>`;
-the session directory contains `subagents/` and `workflows/`. Add `--json` for
-metadata suitable for filtering. The command reads nested agent activity, never
-stops agents, and treats seven minutes of inactivity as a reason to inspect rather
-than proof of a stall. It needs only Python's standard library.
-The computer-use skill requires an installed Codex tool environment; copying it
-does not install browser/desktop tools or establish GUI automation on Linux.
 
 ## Remote environments and phone access
 
 ```sh
-claude-mixed-setup --connections
+ai-setup --connections
 ```
 
 This displays the other hosts and the saved SSH username. Add them in T3's
