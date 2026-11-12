@@ -4,7 +4,7 @@
 export default {
   id: "local.cliproxy-claude-compat",
   async setup(ctx) {
-    const providerIDs = ctx.options.providerIDs ?? ["claude-personal", "claude-work"];
+    const providerIDs = ctx.options.providerIDs ?? ["claude"];
 
     for (const providerID of providerIDs) {
       await ctx.session.hook("http.request", async (event) => {

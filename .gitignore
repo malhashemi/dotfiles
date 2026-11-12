@@ -57,3 +57,11 @@ tmp/
 /private_dot_claude-t3-mixed/private_settings.json
 /private_dot_claude-t3-mixed/dot_credentials.json
 /private_dot_claude-t3-mixed/private_dot_credentials.json
+
+/dot_config/private_cli-proxy-api/*accounts.json
+/dot_config/private_cli-proxy-api/*management-key
+
+/dot_config/private_cli-proxy-api/archive/
+/dot_config/private_cli-proxy-api/private_archive/
+/dot_config/private_cli-proxy-api/*reconcile-journal.json
+/dot_config/private_cli-proxy-api/oauth-*/

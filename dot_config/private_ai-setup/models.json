@@ -1,26 +1,17 @@
 {
   "catalog": [
     {
-      "id": "claude-fable-5-1",
-      "name": "Claude Fable 5.1",
-      "provider": "claude",
-      "pickerSuffix": "[1m]"
-    },
-    {
-      "id": "claude-fable-5-2",
-      "name": "Claude Fable 5.2",
-      "provider": "claude",
-      "pickerSuffix": "[1m]",
-      "t3Custom": true,
-      "efforts": ["low", "medium", "high", "xhigh", "max"]
-    },
-    {
       "id": "claude-opus-5-5",
       "name": "Claude Opus 5.5",
       "provider": "claude",
       "pickerSuffix": "[1m]",
-      "t3Custom": true,
-      "efforts": ["low", "medium", "high", "xhigh", "max"]
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
     },
     {
       "id": "claude-opus-5",
@@ -32,42 +23,77 @@
       "id": "gpt-6-astra",
       "name": "GPT-6 Astra",
       "provider": "codex",
-      "efforts": ["low", "medium", "high", "xhigh", "max"]
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
     },
     {
       "id": "gpt-6.1-sol",
       "name": "GPT-6.1 Sol",
       "provider": "codex",
-      "efforts": ["low", "medium", "high", "xhigh", "max"]
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
     },
     {
       "id": "gpt-6-luna",
       "name": "GPT-6 Luna",
       "provider": "codex",
-      "efforts": ["low", "medium", "high", "xhigh", "max"]
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
     },
     {
       "id": "gpt-5.6-sol",
       "name": "GPT-5.6 Sol",
       "provider": "codex",
-      "efforts": ["low", "medium", "high", "xhigh", "max"]
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max"
+      ]
     },
     {
       "id": "grok-4.7",
       "name": "Grok 4.7",
       "provider": "grok",
-      "efforts": ["low", "medium", "high", "xhigh"]
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
     },
     {
       "id": "grok-4.6",
       "name": "Grok 4.6",
       "provider": "grok",
-      "efforts": ["low", "medium", "high", "xhigh"]
+      "efforts": [
+        "low",
+        "medium",
+        "high",
+        "xhigh"
+      ]
     }
   ],
-  "retired": ["gpt-6-sol"],
+  "retired": [
+    "gpt-6-sol"
+  ],
   "claudeFamilyDefaults": {
-    "FABLE": "claude-fable-5-1",
     "OPUS": "claude-opus-5-5",
     "SONNET": "claude-sonnet-5",
     "HAIKU": "claude-haiku-4-5"
@@ -78,33 +104,39 @@
   },
   "providers": {
     "codex": "gpt-6-astra",
-    "claude": "claude-fable-5-1",
+    "claude": "claude-opus-5-5",
     "grok": "grok-4.7"
   },
   "effort": {
     "gpt-6-astra": "xhigh",
     "gpt-5.6-sol": "xhigh",
-    "claude-fable-5-1": "high",
-    "claude-fable-5-2": "high",
     "claude-opus-5": "xhigh",
     "grok-4.7": "medium",
     "grok-4.6": "medium",
-    "claude-opus-5-5": "xhigh",
+    "claude-opus-5-5": "high",
     "gpt-6.1-sol": "xhigh",
     "gpt-6-luna": "xhigh"
   },
   "codexServiceTier": "default",
   "cli": {
-    "claude": { "model": "opus", "effort": "high" },
-    "grok": { "model": "grok-4.6", "effort": "high" }
+    "claude": {
+      "model": "opus",
+      "effort": "high"
+    },
+    "grok": {
+      "model": "grok-4.6",
+      "effort": "high"
+    }
   },
   "t3": {
     "defaultModelSelection": {
-      "instanceId": "claude-mixed-a",
+      "instanceId": "claudeAgent",
       "model": "claude-opus-5-5",
       "options": [
-        { "id": "effort", "value": "high" },
-        { "id": "contextWindow", "value": "1m" }
+        {
+          "id": "effort",
+          "value": "high"
+        }
       ]
     },
     "textGenerationModelSelection": {
@@ -114,7 +146,12 @@
     "sourceControlWriterModelSelection": {
       "instanceId": "grok",
       "model": "grok-4.6",
-      "options": [{ "id": "reasoningEffort", "value": "medium" }]
+      "options": [
+        {
+          "id": "reasoningEffort",
+          "value": "medium"
+        }
+      ]
     }
   }
 }

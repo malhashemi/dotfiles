@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Bootstrap: {{ include "dot_local/bin/executable_claude-mixed-setup" | sha256sum }}
+# Bootstrap: {{ include "dot_local/bin/executable_ai-setup" | sha256sum }}
 # Defaults: {{ include "dot_config/private_ai-setup/bootstrap.json" | sha256sum }}
 # Preferences: {{ include "dot_config/private_ai-setup/t3/preferences.json" | sha256sum }}
 # Model defaults: {{ include "dot_config/private_ai-setup/models.json" | sha256sum }}
@@ -13,7 +13,12 @@ set -euo pipefail
 # Remote access: {{ get $ai "remote_access" | default false }}
 # Agent desktop (T3 background service): {{ and (eq .chezmoi.os "linux") (get (get . "machine" | default dict) "autologin" | default false) }}
 {{ if and (get $ai "enabled") (or (eq .chezmoi.os "darwin") (eq .chezmoi.os "linux")) -}}
-exec python3 {{ joinPath .chezmoi.homeDir ".local/bin/claude-mixed-setup" | quote }} --install
+# Existing machines use the explicit targeted migration, without package or service work.
+if [ -f "$HOME/.config/cli-proxy-api/config.yaml" ]; then
+    echo 'Existing proxy retained. Review ai-setup --pool-diff; arrange explicit proxy account maintenance, then separate config/T3 phases.'
+    exit 0
+fi
+exec python3 {{ joinPath .chezmoi.homeDir ".local/bin/ai-setup" | quote }} --install
 {{ else -}}
 exit 0
 {{ end -}}

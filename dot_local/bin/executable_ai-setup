@@ -1,0 +1,1184 @@
+#!/usr/bin/env python3
+"""Provision the local mixed-model runtime without replacing existing settings."""
+import argparse
+import copy
+import difflib
+import getpass
+import json
+import os
+from pathlib import Path
+import secrets
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+import re
+import plistlib
+import tomllib
+import runpy
+from urllib.parse import urlparse
+
+HOME_DIR = Path.home()
+ROOT = HOME_DIR / '.config/cli-proxy-api'
+INPUTS = HOME_DIR / '.config/ai-setup'
+MIXED = HOME_DIR / '.claude-t3-mixed'
+BIN = HOME_DIR / '.local/bin'
+# The t3-code cask has shipped under each of these names; the current one is Beta.
+MAC_T3_APPS = ('T3 Code.app', 'T3 Code (Beta).app', 'T3 Code (Alpha).app')
+
+
+def run(args, **kwargs):
+    return subprocess.run([str(x) for x in args], check=True, **kwargs)
+
+
+def write_new(path, text, mode=0o600):
+    """Exclusive creation: an existing file or symlink is never replaced."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode)
+    except FileExistsError:
+        return False
+    with os.fdopen(fd, 'w') as stream:
+        stream.write(text)
+    return True
+
+
+def read_json(path, fallback=None):
+    return json.loads(path.read_text()) if path.exists() else copy.deepcopy(fallback)
+
+
+def json_text(value):
+    return json.dumps(value, indent=2, ensure_ascii=False) + '\n'
+
+
+def merge_preferences(current, selected):
+    result = copy.deepcopy(current)
+    for key, value in selected.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = merge_preferences(result[key], value)
+        else:
+            result[key] = copy.deepcopy(value)
+    return result
+
+
+def merge_claude_preferences(current, selected):
+    """Merge shared hook commands while retaining other machine-local handlers."""
+    result = merge_preferences(current, {k: v for k, v in selected.items() if k != 'hooks'})
+    for event, groups in selected.get('hooks', {}).items():
+        existing = result.setdefault('hooks', {}).setdefault(event, [])
+        for group in groups:
+            for hook in group['hooks']:
+                for local in existing:
+                    if local.get('matcher') != group.get('matcher'):
+                        continue
+                    match = next((h for h in local['hooks'] if
+                                  (h.get('type'), h.get('command')) ==
+                                  (hook.get('type'), hook.get('command'))), None)
+                    if match is not None:
+                        match.update(copy.deepcopy(hook))
+                        break
+                else:
+                    existing.append({**copy.deepcopy(group), 'hooks': [copy.deepcopy(hook)]})
+    return result
+
+
+def ensure_hook_runtime():
+    """Keep the shell parser isolated from system Python and hook-time networking."""
+    runtime = HOME_DIR / '.local/share/claude-hooks/venv'
+    python = runtime / 'bin/python'
+    if not python.exists():
+        run([sys.executable, '-m', 'venv', runtime])
+    probe = subprocess.run([str(python), '-c',
+                            'from tree_sitter import Language, Parser; import tree_sitter_bash; '
+                            'Parser(Language(tree_sitter_bash.language()))'],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    if probe.returncode:
+        run([python, '-m', 'pip', 'install', '--disable-pip-version-check',
+             'tree-sitter==0.26.0', 'tree-sitter-bash==0.25.1'])
+
+
+def model_defaults():
+    return read_json(INPUTS / 'models.json')
+
+
+def model_selection(provider):
+    # An object is an exact T3 selection; a provider name uses its default model.
+    if isinstance(provider, dict):
+        return copy.deepcopy(provider)
+    defaults = model_defaults()
+    model = defaults['providers'][provider]
+    options = [{'id': 'reasoningEffort', 'value': defaults['effort'][model]}]
+    if provider == 'codex':
+        options.append({'id': 'serviceTier', 'value': defaults['codexServiceTier']})
+    return {'instanceId': provider, 'model': model, 'options': options}
+
+
+def merge_toml(text, selected):
+    """Edit selected scalar settings, preserving all other TOML and comments.
+
+    Validate the complete parsed result, so unusual TOML formatting can never
+    silently change an unrelated table, credential or project trust record.
+    """
+    before = tomllib.loads(text)
+    expected = merge_preferences(before, selected)
+    lines = text.splitlines(True)
+
+    def update(table, key, value):
+        nonlocal lines
+        start, end = 0, len(lines)
+        headers = [(i, line.strip().split('#', 1)[0].strip()) for i, line in enumerate(lines)
+                   if line.lstrip().startswith('[')]
+        if table:
+            found = [i for i, header in headers if header == '[' + table + ']']
+            if not found:
+                lines.extend(['\n[' + table + ']\n'])
+                start = len(lines)
+            else:
+                start = found[0] + 1
+            end = next((i for i, _ in headers if i >= start), len(lines))
+        else:
+            end = headers[0][0] if headers else len(lines)
+        assignment = key + ' = ' + json.dumps(value, ensure_ascii=False) + '\n'
+        pattern = re.compile(r'^\s*(?:' + re.escape(key) + r'|"' + re.escape(key) + r'"|\x27' + re.escape(key) + r'\x27)\s*=')
+        for i in range(start, end):
+            if pattern.match(lines[i]):
+                lines[i] = assignment
+                return
+        lines.insert(end, assignment)
+
+    if lines and not lines[-1].endswith('\n'):
+        lines[-1] += '\n'
+    def visit(values, table=''):
+        for key, value in values.items():
+            if isinstance(value, dict):
+                visit(value, '.'.join(filter(None, (table, key))))
+            else:
+                update(table, key, value)
+
+    visit(selected)
+    result = ''.join(lines)
+    if tomllib.loads(result) != expected:
+        raise ValueError('Unusual TOML layout needs a targeted manual merge; no file was changed.')
+    return result
+
+
+def planned_cli(hooks_only=False):
+    preferences = read_json(INPUTS / 'cli-preferences.json')
+    models = model_defaults()
+    path = HOME_DIR / '.claude/settings.json'
+    current = path.read_text() if path.exists() else ''
+    existing = json.loads(current) if current else {}
+    if hooks_only:
+        proposed = merge_claude_preferences(existing, {'hooks': preferences['claude']['hooks']})
+        after = json_text(proposed)
+        return [(path, current, after)] if current != after else []
+    mixed_path = MIXED / 'settings.json'
+    legacy = read_json(mixed_path, {}) if not mixed_path.is_symlink() else {}
+    # Keep legacy launch credentials private; never move them into global settings.
+    inherited = {k: v for k, v in legacy.items() if k not in ('env', 'modelOverrides')}
+    # Exact CLI defaults in `cli` take precedence over the provider defaults.
+    cli = models.get('cli', {})
+    claude = cli.get('claude') or {'model': models['providers']['claude'] + '[1m]',
+                                   'effort': models['effort'][models['providers']['claude']]}
+    common = merge_preferences(preferences['claude'], {
+        'model': claude['model'],
+        'effortLevel': claude['effort'],
+    })
+    proposed = merge_claude_preferences(merge_preferences(inherited, existing), common)
+    if (ROOT / 'client-key').exists():
+        proposed.setdefault('env', {}).update({
+            'ANTHROPIC_BASE_URL': 'http://127.0.0.1:8317',
+            'ANTHROPIC_AUTH_TOKEN': (ROOT / 'client-key').read_text().strip(),
+            'ANTHROPIC_API_KEY': '', 'CLAUDE_CODE_OAUTH_TOKEN': ''})
+
+    changes = [(path, current, json_text(proposed))]
+    if legacy.get('env'):
+        connection = ROOT / 'claude-settings.json'
+        old = connection.read_text() if connection.exists() else ''
+        new = merge_preferences({'env': legacy['env']}, json.loads(old) if old else {})
+        changes.append((connection, old, json_text(new)))
+    codex = models['providers']['codex']
+    grok = cli.get('grok') or {'model': models['providers']['grok'],
+                               'effort': models['effort'][models['providers']['grok']]}
+    for relative, selected in [
+        ('.codex/config.toml', {'model': codex, 'model_reasoning_effort': models['effort'][codex],
+                                'service_tier': models['codexServiceTier']}),
+        ('.grok/config.toml', merge_preferences(preferences.get('grok', {}), {
+            'models': {'default': grok['model'], 'default_reasoning_effort': grok['effort']}})),
+    ]:
+        path = HOME_DIR / relative
+        current = path.read_text() if path.exists() else ''
+        changes.append((path, current, merge_toml(current, selected)))
+    return [(p, a, b) for p, a, b in changes if a != b]
+
+
+def print_cli_diff():
+    for path, before, after in planned_cli():
+        parse = tomllib.loads if path.suffix == '.toml' else json.loads
+        print_t3_diff([(path, parse(before) if before else {}, parse(after))])
+
+
+def configure_cli(allow_existing=False, hooks_only=False):
+    changes = [(p, a, b) for p, a, b in planned_cli(hooks_only) if allow_existing or not p.exists()]
+    ensure_hook_runtime()
+    archive = HOME_DIR / '.local/share/claude-archives' / ('preferences-' + secrets.token_hex(6))
+    for path, before, _ in changes:
+        if (path.read_text() if path.exists() else '') != before:
+            raise ValueError('CLI preferences changed during planning; retry the preview.')
+    for path, before, after in changes:
+        if before:
+            write_new(archive / path.relative_to(HOME_DIR), before)
+        temp = path.with_name(path.name + '.mixed-setup-' + secrets.token_hex(4))
+        write_new(temp, after)
+        temp.replace(path)
+    if changes:
+        print('Saved selected CLI preferences. Backups:', archive if archive.exists() else 'not needed')
+
+
+def ensure_runtime():
+    defaults = read_json(INPUTS / 'bootstrap.json')
+    ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+    (ROOT / 'auth').mkdir(mode=0o700, exist_ok=True)
+    config_path = ROOT / 'config.yaml'
+    key_path = ROOT / 'client-key'
+    # The existing setup uses JSON-compatible YAML. Never generate a different
+    # key beside an existing configuration: that would break authentication.
+    if config_path.exists():
+        config = read_json(config_path)
+        if pool_helper()['effective'](config,'server','host') != '127.0.0.1' or pool_helper()['effective'](config,'server','port') != 8317:
+            raise ValueError('Existing proxy endpoint differs; review config.yaml before provisioning.')
+        keys = pool_helper()['effective'](config,'access','api-keys', [])
+        if not key_path.exists():
+            if len(keys) != 1 or not isinstance(keys[0], str) or not keys[0]:
+                raise ValueError('Existing proxy keys need manual review; no configuration was replaced.')
+            write_new(key_path, keys[0] + '\n')
+        if key_path.read_text().strip() not in keys:
+            raise ValueError('Existing client-key does not match config.yaml; no key was replaced.')
+    else:
+        write_new(key_path, secrets.token_urlsafe(36) + '\n')
+        config = copy.deepcopy(defaults['proxy'])
+        config['auth-dir'] = str(ROOT / 'auth')
+        config['api-keys'] = [key_path.read_text().strip()]
+        write_new(ROOT / 'management-key', secrets.token_urlsafe(36) + '\n')
+        config['remote-management']['secret-key'] = (ROOT / 'management-key').read_text().strip()
+        write_new(config_path, json_text(config))
+    env = {
+        'ANTHROPIC_BASE_URL': 'http://127.0.0.1:8317',
+        'ANTHROPIC_AUTH_TOKEN': key_path.read_text().strip(),
+        'ANTHROPIC_API_KEY': '',
+        'CLAUDE_CODE_OAUTH_TOKEN': '',
+
+    }
+    write_new(ROOT / 'claude-settings.json', json_text({'env': env}))
+    # Fresh hooks-only settings already exist on many hosts. Merge only the
+    # required connection env; retain every unrelated user preference.
+    normal = HOME_DIR / '.claude/settings.json'
+    current = read_json(normal, {})
+    proposed = merge_preferences(current, {'env':env})
+    if proposed != current: pool_helper()['save'](normal, proposed)
+    configure_cli()
+    pool = pool_helper()
+    write_new(ROOT / 'accounts.json', json_text(pool['inventory']()))
+    (HOME_DIR / '.claude/plugins').mkdir(parents=True, exist_ok=True)
+
+
+def find_proxy():
+    return shutil.which('cliproxyapi') or shutil.which('cli-proxy-api')
+
+
+def install_packages(headless):
+    if sys.platform == 'darwin':
+        brew = shutil.which('brew')
+        if not brew:
+            raise ValueError('Homebrew is required; run the existing macOS package bootstrap first.')
+        if not find_proxy():
+            run([brew, 'install', 'cliproxyapi'])
+            fresh_proxy = True
+        else:
+            fresh_proxy = False
+        if not shutil.which('claude') and not (HOME_DIR / '.local/bin/claude').exists():
+            run([brew, 'install', '--cask', 'claude-code'])
+        for binary, package in [('codex', 'codex'), ('grok', 'grok-build')]:
+            if not shutil.which(binary):
+                run([brew, 'install', '--cask', package])
+        if not headless and not any((Path('/Applications') / app).exists() for app in MAC_T3_APPS):
+            run([brew, 'install', '--cask', 't3-code'])
+        install_t3_server()
+        return fresh_proxy
+    if sys.platform != 'linux' or not Path('/etc/arch-release').exists():
+        raise ValueError('This bootstrap supports macOS and Arch Linux.')
+    required = []
+    if not find_proxy():
+        required.append('cli-proxy-api-bin')
+    if not shutil.which('claude') and not (HOME_DIR / '.local/bin/claude').exists():
+        required.append('claude-code')
+    for binary, package in [('codex', 'openai-codex'), ('grok', 'grok-build')]:
+        if not shutil.which(binary):
+            required.append(package)
+    if not headless:
+        installed = subprocess.run(['pacman', '-Q', 't3code-bin'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode == 0
+        if not installed and not shutil.which('t3code'):
+            required.append('t3code-bin')
+    if required:
+        helper = shutil.which('yay') or shutil.which('paru')
+        if not helper:
+            raise ValueError('Install yay or paru using the existing Arch bootstrap, then retry.')
+        run([helper, '-S', '--needed', *required])
+    # Desktop SSH pairing also needs the CLI before its short bootstrap timeout.
+    install_t3_server()
+    return False
+
+
+def t3_install_version():
+    # Match a desktop already installed on this host; use the shared pin headlessly.
+    if sys.platform == 'darwin':
+        for app in MAC_T3_APPS:
+            info = Path('/Applications') / app / 'Contents/Info.plist'
+            if info.exists():
+                with info.open('rb') as stream:
+                    version = plistlib.load(stream).get('CFBundleShortVersionString', '')
+                if re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', version):
+                    return version
+    elif shutil.which('pacman'):
+        package = subprocess.run(['pacman', '-Q', 't3code-bin'], capture_output=True, text=True)
+        if package.returncode == 0:
+            version = package.stdout.split()[1].rsplit('-', 1)[0]
+            if re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', version):
+                return version
+    return read_json(INPUTS / 'bootstrap.json')['t3_version']
+
+
+def t3_cli_version():
+    """Version of the setup-owned T3 CLI, or None when it is not installed here."""
+    package = HOME_DIR / '.local/share/t3-cli/node_modules/t3/package.json'
+    return read_json(package, {}).get('version') if package.exists() else None
+
+
+def install_t3_server(update=False):
+    node = shutil.which('node')
+    npm = shutil.which('npm')
+    if not node or not npm:
+        raise ValueError('T3 requires Node.js and npm on the non-interactive SSH PATH.')
+    version = run([node, '--version'], capture_output=True, text=True).stdout.strip().lstrip('v')
+    parts = tuple(int(x) for x in version.split('.')[:3])
+    compatible = (parts[0] == 22 and parts >= (22, 16, 0)) or (parts[0] == 23 and parts >= (23, 11, 0)) or parts >= (24, 10, 0)
+    if not compatible:
+        raise ValueError('T3 requires Node ^22.16, ^23.11, or >=24.10; update Node before continuing.')
+    if shutil.which('t3') and not update:
+        return
+    prefix = HOME_DIR / '.local/share/t3-cli'
+    if update and shutil.which('t3') and not Path(shutil.which('t3')).resolve().is_relative_to(prefix):
+        raise ValueError('T3 CLI is managed outside this setup; update it using its original installer.')
+    package = prefix / 'node_modules/t3/package.json'
+    if update or not package.exists():
+        # npm 11 also supports script approvals. Keep the allowlist scoped to
+        # this new private runtime; older npm versions ignore the metadata.
+        write_new(prefix / 'package.json', json_text({
+            'private': True,
+            'allowScripts': {'node-pty': True, 'msgpackr-extract': True},
+        }))
+        target = t3_install_version()
+        # Desktop CLI follows its app. Headless updates use the current release.
+        if update and machine_settings().get('role') == 'headless':
+            target = run([npm, 'view', 't3', 'version'], capture_output=True, text=True).stdout.strip()
+            if not re.fullmatch(r'\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?', target):
+                raise ValueError('npm returned an invalid T3 release version.')
+        run([npm, 'install', '--prefix', prefix, '--no-audit', '--no-fund', 't3@' + target])
+    executable = prefix / 'node_modules/.bin/t3'
+    if not executable.exists():
+        raise ValueError('T3 package installed without its expected executable; inspect the installation.')
+    BIN.mkdir(parents=True, exist_ok=True)
+    if not os.path.lexists(BIN / 't3'):
+        (BIN / 't3').symlink_to(executable)
+
+
+def service_host(machine):
+    """T3 runs as its background service on headless hosts and on Linux agent desktops.
+
+    An agent desktop (machine.autologin) must keep its threads reachable while no
+    app is open, so the service owns ~/.t3 there and the desktop app connects to
+    it like any other environment (its local environment is off).
+    """
+    return machine.get('role') == 'headless' or (sys.platform == 'linux' and machine.get('autologin') is True)
+
+
+def t3_desktop_running():
+    """True while this machine's T3 desktop app runs (Electron's single-instance lock)."""
+    base = HOME_DIR / ('Library/Application Support' if sys.platform == 'darwin' else '.config')
+    try:
+        owner = os.readlink(base / 't3code-v2/SingletonLock')
+    except OSError:
+        return False
+    host, _, pid = owner.rpartition('-')
+    if host != socket.gethostname() or not pid.isdigit():
+        return False
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def tool_update_plan(machine):
+    """Use each installed binary's owner instead of creating competing installs."""
+    commands, packages, casks, formulas = [], set(), set(), set()
+    binaries = [('codex', 'codex'), ('grok', 'grok-build'), ('claude', 'claude-code'),
+                ('cliproxyapi' if shutil.which('cliproxyapi') else 'cli-proxy-api', 'cliproxyapi')]
+    for binary, brew_name in binaries:
+        executable = shutil.which(binary)
+        if not executable:
+            raise ValueError(binary + ' is missing; run --install first.')
+        real = Path(executable).resolve()
+        if sys.platform == 'linux':
+            owner = subprocess.run(['pacman', '-Qqo', str(real)], capture_output=True, text=True)
+            if owner.returncode == 0:
+                packages.add(owner.stdout.strip())
+                continue
+        if binary == 'codex' and real.is_relative_to(HOME_DIR / '.codex/packages/standalone'):
+            commands.append([executable, 'update'])
+        elif binary == 'grok' and real.is_relative_to(HOME_DIR / '.grok'):
+            commands.append([executable, 'update', '--stable'])
+        elif binary == 'claude' and real.is_relative_to(HOME_DIR / '.local/share/claude'):
+            commands.append([executable, 'update'])
+        elif sys.platform == 'darwin':
+            (formulas if brew_name == 'cliproxyapi' else casks).add(brew_name)
+        else:
+            raise ValueError('Unknown installer for ' + str(real) + '; no guessed updater will be run.')
+    if sys.platform == 'darwin':
+        if machine.get('role') != 'headless':
+            casks.add('t3-code')
+        commands.insert(0, ['brew', 'update'])
+        if formulas:
+            commands.append(['brew', 'upgrade', *sorted(formulas)])
+        if casks:
+            commands.append(['brew', 'upgrade', '--cask', *sorted(casks)])
+    elif sys.platform == 'linux' and Path('/etc/arch-release').exists():
+        helper = shutil.which('yay') or shutil.which('paru')
+        if not helper:
+            raise ValueError('Tool updates require yay or paru for package-owned installations.')
+        if machine.get('role') != 'headless':
+            packages.add('t3code-bin')
+        # Arch requires a full system upgrade when refreshing repository packages.
+        # This is an explicit maintenance action, never part of chezmoi apply.
+        if packages:
+            commands.append([helper, '-Syu', '--needed', *sorted(packages)])
+    else:
+        raise ValueError('Tool updates support macOS and Arch Linux.')
+    return commands
+
+
+def update_tools(machine, preview=False):
+    commands = tool_update_plan(machine)
+    if preview:
+        for command in commands:
+            print(json_text(command).strip())
+        print('Then update the setup-owned T3 CLI, and move the background service (if any) to that CLI version.')
+        return
+    service = service_host(machine) and (HOME_DIR / '.config/systemd/user/t3code.service').exists()
+    if t3_running() and not service:
+        raise ValueError('Finish active work and close T3 before explicit tool maintenance.')
+    if t3_desktop_running():
+        raise ValueError('Close the T3 desktop app before explicit tool maintenance.')
+    for command in commands:
+        run(command)
+    install_t3_server(update=True)
+    if service:
+        # Restarts the service onto the CLI's exact version; running turns are interrupted.
+        run([BIN / 't3', 'update', t3_cli_version(), '--yes'])
+    print('Tool maintenance complete. Running provider processes need a new session to use updated binaries.')
+
+
+def setup_service(fresh_proxy=False, linger=False):
+    proxy = find_proxy()
+    if not proxy:
+        raise ValueError('CLIProxyAPI is not on PATH after installation.')
+    if sys.platform == 'darwin':
+        brew = shutil.which('brew')
+        prefix = Path(run([brew, '--prefix'], capture_output=True, text=True).stdout.strip())
+        brew_config = prefix / 'etc/cliproxyapi.conf'
+        config = ROOT / 'config.yaml'
+        if brew_config.is_symlink() and brew_config.resolve() == config.resolve():
+            pass
+        elif os.path.lexists(brew_config):
+            if not fresh_proxy:
+                raise ValueError('Existing Homebrew config needs review before changing its service configuration.')
+            backup = ROOT / ('homebrew-config.original-' + secrets.token_hex(4))
+            shutil.copy2(brew_config, backup)
+            backup.chmod(0o600)
+            brew_config.unlink()
+            brew_config.symlink_to(config)
+        else:
+            brew_config.symlink_to(config)
+        run([brew, 'services', 'start', 'cliproxyapi'])
+        return
+    for other in ('cli-proxy-api.service', 'cliproxyapi.service'):
+        if subprocess.run(['systemctl', '--user', 'is-active', '--quiet', other]).returncode == 0:
+            raise ValueError('An existing proxy service is active (' + other + '); review its configuration before starting another.')
+    ours_active = subprocess.run(['systemctl', '--user', 'is-active', '--quiet', 'claude-mixed-proxy.service']).returncode == 0
+    if not ours_active:
+        try:
+            connection = socket.create_connection(('127.0.0.1', 8317), timeout=1)
+        except OSError:
+            pass
+        else:
+            connection.close()
+            raise ValueError('Port 8317 is already occupied; review the running service before provisioning another.')
+    unit = HOME_DIR / '.config/systemd/user/claude-mixed-proxy.service'
+    quote = lambda value: '"' + str(value).replace('%', '%%').replace('\\', '\\\\').replace('"', '\\"') + '"'
+    text = ('[Unit]\nDescription=CLIProxyAPI for mixed Claude profiles\nAfter=network-online.target\n\n'
+            '[Service]\nType=simple\nExecStart=' + quote(proxy) + ' -config ' + quote(ROOT / 'config.yaml') +
+            '\nWorkingDirectory=%h/.config/cli-proxy-api\nRestart=on-failure\nRestartSec=5\nUMask=0077\n\n'
+            '[Install]\nWantedBy=default.target\n')
+    if unit.exists() and unit.read_text() != text:
+        raise ValueError('Existing mixed proxy service differs; review it before replacing it.')
+    write_new(unit, text)
+    if linger:
+        linger = run(['loginctl', 'show-user', getpass.getuser(), '--property=Linger', '--value'], capture_output=True, text=True).stdout.strip()
+        if linger != 'yes':
+            run(['loginctl', 'enable-linger', getpass.getuser()])
+    run(['systemctl', '--user', 'daemon-reload'])
+    run(['systemctl', '--user', 'enable', '--now', 'claude-mixed-proxy.service'])
+
+
+def machine_settings(headless=False):
+    machine = read_json(INPUTS / 'machine.json', {})
+    if headless:
+        machine['role'] = 'headless'
+    role = machine.get('role', 'desktop')
+    if role not in ('laptop', 'desktop', 'headless'):
+        raise ValueError('machine.json has an unsupported role.')
+    for key in ('enabled', 'remote_access', 'autologin'):
+        if key in machine and not isinstance(machine[key], bool):
+            raise ValueError('machine.json: ' + key + ' must be a boolean.')
+    return machine
+
+
+def t3_running():
+    runtime = read_json(HOME_DIR / '.t3/userdata/server-runtime.json', {})
+    pid = runtime.get('pid')
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def pooled_model_preferences(settings):
+    """v0.1.1 server owns model preferences; clean legacy client copies too."""
+    result = copy.deepcopy(settings)
+    result['favorites'] = [f for f in result.get('favorites', [])
+        if not f.get('provider','').startswith('claude-mixed-') and 'fable' not in f.get('model','')]
+    favorite = {'provider':'claudeAgent','model':'claude-opus-5-5'}
+    if favorite not in result['favorites']: result['favorites'].append(favorite)
+    menus = result.setdefault('providerModelPreferences', {})
+    for name in ('claude-mixed-a','claude-mixed-b','claudeAgent'): menus.pop(name, None)
+    return result
+
+
+def planned_t3(machine):
+    state = HOME_DIR / '.t3/userdata'
+    preferences = read_json(INPUTS / 't3/preferences.json')
+    path = state / 'settings.json'
+    current = read_json(path, {})
+    result = copy.deepcopy(current)
+    instances = result.setdefault('providerInstances', {})
+    profiles = json.loads((INPUTS / 't3/profiles.json').read_text().replace('@HOME@', str(HOME_DIR)))
+    models = model_defaults()
+    retired = set(models.get('retired', []))
+    for name in list(instances):
+        if name in ('claude-mixed-a', 'claude-mixed-b'):
+            del instances[name]
+    instances['claudeAgent'] = profiles['claudeAgent']
+    management_key = ROOT / 'management-key'
+    if management_key.exists():
+        result.setdefault('usageLimitSources', {})['local-cliproxy'] = {
+            'kind': 'cliproxy', 'url': 'http://127.0.0.1:8317',
+            'managementKey': current.get('usageLimitSources', {}).get('local-cliproxy', {}).get('managementKey')
+                if current.get('usageLimitSources', {}).get('local-cliproxy', {}).get('managementKey') == '\u2022' * 6
+                else management_key.read_text().strip(), 'enabled': True}
+    for name in ('codex', 'grok'):
+        # Keep existing provider-specific credentials, paths and enablement.
+        instances.setdefault(name, {'driver': name, 'enabled': True,
+                                   'config': {'binaryPath': name}, 'environment': []})
+    result = pooled_model_preferences(merge_preferences(result, preferences['server']))
+    for field, provider in models['t3'].items():
+        result[field] = model_selection(provider)
+    changes = [(path, current, result)]
+    # Keybindings are server-backed, including on a headless environment.
+    path = state / 'keybindings.json'
+    current = read_json(path, [])
+    result = copy.deepcopy(current)
+    modifier = 'ctrl' if sys.platform == 'darwin' else 'mod'
+    bindings = json.loads((INPUTS / 't3/keybindings.json').read_text().replace('@THREAD_MOD@', modifier))
+    identities = {(b['command'], b.get('when', ''), b['key']) for b in bindings}
+    # Remove only the old platform's digit shortcut; retain user-added shortcuts.
+    result = [b for b in result if not (
+        b['command'].startswith('thread.jump.') and re.fullmatch(r'(ctrl|mod)\+[1-9]', b['key'])
+        and (b['command'], b.get('when', ''), b['key']) not in identities)]
+    for binding in bindings:
+        if binding not in result:
+            result.append(copy.deepcopy(binding))
+    changes.append((path, current, result))
+    if machine.get('role') != 'headless':
+        path = state / 'client-settings.json'
+        current = read_json(path, {})
+        result = copy.deepcopy(current)
+        result.update({key: value for key, value in preferences['client'].items() if key != 'favorites'})
+        favorites = result.setdefault('favorites', [])
+        for favorite in preferences['client'].get('favorites', []):
+            if favorite not in favorites:
+                favorites.append(copy.deepcopy(favorite))
+        # Retired IDs may be favorited under any provider, with or without a provider prefix.
+        # Mixed profiles no longer offer other providers' models; those run in their own providers.
+        elsewhere = {m['id'] for m in models['catalog'] if m.get('provider') != 'claude'}
+        result['favorites'] = [f for f in favorites
+                               if not f.get('provider', '').startswith('claude-mixed-')
+                               and 'fable' not in f.get('model', '')
+                               and f.get('model', '').rsplit('/', 1)[-1] not in retired
+                               and not (f.get('provider', '').startswith('claude-mixed-')
+                                        and f.get('model') in elsewhere)]
+        menus = result.setdefault('providerModelPreferences', {})
+        for name in ('claude-mixed-a', 'claude-mixed-b'):
+            menus.pop(name, None)
+        for name, fields in preferences['modelMenus'].items():
+            menus.setdefault(name, {}).update(fields)
+        changes.append((path, current, result))
+        path = state / 'desktop-settings.json'
+        current = read_json(path, {})
+        if service_host(machine):
+            # The background service owns ~/.t3 (one server per T3 home), so the
+            # app runs without a local server and connects to the service instead.
+            # Remote access is the service's Tailscale Serve mapping.
+            changes.append((path, current, {**current, 'localEnvironmentEnabled': False}))
+        elif machine.get('remote_access'):
+            result = {**current, 'serverExposureMode': 'network-accessible',
+                      'tailscaleServeEnabled': True}
+            changes.append((path, current, result))
+    return [(path, before, after) for path, before, after in changes if before != after]
+
+
+def changed_values(before, after):
+    """Diff only changed keys, excluding untouched provider secrets/state."""
+    if not isinstance(before, dict) or not isinstance(after, dict):
+        return before, after
+    old, new = {}, {}
+    for key in before.keys() | after.keys():
+        if before.get(key) == after.get(key):
+            continue
+        if isinstance(before.get(key), dict) and isinstance(after.get(key), dict):
+            left, right = changed_values(before[key], after[key])
+            if left:
+                old[key] = left
+            if right:
+                new[key] = right
+        else:
+            if key in before:
+                old[key] = before[key]
+            if key in after:
+                new[key] = after[key]
+    return old, new
+
+
+def redact_settings(value):
+    if isinstance(value, list):
+        return [redact_settings(v) for v in value]
+    if not isinstance(value, dict):
+        return value
+    safe_env = ('ANTHROPIC_MODEL', 'ANTHROPIC_SMALL_FAST_MODEL', 'CLAUDE_MIXED_ACCOUNT')
+    if 'name' in value and 'value' in value:
+        name = value['name']
+        if name not in safe_env and not name.startswith('ANTHROPIC_DEFAULT_'):
+            return {**value, 'value': '<local value>'}
+    result = {}
+    for key, item in value.items():
+        if key == 'env' or re.search(r'token|secret|password|api.?key|managementKey|authorization', key, re.I):
+            result[key] = '<local value>'
+        else:
+            result[key] = redact_settings(item)
+    return result
+
+
+def print_t3_diff(changes):
+    if not changes:
+        print('Selected T3 settings already match.')
+    for path, before, after in changes:
+        old, new = changed_values(before, after)
+        print(''.join(difflib.unified_diff(
+            json_text(redact_settings(old)).splitlines(True), json_text(redact_settings(new)).splitlines(True),
+            fromfile=str(path.relative_to(HOME_DIR)) + ' current selected settings',
+            tofile=str(path.relative_to(HOME_DIR)) + ' proposed selected settings')), end='')
+
+
+def planned_t3_model_additions(machine):
+    """Add missing catalog models to the server's watched settings file only."""
+    model_ids = {model['id'] for model in model_defaults()['catalog']}
+    changes = []
+    for path, before, proposed in planned_t3(machine):
+        after = copy.deepcopy(before)
+        if path.name == 'settings.json':
+            for name, wanted in proposed.get('providerInstances', {}).items():
+                existing = after.get('providerInstances', {}).get(name)
+                if existing is None or existing.get('driver') != wanted.get('driver'):
+                    continue
+                additions = wanted.get('config', {}).get('customModels', [])
+                if not additions:
+                    continue
+                current = existing.setdefault('config', {}).setdefault('customModels', [])
+                present = {model['slug'] for model in current}
+                current.extend(copy.deepcopy(model) for model in additions
+                               if model['slug'] in model_ids and model['slug'] not in present)
+        if before != after:
+            changes.append((path, before, after))
+    return changes
+
+
+def planned_proxy_headers():
+    """Merge only explicitly managed provider headers; null removes a header."""
+    path = ROOT / 'config.yaml'
+    if not path.exists():
+        raise ValueError('Proxy configuration is missing; run --install first.')
+    before = read_json(path)
+    after = copy.deepcopy(before)
+    selected = read_json(INPUTS / 'proxy-headers.json', {})
+    allowed = {
+        'claude-header-defaults': {'user-agent', 'package-version', 'runtime-version',
+                                  'os', 'arch', 'timeout', 'timezone', 'stabilize-device-profile'},
+        'codex-header-defaults': {'user-agent', 'beta-features'},
+    }
+    for section, values in selected.items():
+        if section not in allowed or not isinstance(values, dict) or set(values) - allowed[section]:
+            raise ValueError('proxy-headers.json contains unsupported header settings.')
+        headers = after.setdefault(section, {})
+        for name, value in values.items():
+            if value is None:
+                headers.pop(name, None)
+            else:
+                headers[name] = copy.deepcopy(value)
+        if not headers:
+            after.pop(section, None)
+    return path, before, after
+
+
+def configure_proxy_headers():
+    path, before, after = planned_proxy_headers()
+    if after == before:
+        print('Managed proxy headers already match.')
+        return
+    archive = HOME_DIR / '.local/share/claude-archives' / ('proxy-headers-' + secrets.token_hex(6))
+    if read_json(path) != before:
+        raise ValueError('Proxy configuration changed during planning. No settings changed.')
+    write_new(archive / 'config.yaml', path.read_text())
+    temporary = path.with_name(path.name + '.headers-' + secrets.token_hex(4))
+    write_new(temporary, json_text(after))
+    temporary.replace(path)
+    print('Saved managed proxy headers. Backup:', archive)
+
+
+def configure_t3(machine, allow_existing=False, models_only=False):
+    changes = planned_t3_model_additions(machine) if models_only else planned_t3(machine)
+    writable = [(p, a, b) for p, a, b in changes if allow_existing or not p.exists()]
+    if len(writable) != len(changes):
+        print('Existing T3 settings retained. Preview with: ai-setup --t3-diff')
+    if not writable:
+        return
+    # T3 watches settings.json and publishes changes to connected clients. Pure
+    # model additions do not alter running sessions or client-owned preferences.
+    live_model_additions = models_only and all(p.name == 'settings.json' for p, _, _ in writable)
+    # On a service host the desktop app owns only its client files; the server owns the rest.
+    client_files = ('client-settings.json', 'desktop-settings.json')
+    touches_server = any(p.name not in client_files for p, _, _ in writable)
+    touches_client = any(p.name in client_files for p, _, _ in writable)
+
+    def busy():
+        if service_host(machine):
+            return (touches_server and t3_running() and not live_model_additions) or (
+                touches_client and t3_desktop_running())
+        return t3_running() and not live_model_additions
+
+    if busy():
+        if allow_existing:
+            raise ValueError('Close T3 or stop its background service before applying preferences. No settings changed.')
+        print('T3 is running; settings creation deferred. Run --t3-diff after closing it.')
+        return
+    archive = HOME_DIR / '.local/share/t3-settings-backups' / ('chezmoi-' + secrets.token_hex(6))
+    originals = {p: p.read_bytes() if p.exists() else None for p, _, _ in writable}
+    # Check all targets before any writes, then again immediately before each replacement.
+    for path, before, _ in writable:
+        if read_json(path, [] if isinstance(before, list) else {}) != before:
+            raise ValueError('T3 settings changed during planning. No settings changed.')
+    written = []
+    try:
+        for path, before, after in writable:
+            if busy() or read_json(path, [] if isinstance(before, list) else {}) != before:
+                raise ValueError('T3 started or its settings changed during the merge.')
+            if originals[path] is not None:
+                write_new(archive / path.name, originals[path].decode())
+            temp = path.with_name(path.name + '.mixed-setup-' + secrets.token_hex(4))
+            write_new(temp, json_text(after))
+            temp.replace(path)
+            written.append(path)
+    except Exception:
+        for path in reversed(written):
+            if originals[path] is None:
+                path.unlink()
+            else:
+                path.write_bytes(originals[path])
+                path.chmod(0o600)
+        raise
+    print('Saved selected T3 preferences; existing-file backups:', archive if archive.exists() else 'not needed')
+
+
+SERVICE_ENV = ('# Written by ai-setup. Loopback only: other machines reach this\n'
+               '# server through Tailscale Serve HTTPS or SSH, never on the LAN or a public\n'
+               '# address (from 0.1.5 a service otherwise listens on private networks).\n'
+               'T3CODE_HOST=127.0.0.1\n')
+
+
+def setup_t3_service(machine):
+    if sys.platform != 'linux':
+        raise ValueError('The T3 background service setup currently supports Arch Linux.')
+    unit = HOME_DIR / '.config/systemd/user/t3code.service'
+    env_file = HOME_DIR / '.t3/service.env'
+    if unit.exists():
+        # Do not reinstall, upgrade or restart an existing server during chezmoi apply.
+        if write_new(env_file, SERVICE_ENV):
+            print('Wrote ~/.t3/service.env (loopback only); it applies at the next `t3 service restart`.')
+        run(['systemctl', '--user', 'enable', '--now', 't3code.service'])
+        return
+    write_new(env_file, SERVICE_ENV)
+    if t3_running():
+        raise ValueError('A T3 server that is not the background service owns ~/.t3 (for example one that '
+                         'another machine\'s T3 app started over SSH). Stop it, then rerun ai-setup '
+                         '--install. Projects, threads and settings in ~/.t3/userdata are kept.')
+    if t3_desktop_running():
+        raise ValueError('Close the T3 desktop app on this machine, then rerun ai-setup --install.')
+    if machine.get('role') != 'headless' and t3_cli_version() != t3_install_version():
+        # `t3 service install` installs the CLI's own version; on a desktop it
+        # must match the app, which connects to this service.
+        install_t3_server(update=True)
+    t3 = shutil.which('t3') or str(BIN / 't3')
+    # T3 installs its service into a separate npm prefix. Limit native build
+    # approvals to this invocation; never alter the user's global npm policy.
+    env = os.environ.copy()
+    npm_config = Path(env.get('npm_config_userconfig', env.get('NPM_CONFIG_USERCONFIG', str(HOME_DIR / '.npmrc')))).expanduser()
+    text = npm_config.read_text() if npm_config.exists() else ''
+    text = '\n'.join(line for line in text.splitlines()
+                     if line.partition('=')[0].strip() not in ('allow-scripts', 'allow-scripts[]'))
+    with tempfile.TemporaryDirectory(prefix='t3-service-install-') as directory:
+        config = Path(directory) / 'npmrc'
+        write_new(config, text + '\nallow-scripts=node-pty,msgpackr-extract\n')
+        env.pop('NPM_CONFIG_USERCONFIG', None)
+        env['npm_config_userconfig'] = str(config)
+        # Environment-level allow-scripts is rejected by project-scoped npm installs.
+        env.pop('npm_config_allow_scripts', None)
+        env.pop('NPM_CONFIG_ALLOW_SCRIPTS', None)
+        run([t3, 'service', 'install'], env=env)
+    if machine.get('role') != 'headless':
+        app_uses_service()
+        print('T3 now runs as t3code.service. Connect this desktop\'s T3 app to it once: run '
+              '`t3 pair --label "This desktop"` here and open the printed t3code://pair link on this desktop '
+              '(or paste its pairing URL into Settings -> Environments -> Add environment).')
+
+
+def app_uses_service():
+    """Turn off the desktop app's local server, which would compete for ~/.t3."""
+    path = HOME_DIR / '.t3/userdata/desktop-settings.json'
+    current = read_json(path, {})
+    if current.get('localEnvironmentEnabled') is False:
+        return
+    if t3_desktop_running():
+        print('Close the T3 app, then run ai-setup --apply-t3-changes so it uses the service.')
+        return
+    if path.exists():
+        write_new(HOME_DIR / '.local/share/t3-settings-backups' / ('service-' + secrets.token_hex(6)) / path.name,
+                  path.read_text())
+    temp = path.with_name(path.name + '.mixed-setup-' + secrets.token_hex(4))
+    write_new(temp, json_text({**current, 'localEnvironmentEnabled': False}))
+    temp.replace(path)
+    print('The T3 app on this desktop now starts without a local server and uses the service.')
+
+
+def setup_service_https(machine):
+    if not machine.get('remote_access'):
+        return
+    tailscale = shutil.which('tailscale')
+    if not tailscale:
+        raise ValueError('Install and log in to Tailscale before enabling remote access.')
+    status = json.loads(run([tailscale, 'status', '--json'], capture_output=True, text=True).stdout)
+    if status.get('BackendState') != 'Running':
+        print('Tailscale login is pending. Complete it, then rerun ai-setup --install.')
+        return
+    runtime = {}
+    for _ in range(50):
+        runtime = read_json(HOME_DIR / '.t3/userdata/server-runtime.json', {})
+        if t3_running() and runtime.get('origin'):
+            break
+        time.sleep(0.2)
+    origin = runtime.get('origin')
+    parsed = urlparse(origin or '')
+    if parsed.scheme != 'http' or parsed.hostname != '127.0.0.1' or not parsed.port or not t3_running():
+        raise ValueError('T3 is not ready on loopback; rerun setup after its service starts.')
+    serve = json.loads(run([tailscale, 'serve', 'status', '--json'], capture_output=True, text=True).stdout)
+    # Existing HTTPS configuration belongs to the user; leave other handlers alone.
+    authority = status['Self']['DNSName'].rstrip('.') + ':443'
+    existing = serve.get('Web', {}).get(authority, {}).get('Handlers', {})
+    if '/' in existing:
+        if existing['/'].get('Proxy', '').rstrip('/') == origin.rstrip('/'):
+            return
+        raise ValueError('Tailscale HTTPS / already points elsewhere. Review the Serve mapping first.')
+    if existing or serve.get('TCP', {}).get('443') or any(key.endswith(':443') for key in serve.get('Web', {})):
+        raise ValueError('Existing Tailscale HTTPS handlers need review before adding T3.')
+    run([tailscale, 'serve', '--bg', '--https=443', origin])
+
+
+def show_connections(machine):
+    current = 'dev_hub' if machine.get('role') == 'headless' else (
+        'mac_workstation' if sys.platform == 'darwin' else 'arch_desktop')
+    labels = {'mac_workstation': 'Mac laptop', 'arch_desktop': 'Arch desktop', 'dev_hub': 'dev-hub'}
+    for name, host in machine.get('hosts', {}).items():
+        if not host or name == current or name not in labels:
+            continue
+        # These local values are displayed as data, never executed as shell text.
+        print(labels[name] + ': ' + host)
+    print('SSH username:', machine.get('ssh_user', getpass.getuser()))
+    print('Use a host FQDN as https://HOST in T3 Remote link; short SSH aliases need the host’s advertised HTTPS address.')
+    print('Add these in T3 Connections using a fresh pairing code from each host.')
+    print('Use `t3 auth pairing create --label "device name" --ttl 5m` on that host.')
+    print('Phone and desktop pairing credentials stay in their respective apps.')
+
+
+
+def pool_helper():
+    return runpy.run_path(str(BIN / 'cpapi'))
+
+
+def migrate_pool(machine, apply=False, phase="all", export_path=None):
+    """Separate stopped-proxy credentials, live-safe config, and offline T3 files.
+
+    Never stops processes. The caller must exclude proxy starts during account
+    maintenance. T3 API callers can consume a private staged patch instead.
+    """
+    pool = pool_helper()
+    if phase == 'accounts' and apply:
+        pool['migrate_accounts'](True)
+        print('Account phase verified. Proxy may be started after configuration review.')
+        return
+    data, duplicates = pool['migrate_accounts'](False)
+    config_path = ROOT / 'config.yaml'
+    current = read_json(config_path)
+    if pool['effective'](current,'server','host') != '127.0.0.1' or pool['effective'](current,'server','port') != 8317:
+        raise ValueError('Pool migration requires the existing loopback proxy endpoint')
+    key_path = ROOT / 'management-key'
+    key = key_path.read_text().strip() if key_path.exists() else secrets.token_urlsafe(36)
+    proposed = copy.deepcopy(current)
+    defaults = read_json(INPUTS / 'bootstrap.json')['proxy']
+    proposed['routing'] = merge_preferences(proposed.get('routing', {}), defaults['routing'])
+    # The proxy normalizes these legacy aliases away on save; use one canonical
+    # representation so a successful migration stays idempotent after reload.
+    proposed.pop('force-model-prefix', None)
+    proposed.pop('save-cooldown-status', None)
+    proposed['routing']['force-model-prefix'] = False
+    proposed['routing'].setdefault('cooldown', {})['save-cooldown-status'] = True
+    # CLIProxyAPI hashes the generated key in place on reload. Preserve that
+    # hash on repeated runs rather than forcing another config rewrite.
+    management = proposed.get('management', proposed.get('remote-management', {}))
+    stored = management.get('secret-key', '')
+    protected = stored if key_path.exists() and stored.startswith(('$2a$', '$2b$', '$2y$')) else key
+    managed = {'allow-remote': False, 'secret-key': protected, 'disable-control-panel': True}
+    proposed['remote-management'] = merge_preferences(proposed.get('remote-management', {}), managed)
+    if 'management' in proposed:
+        proposed['management'] = merge_preferences(proposed['management'], managed)
+    changes = [(config_path, current, proposed)]
+    path = HOME_DIR / '.claude/settings.json'
+    before = read_json(path, {})
+    after = copy.deepcopy(before)
+    env = after.setdefault('env', {})
+    for name in list(env):
+        if name.startswith('ANTHROPIC_DEFAULT_') or name in (
+                'CLAUDE_CONFIG_DIR', 'CLAUDE_MIXED_ACCOUNT', 'ANTHROPIC_MODEL',
+                'ANTHROPIC_SMALL_FAST_MODEL', 'ANTHROPIC_CUSTOM_MODEL_OPTION',
+                'ANTHROPIC_CUSTOM_MODEL_OPTION_NAME', 'CLAUDE_CODE_MAX_OUTPUT_TOKENS', 'CLAUDE_CODE_MAX_CONTEXT_TOKENS',
+                'CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY'):
+            env.pop(name)
+    env.update({'ANTHROPIC_BASE_URL': 'http://127.0.0.1:8317',
+                'ANTHROPIC_AUTH_TOKEN': (ROOT / 'client-key').read_text().strip(),
+                'ANTHROPIC_API_KEY': '', 'CLAUDE_CODE_OAUTH_TOKEN': ''})
+    after.update(model='opus', effortLevel='high')
+    changes.append((path, before, after))
+    t3_path = HOME_DIR / '.t3/userdata/settings.json'
+    before = read_json(t3_path, {})
+    after = copy.deepcopy(before)
+    instances = after.setdefault('providerInstances', {})
+    for name in ('claude-mixed-a', 'claude-mixed-b'):
+        instances.pop(name, None)
+    instances['claudeAgent'] = {'driver': 'claudeAgent', 'enabled': True, 'environment': [],
+        'config': {'binaryPath': 'claude', 'homePath': '', 'customModels': [], 'launchArgs': '', 'autoCompactWindow': ''}}
+    after['defaultModelSelection'] = model_defaults()['t3']['defaultModelSelection']
+    after.setdefault('usageLimitSources', {})['local-cliproxy'] = {
+        'kind':'cliproxy', 'url':'http://127.0.0.1:8317', 'managementKey': before.get('usageLimitSources', {}).get('local-cliproxy', {}).get('managementKey')
+            if before.get('usageLimitSources', {}).get('local-cliproxy', {}).get('managementKey') == '\u2022' * 6
+            else key, 'enabled':True}
+    after = pooled_model_preferences(after)
+    changes.append((t3_path, before, after))
+    client = HOME_DIR / '.t3/userdata/client-settings.json'
+    before = read_json(client, {}); after = copy.deepcopy(before)
+    # A headless T3 server has no desktop preferences to migrate. Clean a
+    # retained legacy file when present, but do not invent one on service hosts.
+    if client.exists() or machine.get('role') != 'headless':
+        after['loadBalancingEnabled'] = False
+        after['favorites'] = [f for f in after.get('favorites', []) if not f.get('provider','').startswith('claude-mixed-') and 'fable' not in f.get('model','')]
+        for name in ('claude-mixed-a', 'claude-mixed-b'):
+            after.get('providerModelPreferences', {}).pop(name, None)
+        favorite = {'provider':'claudeAgent','model':'claude-opus-5-5'}
+        if favorite not in after['favorites']: after['favorites'].append(favorite)
+        after.setdefault('providerModelPreferences', {}).pop('claudeAgent', None)
+    changes.append((client,before,after))
+    if export_path is not None:
+        # Only changed top-level fields: root applies through authenticated RPC.
+        server = next((a,b) for p,a,b in changes if p == t3_path)
+        patch = {k:v for k,v in server[1].items() if server[0].get(k) != v}
+        client_change = next((a,b) for p,a,b in changes if p == client)
+        client_patch = {k:v for k,v in client_change[1].items() if client_change[0].get(k) != v}
+        if not key_path.exists(): raise ValueError('Apply config phase first to persist the local management key')
+        if not write_new(Path(export_path), json_text({'serverSettingsPatch':patch, 'clientSettingsPatch':client_patch})):
+            raise ValueError('Patch destination already exists; choose a new private path')
+        print('Private T3 patch exported; apply through authenticated supported APIs. No secrets printed.')
+        return
+    if phase == 'config': changes = [c for c in changes if c[0] not in (t3_path, client)]
+    if phase == 't3': changes = [c for c in changes if c[0] in (t3_path, client)]
+    changes = [(p,a,b) for p,a,b in changes if a != b]
+    print('Pool migration:', len(changes), 'configuration files;', len(duplicates), 'duplicates to archive outside auth/.')
+    for path,_,_ in changes: print('  '+str(path))
+    if not apply: return
+    touches_t3 = phase in ('all','t3')
+    if touches_t3 and (t3_running() or t3_desktop_running()):
+        raise ValueError('Close T3 for offline T3 file apply, or use config phase and authenticated T3 RPC. No files changed.')
+    if phase == 'all': pool['migrate_accounts'](True)
+    else:
+        # No OAuth writes here: refresh may run, but metadata must be verified.
+        if (ROOT/'reconcile-journal.json').exists() or duplicates:
+            raise ValueError('Complete stopped-proxy account phase before settings switch')
+        for record in data['accounts'].values():
+            if not record.get('auth_file'): continue
+            auth = pool['read'](pool['auth_path'](record['auth_file']))
+            if auth.get('priority') != record['priority'] or auth.get('disabled',False) != (not record['enabled'] or record.get('state')=='removed'):
+                raise ValueError('Complete stopped-proxy account phase before settings switch')
+    archive = HOME_DIR / '.local/share/ai-setup-backups' / secrets.token_hex(8)
+    for path,before,_ in changes:
+        if read_json(path,{}) != before: raise ValueError('Settings changed during planning; retry')
+    write_new(key_path,key+'\n')
+    key_path.chmod(0o600)
+    (ROOT / 'client-key').chmod(0o600)
+    for path,before,after in changes:
+        if touches_t3 and (t3_running() or t3_desktop_running()):
+            raise ValueError('T3 started during offline apply; rerun remaining phase after closing it')
+        if read_json(path,{}) != before: raise ValueError('Settings changed during merge; retry')
+        if path.exists(): write_new(archive / path.relative_to(HOME_DIR), path.read_text())
+        pool['save'](path,after)
+    print('Pool migration saved. Private backups:',archive)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    action = parser.add_mutually_exclusive_group()
+    action.add_argument('--install', action='store_true')
+    action.add_argument('--pool-diff', action='store_true', help='Preview targeted pooled migration; no upgrades or services.')
+    action.add_argument('--apply-pool-changes', action='store_true', help='Offline combined account/config/T3 apply; proxy and T3 already stopped.')
+    action.add_argument('--apply-pool-accounts', action='store_true', help='Credential phase only; proxy must already be stopped')
+    action.add_argument('--apply-pool-config', action='store_true', help='Verified-account proxy/Claude config phase; T3 may remain running')
+    action.add_argument('--apply-pool-t3-offline', action='store_true', help='Offline T3 files only; T3 must be closed')
+    action.add_argument('--export-pool-t3-patch', metavar='PRIVATE_PATH', help='Exclusive mode-0600 patch export for authenticated T3 API caller')
+    parser.add_argument('--proxy-stopped', action='store_true', help='Confirm supervisor stopped and concurrent proxy starts excluded')
+    action.add_argument('--t3-diff', action='store_true')
+    action.add_argument('--apply-t3-changes', action='store_true')
+    action.add_argument('--proxy-diff', action='store_true', help='Preview managed proxy header changes.')
+    action.add_argument('--apply-proxy-changes', action='store_true', help='Back up and merge managed proxy headers.')
+    action.add_argument('--connections', action='store_true')
+    action.add_argument('--cli-diff', action='store_true', help='Preview shared Claude, Codex and Grok preferences.')
+    action.add_argument('--apply-cli-changes', action='store_true', help='Back up and merge selected CLI preferences.')
+    action.add_argument('--apply-claude-hooks', action='store_true', help='Install the shared hook runtime and merge only Claude hooks.')
+    action.add_argument('--update-plan', action='store_true', help='Show installer-specific tool update commands.')
+    action.add_argument('--update-tools', action='store_true', help='Explicit maintenance; Arch includes a full system upgrade.')
+    parser.add_argument('--headless', action='store_true', help='Override the saved role for this invocation.')
+    parser.add_argument('--models-only', action='store_true',
+                        help='With --t3-diff or --apply-t3-changes, add catalog models only.')
+    args = parser.parse_args()
+    if args.models_only and not (args.t3_diff or args.apply_t3_changes):
+        parser.error('--models-only requires --t3-diff or --apply-t3-changes')
+    machine = machine_settings(args.headless)
+    os.umask(0o077)
+    if args.pool_diff or args.apply_pool_changes or args.apply_pool_accounts or args.apply_pool_config or args.apply_pool_t3_offline or args.export_pool_t3_patch:
+        if (args.apply_pool_accounts or args.apply_pool_changes) and not args.proxy_stopped:
+            parser.error('Credential writes require --proxy-stopped after separately arranged maintenance')
+        phase = 'accounts' if args.apply_pool_accounts else 'config' if args.apply_pool_config else 't3' if args.apply_pool_t3_offline else 'all'
+        migrate_pool(machine, apply=not args.pool_diff, phase=phase, export_path=args.export_pool_t3_patch)
+        return
+    if args.proxy_diff:
+        change = planned_proxy_headers()
+        if change[1] == change[2]:
+            print('Managed proxy headers already match.')
+        else:
+            print_t3_diff([change])
+        return
+    if args.apply_proxy_changes:
+        configure_proxy_headers()
+        return
+    if args.update_plan or args.update_tools:
+        update_tools(machine, preview=args.update_plan)
+        return
+    if args.cli_diff:
+        print_cli_diff()
+        return
+    if args.apply_cli_changes:
+        configure_cli(allow_existing=True)
+        return
+    if args.apply_claude_hooks:
+        configure_cli(allow_existing=True, hooks_only=True)
+        return
+    if args.t3_diff:
+        changes = planned_t3_model_additions(machine) if args.models_only else planned_t3(machine)
+        print_t3_diff(changes)
+        return
+    if args.apply_t3_changes:
+        configure_t3(machine, allow_existing=True, models_only=args.models_only)
+        return
+    if args.connections:
+        show_connections(machine)
+        return
+    if not args.install:
+        print('CLIProxyAPI installed:', bool(find_proxy()))
+        print('Local runtime configured:', (ROOT / 'config.yaml').exists())
+        print('Machine role:', machine.get('role', 'desktop'))
+        print('Run --install to provision missing components; --t3-diff previews preference changes.')
+        return
+    if not machine.get('enabled', True):
+        print('AI setup is disabled in local chezmoi inputs.')
+        return
+    headless = machine.get('role') == 'headless'
+    fresh_proxy = install_packages(headless)
+    ensure_runtime()
+    configure_proxy_headers()
+    configure_t3(machine)
+    setup_service(fresh_proxy, linger=service_host(machine))
+    if service_host(machine):
+        setup_t3_service(machine)
+        setup_service_https(machine)
+    print('Setup complete. Arrange proxy maintenance before cpapi --proxy-stopped login personal, work, openai, grok.')
+    print('For native T3 Codex/Grok providers, complete their own local CLI login as well.')
+    print('View the saved host inventory with: ai-setup --connections')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print('Mixed setup: ' + str(error), file=sys.stderr)
+        raise SystemExit(1)

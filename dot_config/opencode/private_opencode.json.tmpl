@@ -5,11 +5,14 @@
     "opencode-codex-computer-use",
     {
       "package": "@malhashemi/opencode-dynamic-workflows",
-      "options": { "inline": "allow" }
-    }
+      "options": {
+        "inline": "allow"
+      }
+    },
+    "./plugins/cliproxy-claude-compat.js"
   ],
   "default_agent": "build",
-  "model": "claude-work/claude-opus-5-5",
+  "model": "claude/claude-opus-5-5",
   "permissions": [
     {
       "action": "external_directory",
@@ -19,112 +22,10 @@
   ],
   "agents": {
     "build": {
-      "model": "claude-work/claude-opus-5-5#high"
+      "model": "claude/claude-opus-5-5#high"
     }
   },
   "providers": {
-    "claude-personal": {
-      "name": "Claude Personal (CLIProxyAPI)",
-      "canonical": "anthropic",
-      "package": "@opencode/ai/providers/anthropic",
-      "settings": {
-        "baseURL": "http://127.0.0.1:8317/v1",
-        "apiKey": "{file:{{ .chezmoi.homeDir }}/.config/cli-proxy-api/client-key}"
-      },
-      "models": {
-        "claude-fable-5-1": {
-          "modelID": "claude-a/claude-fable-5-1",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-fable-5": {
-          "modelID": "claude-a/claude-fable-5",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-opus-5-5": {
-          "modelID": "claude-a/claude-opus-5-5",
-          "name": "Claude Opus 5.5",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-opus-5": {
-          "modelID": "claude-a/claude-opus-5",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-opus-4-8": {
-          "modelID": "claude-a/claude-opus-4-8",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-sonnet-5": {
-          "modelID": "claude-a/claude-sonnet-5",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-haiku-4-5": {
-          "modelID": "claude-a/claude-haiku-4-5-20251001"
-        }
-      }
-    },
-    "claude-work": {
-      "name": "Claude Work (CLIProxyAPI)",
-      "canonical": "anthropic",
-      "package": "@opencode/ai/providers/anthropic",
-      "settings": {
-        "baseURL": "http://127.0.0.1:8317/v1",
-        "apiKey": "{file:{{ .chezmoi.homeDir }}/.config/cli-proxy-api/client-key}"
-      },
-      "models": {
-        "claude-fable-5-1": {
-          "modelID": "claude-b/claude-fable-5-1",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-fable-5": {
-          "modelID": "claude-b/claude-fable-5",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-opus-5-5": {
-          "modelID": "claude-b/claude-opus-5-5",
-          "name": "Claude Opus 5.5",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-opus-5": {
-          "modelID": "claude-b/claude-opus-5",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-opus-4-8": {
-          "modelID": "claude-b/claude-opus-4-8",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-sonnet-5": {
-          "modelID": "claude-b/claude-sonnet-5",
-          "limit": {
-            "input": 820000
-          }
-        },
-        "claude-haiku-4-5": {
-          "modelID": "claude-b/claude-haiku-4-5-20251001"
-        }
-      }
-    },
     "openai": {
       "settings": {
         "compaction": {
@@ -139,6 +40,45 @@
           "settings": {
             "reasoningEffort": "high"
           }
+        }
+      }
+    },
+    "claude": {
+      "name": "Claude pool (CLIProxyAPI)",
+      "canonical": "anthropic",
+      "package": "@opencode/ai/providers/anthropic",
+      "settings": {
+        "baseURL": "http://127.0.0.1:8317/v1",
+        "apiKey": "{file:{{ .chezmoi.homeDir }}/.config/cli-proxy-api/client-key}"
+      },
+      "models": {
+        "claude-opus-5-5": {
+          "modelID": "claude-opus-5-5",
+          "name": "Claude Opus 5.5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-opus-5": {
+          "modelID": "claude-opus-5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-opus-4-8": {
+          "modelID": "claude-opus-4-8",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-sonnet-5": {
+          "modelID": "claude-sonnet-5",
+          "limit": {
+            "input": 820000
+          }
+        },
+        "claude-haiku-4-5": {
+          "modelID": "claude-haiku-4-5-20251001"
         }
       }
     }

@@ -13,13 +13,17 @@
     "request-retry": 2,
     "max-retry-interval": 15,
     "routing": {
-      "strategy": "round-robin"
+      "strategy": "fill-first",
+      "session-affinity": true,
+      "session-affinity-ttl": "720h",
+      "session-affinity-subagents": true
     },
     "streaming": {
       "keepalive-seconds": 15,
       "bootstrap-retries": 1
     },
-    "force-model-prefix": true
+    "force-model-prefix": false,
+    "save-cooldown-status": true
   },
   "t3_version": "0.1.5"
 }

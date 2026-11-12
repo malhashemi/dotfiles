@@ -12,7 +12,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 HOOK = ROOT / 'dot_claude/hooks/executable_prefer-modern-cli.py'
 detect = runpy.run_path(str(HOOK))['discouraged_commands']
-setup = runpy.run_path(str(ROOT / 'dot_local/bin/executable_claude-mixed-setup'))
+setup = runpy.run_path(str(ROOT / 'dot_local/bin/executable_ai-setup'))
 
 
 class BashHookTests(unittest.TestCase):

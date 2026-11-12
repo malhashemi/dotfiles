@@ -1,0 +1,339 @@
+#!/usr/bin/env python3
+"""Local provider account inventory. Secrets never belong in this inventory."""
+import argparse
+import copy
+import datetime
+import fcntl
+import json
+import os
+from pathlib import Path
+import re
+import runpy
+import secrets
+import shutil
+import subprocess
+import sys
+import tempfile
+import socket
+
+ROOT = Path.home() / '.config/cli-proxy-api'
+FLAGS = {'claude': '-claude-login', 'codex': '-codex-login', 'xai': '-xai-login'}
+ALIASES = {'openai': 'codex', 'grok': 'xai', 'claude-a': 'personal', 'claude-b': 'work'}
+
+
+def read(path, default=None):
+    return json.loads(path.read_text()) if path.exists() else copy.deepcopy(default)
+
+
+def save(path, value, exclusive=False):
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    fd, name = tempfile.mkstemp(prefix='.' + path.name, dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(value, f, indent=2); f.write('\n'); f.flush(); os.fsync(f.fileno())
+        if exclusive:
+            # Publish a complete new credential without ever replacing an existing one.
+            os.link(name, path)
+        else:
+            os.replace(name, path)
+    finally:
+        if os.path.exists(name): os.unlink(name)
+
+
+def identity(auth):
+    provider = auth.get('type')
+    if provider == 'claude':
+        values = (auth.get('account_uuid'), auth.get('organization_uuid'))
+    elif provider == 'codex':
+        values = (auth.get('account_id'),)
+    elif provider == 'xai':
+        values = (auth.get('sub'),)
+    else:
+        raise ValueError('Unsupported OAuth provider')
+    if not all(values):
+        raise ValueError('OAuth has no stable provider identity; nothing imported')
+    return (provider, *values)
+
+
+def auth_path(name):
+    if not isinstance(name, str) or Path(name).name != name or not name.endswith('.json'):
+        raise ValueError('Invalid auth filename')
+    return ROOT / 'auth' / name
+
+
+def inventory():
+    path = ROOT / 'accounts.json'
+    if path.exists(): return read(path)
+    records = {}
+    legacy = read(ROOT / 'claude-accounts.json', {})
+    for slot, name, priority in [('a','personal',300),('b','work',200),('c','backup',100)]:
+        record = {'provider':'claude','priority':priority,'enabled':True,'state':'pending','required':name != 'backup'}
+        if slot in legacy:
+            record.update(auth_file=legacy[slot]['auth_file'], state='active')
+        records[name] = record
+    # Adopt unrelated native OAuth records without changing their metadata.
+    registered = {v.get('auth_file') for v in records.values()}
+    for path in sorted((ROOT/'auth').glob('*.json')):
+        auth = read(path)
+        if path.name in registered or auth.get('type') not in ('codex','xai'): continue
+        name = auth['type']; suffix = 1
+        while name in records:
+            suffix += 1; name = auth['type'] + '-' + str(suffix)
+        records[name] = {'provider':auth['type'],'priority':auth.get('priority',0),
+                         'enabled':not auth.get('disabled',False),'state':'active','auth_file':path.name}
+    return {'version':1,'accounts':records,'quarantined':[]}
+
+
+def effective(config, section, key, default=None):
+    return config.get(section, {}).get(key, config.get(key, default))
+
+
+def require_proxy_stopped():
+    """Operator must stop the supervisor and exclude concurrent starts/refreshers.
+
+    These checks detect mistakes, not a lock shared with the upstream process.
+    A file comparison cannot protect against an in-memory token refresh.
+    """
+    config = read(ROOT/'config.yaml', {})
+    directory = Path(effective(config, 'oauth', 'auth-dir', str(ROOT/'auth'))).expanduser()
+    if directory.resolve() != (ROOT/'auth').resolve():
+        raise ValueError('Configured OAuth auth-dir differs from managed auth directory; reconcile paths first')
+    processes = subprocess.run(['ps','-axo','comm='], check=True, capture_output=True, text=True).stdout
+    if any(Path(line.strip()).name.lower() in ('cliproxyapi','cli-proxy-api') for line in processes.splitlines()):
+        raise ValueError('Proxy must already be stopped, including its supervisor; no automatic stop/restart')
+    try:
+        connection = socket.create_connection((effective(config,'server','host','127.0.0.1'),
+                                               effective(config,'server','port',8317)), timeout=1)
+    except ConnectionRefusedError:
+        return
+    except OSError:
+        raise ValueError('Cannot verify proxy endpoint stopped; no credentials changed') from None
+    connection.close()
+    raise ValueError('Proxy must already be stopped; endpoint is still listening')
+
+
+def metadata(record):
+    if not record.get('auth_file'): return
+    require_proxy_stopped()
+    path = auth_path(record['auth_file'])
+    auth = read(path)  # latest on disk, only after refresh writer is excluded
+    auth.update(priority=record['priority'], disabled=not record['enabled'] or record.get('state')=='removed')
+    save(path, auth)
+
+
+def archive_plan(data, names):
+    return [{'name':name, 'archive':'archive/'+secrets.token_hex(8)+'-'+name} for name in names]
+
+
+def finish_journal():
+    path = ROOT/'reconcile-journal.json'
+    if not path.exists(): return
+    require_proxy_stopped()
+    journal = read(path)
+    for item in journal['moves']:
+        source = auth_path(item['name']); target = ROOT/item['archive']
+        target.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if source.exists():
+            if target.exists(): raise ValueError('Archive collision; inspect reconciliation journal')
+            source.rename(target)
+        elif not target.exists():
+            raise ValueError('Missing reconciliation source and archive; inspect journal')
+    save(ROOT/'accounts.json',journal['inventory'])
+    path.unlink()
+
+
+def archive_credentials(data, names):
+    moves = archive_plan(data, names)
+    data.setdefault('quarantined', []).extend(moves)
+    save(ROOT/'reconcile-journal.json', {'inventory':data, 'moves':moves})
+    finish_journal()
+
+
+def reconcile(data, name, canonical):
+    require_proxy_stopped()
+    record = data['accounts'][name]
+    auth = read(auth_path(canonical)); ident = identity(auth)
+    if auth['type'] != record['provider']: raise ValueError('Canonical provider mismatch')
+    if record.get('auth_file') and identity(read(auth_path(record['auth_file']))) != ident:
+        raise ValueError('Canonical identity differs from registered identity')
+    for other, r in data['accounts'].items():
+        if other != name and r.get('state') == 'active' and r.get('auth_file') and identity(read(auth_path(r['auth_file']))) == ident:
+            raise ValueError('Identity belongs to another active account')
+    duplicates = [p.name for p in (ROOT/'auth').glob('*.json')
+                  if p.name != canonical and read(p).get('type') in FLAGS and identity(read(p)) == ident]
+    for r in data['accounts'].values():
+        if r.get('auth_file') in duplicates: r.pop('auth_file')
+    record.update(auth_file=canonical, state='active', required=True)
+    data.setdefault('canonicalSelections', {})[name] = canonical
+    archive_credentials(data, duplicates)
+    metadata(record)
+
+
+def duplicate_plan(data):
+    """Never overwrite a canonical credential with a possibly stale duplicate."""
+    known = {}
+    for record in data['accounts'].values():
+        if record.get('state') == 'active' and record.get('auth_file'):
+            path = auth_path(record['auth_file']); auth = read(path)
+            ident = identity(auth)
+            if ident in known: raise ValueError('Duplicate registered identities; reconcile inventory manually')
+            known[ident] = (path,auth)
+    duplicate = []
+    registered = {p.name for p,_ in known.values()}
+    for path in sorted((ROOT/'auth').glob('*.json')):
+        if path.name in registered: continue
+        auth = read(path)
+        if auth.get('type') not in FLAGS: continue
+        ident = identity(auth)
+        if ident not in known:
+            raise ValueError('Unregistered OAuth credential: register it explicitly before migration: '+path.name)
+        canonical, current = known[ident]
+        if any(auth.get(k) != current.get(k) for k in ('access_token','refresh_token')):
+            raise ValueError('Duplicate has separate refresh state: '+canonical.name+' / '+path.name+
+                             '. Use cpapi --proxy-stopped reconcile ACCOUNT CANONICAL.json after explicit canonical review.')
+        duplicate.append(path.name)
+    return duplicate
+
+
+def _migrate_accounts(apply=False):
+    data = inventory(); duplicates = duplicate_plan(data)
+    if apply:
+        require_proxy_stopped()
+        for record in data['accounts'].values(): metadata(record)
+        archive_credentials(data, duplicates)
+        # Account phase must complete and verify before any settings switch.
+        duplicate_plan(data)
+    return data, duplicates
+
+
+def migrate_accounts(apply=False):
+    if not apply: return _migrate_accounts(False)
+    with (ROOT/'.accounts.lock').open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        require_proxy_stopped()
+        finish_journal()
+        return _migrate_accounts(True)
+
+
+def login(data, name, extra):
+    records = data['accounts']; record = records[name]
+    if any(flag.split('=')[0] in ('-config','--config','-auth-dir','--auth-dir') for flag in extra):
+        raise ValueError('OAuth flags may not override staged configuration')
+    existing = bool(record.get('auth_file'))
+    if existing: require_proxy_stopped()
+    if record.get('state') == 'removed': raise ValueError('Restore or re-add this account first')
+    proxy = shutil.which('cliproxyapi') or shutil.which('cli-proxy-api')
+    if not proxy: raise ValueError('CLIProxyAPI binary missing')
+    with tempfile.TemporaryDirectory(prefix='oauth-',dir=ROOT) as tmp:
+        stage = Path(tmp); config = read(ROOT/'config.yaml'); config['auth-dir']=str(stage/'auth'); config.setdefault('oauth', {})['auth-dir']=str(stage/'auth')
+        save(stage/'config.yaml',config)
+        subprocess.run([proxy,'-config',str(stage/'config.yaml'),FLAGS[record['provider']],*extra],check=True)
+        files = list((stage/'auth').glob('*.json'))
+        if len(files)!=1: raise ValueError('Expected one staged OAuth credential')
+        auth = read(files[0]); ident = identity(auth)
+        if auth.get('type') != record['provider']: raise ValueError('Wrong OAuth provider')
+        for field in ('access_token','refresh_token','expired'):
+            if not isinstance(auth.get(field),str) or not auth[field]: raise ValueError('Incomplete staged OAuth')
+        try:
+            expiry = datetime.datetime.fromisoformat(auth['expired'])
+            if expiry.tzinfo is None or expiry <= datetime.datetime.now(datetime.timezone.utc):
+                raise ValueError()
+        except ValueError:
+            raise ValueError('Staged OAuth expiry must be a future timezone-aware time') from None
+        # Quarantines and removed credentials live outside the watched directory.
+        destination = record.get('auth_file', record['provider']+'-account-'+name+'.json')
+        for path in (ROOT/'auth').glob('*.json'):
+            current = read(path)
+            if current.get('type') not in FLAGS: continue
+            if identity(current)==ident and path.name!=destination:
+                raise ValueError('Identity already exists in another credential; no account changed')
+        if record.get('auth_file') and identity(read(auth_path(destination))) != ident:
+            raise ValueError('Refresh selected a different identity; use a new account name')
+        # Explicit OAuth replaces only this slot after validation. Keep its filename.
+        auth.update(priority=record['priority'],disabled=not record['enabled'])
+        if record['provider']=='claude': auth['prefix']=name
+        if existing: require_proxy_stopped()
+        save(auth_path(destination), auth, exclusive=not existing)
+        record.update(auth_file=destination,state='active',required=True)
+        save(ROOT/'accounts.json',data)
+    print(name+': connected; no T3 providers changed')
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__, epilog='Providers: claude, codex (openai), xai (grok). Removal archives; credentials are retained.')
+    parser.add_argument('--proxy-stopped', action='store_true', help='Confirm supervisor stopped and concurrent starts excluded for credential writes')
+    sub=parser.add_subparsers(dest='command',required=True)
+    sub.add_parser('list')
+    p=sub.add_parser('add');p.add_argument('name');p.add_argument('provider');p.add_argument('--priority',type=int,default=0)
+    p=sub.add_parser('reconcile');p.add_argument('name');p.add_argument('canonical')
+    p=sub.add_parser('restore');p.add_argument('name')
+    for cmd in ('enable','disable','remove','login','priority'):
+        p=sub.add_parser(cmd);p.add_argument('name')
+        if cmd=='priority': p.add_argument('value',type=int)
+        if cmd=='login': p.add_argument('flags',nargs=argparse.REMAINDER)
+    for cmd in ('models','status','start','stop','restart'): sub.add_parser(cmd)
+    if sys.argv[1:] == ['help']:
+        parser.print_help(); return
+    args=parser.parse_args()
+    if args.command in ('models','status','start','stop','restart'):
+        helper=runpy.run_path(str(Path(__file__).with_name('claude-proxy')))
+        helper['manage']([args.command]);return
+    ROOT.mkdir(parents=True,exist_ok=True,mode=0o700)
+    with (ROOT/'.accounts.lock').open('a') as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX)
+        if args.command != 'list' and (ROOT/'reconcile-journal.json').exists():
+            if not args.proxy_stopped: raise ValueError('Account writes require --proxy-stopped: arrange proxy maintenance first; no automatic stop/restart')
+            require_proxy_stopped(); finish_journal()
+        data=inventory();records=data['accounts']
+        if args.command=='list':
+            for name,r in sorted(records.items(),key=lambda item:-item[1]['priority']):
+                print(name,r['provider'],r['priority'], 'enabled' if r['enabled'] else 'disabled',r['state'])
+            return
+        name=ALIASES.get(args.name,args.name)
+        if args.command=='add':
+            if not re.fullmatch('[a-z][a-z0-9-]{0,63}',name) or (name in records and records[name]['state'] != 'removed'): raise ValueError('Choose a new lowercase account name or re-add a removed name')
+            provider=ALIASES.get(args.provider,args.provider)
+            if provider not in FLAGS: raise ValueError('Provider must be claude, codex/openai, or xai/grok')
+            records[name]={'provider':provider,'priority':args.priority,'enabled':True,'state':'pending','required':False}
+        else:
+            if name not in records and args.command == 'login' and name in ('codex', 'xai'):
+                records[name] = {'provider':name,'priority':0,'enabled':True,'state':'pending','required':True}
+            if name not in records: raise ValueError('Unknown account; use cpapi add NAME PROVIDER')
+            record = records[name]
+            if args.command in ('restore', 'reconcile') or record.get('auth_file'):
+                if not args.proxy_stopped: raise ValueError('Changing existing credentials requires --proxy-stopped after arranging proxy maintenance')
+                require_proxy_stopped()
+            if args.command=='reconcile': reconcile(data,name,args.canonical);return
+            if args.command=='restore':
+                record=records[name]
+                archived=record.get('archived_auth_file')
+                if not archived: raise ValueError('No removed credential to restore; re-add and login')
+                auth=read(ROOT/archived); ident=identity(auth)
+                if any(r.get('state')=='active' and r.get('auth_file') and identity(read(auth_path(r['auth_file'])))==ident for r in records.values()):
+                    raise ValueError('Identity belongs to another active account')
+                destination=record['provider']+'-account-'+name+'.json'
+                if auth_path(destination).exists(): raise ValueError('Restore destination occupied')
+                save(auth_path(destination),auth)
+                record.update(auth_file=destination,state='active',enabled=True,required=True)
+                metadata(record);save(ROOT/'accounts.json',data);return
+            if args.command=='login': login(data,name,args.flags);return
+            record=records[name]
+            if record['state']=='removed': raise ValueError('Account is archived')
+            if args.command=='priority': record['priority']=args.value
+            else:
+                record['enabled']=args.command=='enable'
+                if args.command=='remove': record.update(state='removed',required=False)
+            metadata(record)
+            if args.command=='remove' and record.get('auth_file'):
+                filename=record.pop('auth_file')
+                moves=archive_plan(data,[filename]);record['archived_auth_file']=moves[0]['archive']
+                save(ROOT/'reconcile-journal.json', {'inventory':data,'moves':moves});finish_journal()
+        save(ROOT/'accounts.json',data)
+
+
+if __name__=='__main__':
+    os.umask(0o077)
+    try: main()
+    except (ValueError,KeyError,OSError,subprocess.CalledProcessError) as error:
+        # Never echo upstream OAuth/HTTP response bodies or credential values.
+        raise SystemExit(str(error) if isinstance(error,ValueError) else 'Account operation failed ('+type(error).__name__+')')
