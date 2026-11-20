@@ -24,6 +24,5 @@
     },
     "force-model-prefix": false,
     "save-cooldown-status": true
-  },
-  "t3_version": "0.1.5"
+  }
 }

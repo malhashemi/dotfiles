@@ -11,7 +11,7 @@ set -euo pipefail
 # Enabled: {{ get $ai "enabled" | default false }}
 # Role: {{ get (get . "machine" | default dict) "role" | default "desktop" }}
 # Remote access: {{ get $ai "remote_access" | default false }}
-# Agent desktop (T3 background service): {{ and (eq .chezmoi.os "linux") (get (get . "machine" | default dict) "autologin" | default false) }}
+# T3 background service: every machine (systemd user unit / launchd agent)
 {{ if and (get $ai "enabled") (or (eq .chezmoi.os "darwin") (eq .chezmoi.os "linux")) -}}
 # Existing machines use the explicit targeted migration, without package or service work.
 if [ -f "$HOME/.config/cli-proxy-api/config.yaml" ]; then

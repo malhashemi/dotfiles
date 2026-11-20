@@ -2,8 +2,8 @@
 
 `ai-setup` provisions the shared Claude/Codex/Grok preferences, hook venv,
 CLIProxyAPI, T3 installation, service units and Tailscale access. `--install`
-retains those responsibilities; `--update-plan` previews explicit upgrades.
-No upgrade is needed for this migration.
+retains those responsibilities; `--update-plan` previews explicit tool upgrades
+and `--update-t3-plan` the T3 one. No upgrade is needed for this migration.
 
 Claude uses one local CLIProxyAPI pool. T3 uses built-in `claudeAgent`, binary
 `claude`, blank `homePath`, empty provider environment, native model discovery,
@@ -109,7 +109,8 @@ need manual model selection; no history rewrite is performed.
 
 Other setup commands remain available: `--cli-diff`, `--apply-cli-changes`,
 `--apply-claude-hooks`, `--t3-diff`, `--apply-t3-changes`, `--proxy-diff`,
-`--apply-proxy-changes`, `--connections`, `--update-plan`, `--update-tools`.
+`--apply-proxy-changes`, `--connections`, `--update-plan`, `--update-tools`,
+`--update-t3-plan`, `--update-t3`.
 T3 file preference merges require T3 closed; use the targeted pool action when
 only migrating the pool. CLI preference merge installs the hook venv; the
 pool action does not.
@@ -127,7 +128,7 @@ into each application's own settings. There is no background synchronization.
 | `t3/preferences.json` | Shared server, desktop, browser and model-menu preferences | T3 preference merge |
 | `t3/profiles.json` | Native provider definitions | T3 preference merge |
 | `t3/keybindings.json` | Shared shortcuts with platform-specific modifiers | T3 preference merge |
-| `bootstrap.json` | Seed configuration for a new proxy and fallback T3 CLI version | Installation |
+| `bootstrap.json` | Seed configuration for a new proxy | Installation |
 | `proxy-headers.json` | Explicit provider header overrides; `null` removes a managed header | Installation or proxy header merge |
 | `machine.json` | This machine's role, hosts and remote-access choices, rendered from local chezmoi answers | Setup and connection commands |
 | `deployment-targets.json` | Explicit file list for a targeted AI setup rollout | Deployment planning |
@@ -239,26 +240,50 @@ OAuth files, pairing codes, generated connection catalogs, or application state.
 
 ## T3 service layout
 
-The proxy listens on `127.0.0.1:8317`. Each machine generates its own gateway key.
-The T3 service listens on loopback only: the helper creates
+Every machine runs T3 as a background service, independent of the desktop app:
+`t3 service install` creates a systemd user unit (`t3code.service`, with linger)
+on Linux and a launchd agent (`~/Library/LaunchAgents/com.t3tools.t3code.service.plist`)
+on macOS. The service listens on loopback only: the helper creates
 `~/.t3/service.env` with `T3CODE_HOST=127.0.0.1` (from T3 0.1.5 a service
-otherwise listens on every private network, LAN included). Tailscale Serve
-supplies HTTPS for remote clients, and other machines' T3 apps reach it over
-SSH as an existing server. An existing `service.env` is left alone; a new one
-takes effect at the next `t3 service restart`.
+otherwise listens on every private network, LAN included). An existing
+`service.env` is left alone; a new one takes effect at the next
+`t3 service restart`. An installed service is never reinstalled, upgraded or
+restarted by `--install`; Linux only enables it, macOS bootstraps it with
+`t3 service restart` when the agent is not loaded.
 
-Only one T3 server can use a T3 home. On an agent desktop the service owns
-`~/.t3`, so the helper turns off the desktop app's local environment
-(`localEnvironmentEnabled: false` in `desktop-settings.json`) and the app
-connects to the service like any other environment: pair it once with
-`t3 pair --label "This desktop"` and open the printed `t3code://pair` link on
-that desktop. The service is installed with the setup-owned CLI, whose version
-follows the installed desktop app, so app and service match. An existing T3
-server that is not the service (for example one another machine's app started
-over SSH) must be stopped before the first install; threads and settings in
-`~/.t3/userdata` carry over. Desktop exposure is managed through selected T3 settings. This
+Only one T3 server can use a T3 home, so the service owns `~/.t3` and every
+desktop app runs with `localEnvironmentEnabled: false` in
+`desktop-settings.json`, connecting to its own machine's service like any other
+environment: pair it once with `t3 pair --label "This desktop"` and open the
+printed `t3code://pair` link on that desktop. An existing T3 server that is not
+the service (the app's own server, or one another machine's app started over
+SSH) must be stopped before the first install; threads and settings in
+`~/.t3/userdata` carry over.
+
+With `remote_access`, Tailscale Serve maps `https://HOST/` (port 443, path `/`)
+to the service's loopback origin. `tailscale` is found on PATH, or at
+Homebrew's `/opt/homebrew/bin/tailscale` on macOS. Other Serve handlers and
+ports are left alone; an existing 443 `/` pointing elsewhere is refused. This
 package never enables public Tailscale Funnel.
 
+On Linux, protect the server from agents under memory pressure once (needs
+sudo): `t3 service protect --yes`. It does not apply to macOS.
+
+### Updates
+
+T3 is never pinned: it releases almost daily, so installs and updates use npm's
+`latest`. `ai-setup --update-t3` installs `t3@latest` into the setup-owned CLI
+prefix `~/.local/share/t3-cli`, then runs `t3 update <that version> --yes`,
+which restarts the service onto it (running turns on that machine are
+interrupted), then on Linux `t3 service protect --yes` when `sudo -n` works
+(otherwise it prints the command). The desktop app may stay open. A server
+runtime is ~140 MB and can take several minutes to download. A T3 CLI
+installed by something else is refused; update it with its own installer.
+
+`--update-tools` updates the provider CLIs, the proxy and the desktop app
+package (`t3code-bin` / `t3-code` cask; close the app first) and no longer
+touches the T3 CLI or service, so an unrelated package failure (for example an
+AUR checksum) cannot leave T3 half-updated.
 
 ## Remote environments and phone access
 
@@ -266,22 +291,38 @@ package never enables public Tailscale Funnel.
 ai-setup --connections
 ```
 
-This displays the other hosts and the saved SSH username. Add them in T3's
-Connections screen. Remote link uses the advertised HTTPS address and a fresh
-pairing code from the target host:
+This displays the saved hosts and SSH username, T3 Connect status, this
+machine's environment links, and the exact next steps for anything missing.
+`--install` prints the same T3 guidance. Neither signs in or links anything.
 
-```sh
-t3 auth pairing create --label "Arch desktop" --ttl 5m
-```
+- **Desktop apps**: add each machine in Settings -> Environments with a fresh
+  pairing code from it: `t3 auth pairing create --label "Arch desktop" --ttl 5m`.
+  SSH connections in the apps are backup routes. When a service does not
+  answer, an app's SSH connection can start its own `t3 serve` on that host,
+  which then holds the T3 home and keeps the service failing
+  (`ServerAlreadyRunningError` in `~/.t3/userdata/logs/boot-service.log`); stop
+  that process, then `t3 service restart`.
+- **T3 Connect** (relay; one T3 account for all machines): sign in once per
+  machine, approved by a human with a device code, then restart, since the
+  server applies a link only at startup:
+  `t3 connect link --headless && t3 service restart`. Check with
+  `t3 connect status` ("Tunnel connected"). If the environment was linked to a
+  different T3 account, the boot log shows `CloudLinkAccountMismatchError` and
+  no tunnel comes up: `t3 connect unlink`, then link and restart again.
+  `t3 connect link` refuses while the server is mid-migration; retry later.
+- **Environment links** (agents on one machine work on another): on the target
+  run `t3 auth pairing create --ttl 5m --label "<linker> environment link" --json`
+  (field `credential`), then on the linker
+  `t3 environment link --pairing-code <credential> --url <relay URL> --access full-access https://<target>.ts.net`.
+  Flags must precede the positional URL, or it only prints help. The Tailscale
+  URL is tried first, the relay URL second. To add an address to an existing
+  link, `t3 environment unlink <environmentId>` first. Links last 30 days;
+  check with `t3 environment list`.
 
-Use a device-specific label such as `Mac laptop`, `Arch desktop`, or `Phone`.
-A desktop app lists the other two hosts; the phone can list all three. A headless
-server has no desktop app with an outgoing environment list. Each connecting
-client gets its own local authorization, including the server's own desktop app.
-
-Remote link reuses its saved authorization. T3 0.0.40 SSH bootstraps can leave old
-unnamed sessions after reconnecting. Review client names/connection status before
-revoking duplicates. The installer never revokes or recreates existing pairings.
+Each connecting client gets its own authorization, listed by
+`t3 auth session list --json`; relinking leaves the old session behind, so
+revoke stale ones with `t3 auth session revoke <id>`. The installer never
+revokes or recreates existing pairings.
 
 The host inventory is portable; encrypted connection catalogs and authorizations
 remain in each app's local storage. Copying those files between machines is not
