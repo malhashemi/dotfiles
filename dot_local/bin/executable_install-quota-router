@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Install the pinned CLIProxyAPI scheduler. Build on Apple silicon because
+# upstream v1.1.0 did not publish that platform's binary.
+set -euo pipefail
+umask 077
+plugin=kpatdev-quota-router
+version=1.1.0
+revision=4faf2156d264834e71b7c9b4d47ca4e0d6485358
+directory="${HOME}/.config/cli-proxy-api/plugins"
+case "$(uname -sm)" in
+  'Linux x86_64') platform=linux_amd64; ext=so; digest=fd672946ba17ff79257154b6373ee20b04477dc0c2ae112dbee7a1fcf08d9f4b ;;
+  'Linux aarch64') platform=linux_arm64; ext=so; digest=0ed4d1d45cabd2441c63dbf007549e5c53dd12f0468c9bbd945b9014e971c5ea ;;
+  'Darwin x86_64') platform=darwin_amd64; ext=dylib; digest=0f79663bffa7108b609ce036716d82debb82e288b8d4942acb3481fe3314fa61 ;;
+  'Darwin arm64') platform=darwin_arm64; ext=dylib; digest=facc6a92e3faee95c47ba6d40e358006cbd9920caf500d12f3e9961e1bd60806 ;;
+  *) echo "Unsupported quota router platform: $(uname -sm)" >&2; exit 1 ;;
+esac
+mkdir -p "$directory"
+library="$plugin.$ext"
+receipt="$directory/.$plugin-$platform.receipt"
+hash_file() { shasum -a 256 "$1" | cut -d ' ' -f 1; }
+if [[ -f "$directory/$library" && -f "$receipt" ]] &&
+   [[ "$(cat "$receipt")" == "$digest $(hash_file "$directory/$library")" ]]; then
+  exit 0
+fi
+work=$(mktemp -d "$directory/.install-quota-router.XXXXXXXX")
+trap 'rm -rf "$work"' EXIT
+if [[ $platform == darwin_arm64 ]]; then
+  xcode-select -p >/dev/null && command -v go >/dev/null || {
+    echo "Building the Apple silicon plugin requires installed Xcode Command Line Tools and Go." >&2
+    exit 1
+  }
+  url="https://codeload.github.com/kpatdev/quota-router/tar.gz/$revision"
+else
+  url="https://github.com/kpatdev/quota-router/releases/download/v$version/${plugin}_${version}_${platform}.zip"
+fi
+xh --ignore-stdin --follow --check-status --download --output "$work/artifact" GET "$url"
+[[ "$(hash_file "$work/artifact")" == "$digest" ]] || { echo 'Quota router checksum mismatch' >&2; exit 1; }
+if [[ $platform == darwin_arm64 ]]; then
+  tar -xzf "$work/artifact" -C "$work"
+  (cd "$work/quota-router-$revision" && make build TARGET=darwin_arm64)
+  cp "$work/quota-router-$revision/dist/$platform/$library" "$work/$library"
+else
+  unzip -p "$work/artifact" "$library" > "$work/$library"
+fi
+test -s "$work/$library"
+chmod 700 "$work/$library"
+printf '%s %s\n' "$digest" "$(hash_file "$work/$library")" > "$work/receipt"
+mv -f "$work/$library" "$directory/$library"
+mv -f "$work/receipt" "$receipt"
