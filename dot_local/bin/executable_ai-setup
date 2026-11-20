@@ -239,6 +239,80 @@ def configure_cli(allow_existing=False, hooks_only=False):
         print('Saved selected CLI preferences. Backups:', archive if archive.exists() else 'not needed')
 
 
+QUOTA_ROUTER_INSTALLER = 'install-quota-router'
+# Native plugin headers: ELF on Linux; thin 64-bit or universal Mach-O on macOS.
+LIBRARY_MAGIC = (b'\xcf\xfa\xed\xfe', b'\xca\xfe\xba\xbe') if sys.platform == 'darwin' else (b'\x7fELF',)
+
+
+def quota_router_policy():
+    return read_json(INPUTS / 'bootstrap.json')['quota-router']
+
+
+def plugins_dir():
+    return ROOT / 'plugins'
+
+
+def quota_router_library():
+    return plugins_dir() / (quota_router_policy()['id'] + ('.dylib' if sys.platform == 'darwin' else '.so'))
+
+
+def planned_quota_router(config):
+    """Merge the managed quota-reset-router block with an absolute plugins.dir.
+
+    The proxy's working directory differs between systemd and Homebrew, so a
+    relative plugin directory is never used. Other plugins, store sources and
+    unmanaged keys of this plugin are kept; a plugin directory elsewhere is
+    refused, not moved.
+    """
+    policy = quota_router_policy()
+    result = copy.deepcopy(config)
+    plugins = {} if result.get('plugins') is None else result['plugins']
+    if not isinstance(plugins, dict) or not isinstance({} if plugins.get('configs') is None else plugins['configs'], dict):
+        raise ValueError('config.yaml plugins section is not a mapping; review it before enabling the quota router.')
+    current = plugins.get('dir')
+    if current and Path(current).expanduser() != plugins_dir():
+        raise ValueError('config.yaml plugins.dir is ' + str(current) + ', not ' + str(plugins_dir()) +
+                         '; move its plugins there or review it before enabling the quota router. No files changed.')
+    configs = plugins.get('configs') or {}
+    existing = configs.get(policy['id'])
+    if existing is not None and not isinstance(existing, dict):
+        raise ValueError('config.yaml plugins.configs.' + policy['id'] + ' is not a mapping; review it. No files changed.')
+    configs[policy['id']] = merge_preferences(existing or {}, policy['settings'])
+    plugins.update(enabled=True, dir=str(plugins_dir()), configs=configs)
+    result['plugins'] = plugins
+    return result
+
+
+def verify_quota_router_library():
+    """The proxy loads only a regular file; refuse a symlink, empty file or foreign format."""
+    library = quota_router_library()
+    try:
+        status = library.lstat()
+    except FileNotFoundError:
+        raise ValueError(str(library) + ' is missing after ' + QUOTA_ROUTER_INSTALLER + '; no configuration was changed.')
+    if not library.is_file() or library.is_symlink() or status.st_size == 0:
+        raise ValueError(str(library) + ' is not a non-empty regular file; no configuration was changed.')
+    with library.open('rb') as stream:
+        if stream.read(4) not in LIBRARY_MAGIC:
+            raise ValueError(str(library) + ' is not a native library for this platform; no configuration was changed.')
+
+
+def install_quota_router():
+    """Run the shipped, argument-free installer, then verify the library.
+
+    Required before any configuration enables the plugin: a missing installer,
+    a failed install or an invalid library stops the caller first. The
+    installer owns download, checksum and placement; this never stops or
+    restarts the proxy.
+    """
+    installer = BIN / QUOTA_ROUTER_INSTALLER
+    if not installer.is_file() or not os.access(installer, os.X_OK):
+        raise ValueError(str(installer) + ' is missing; deploy it (chezmoi apply ~/.local/bin/' +
+                         QUOTA_ROUTER_INSTALLER + ') and rerun. No configuration was changed.')
+    run([installer])
+    verify_quota_router_library()
+
+
 def ensure_runtime():
     defaults = read_json(INPUTS / 'bootstrap.json')
     ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -265,6 +339,7 @@ def ensure_runtime():
         config['api-keys'] = [key_path.read_text().strip()]
         write_new(ROOT / 'management-key', secrets.token_urlsafe(36) + '\n')
         config['remote-management']['secret-key'] = (ROOT / 'management-key').read_text().strip()
+        config = planned_quota_router(config)
         write_new(config_path, json_text(config))
     env = {
         'ANTHROPIC_BASE_URL': 'http://127.0.0.1:8317',
@@ -1212,6 +1287,7 @@ def migrate_pool(machine, apply=False, phase="all", export_path=None):
     proposed['remote-management'] = merge_preferences(proposed.get('remote-management', {}), managed)
     if 'management' in proposed:
         proposed['management'] = merge_preferences(proposed['management'], managed)
+    proposed = planned_quota_router(proposed)
     changes = [(config_path, current, proposed)]
     path = HOME_DIR / '.claude/settings.json'
     before = read_json(path, {})
@@ -1273,12 +1349,16 @@ def migrate_pool(machine, apply=False, phase="all", export_path=None):
     changes = [(p,a,b) for p,a,b in changes if a != b]
     print('Pool migration:', len(changes), 'configuration files;', len(duplicates), 'duplicates to archive outside auth/.')
     for path,_,_ in changes: print('  '+str(path))
+    for name, old, new in pool['pool_priority_changes'](pool['inventory']()):
+        print('  account priority ' + name + ': ' + str(old) + ' -> ' + str(new) + ' (stopped-proxy account phase)')
+    if phase in ('all', 'config'):
+        print('Quota router library:', 'present' if quota_router_library().is_file() else 'missing',
+              '(' + QUOTA_ROUTER_INSTALLER + ' runs first in this phase; restart the proxy separately to load it)')
     if not apply: return
     touches_t3 = phase in ('all','t3')
     if touches_t3 and (t3_running() or t3_desktop_running()):
         raise ValueError('Close T3 for offline T3 file apply, or use config phase and authenticated T3 RPC. No files changed.')
-    if phase == 'all': pool['migrate_accounts'](True)
-    else:
+    if phase != 'all':
         # No OAuth writes here: refresh may run, but metadata must be verified.
         if (ROOT/'reconcile-journal.json').exists() or duplicates:
             raise ValueError('Complete stopped-proxy account phase before settings switch')
@@ -1287,6 +1367,10 @@ def migrate_pool(machine, apply=False, phase="all", export_path=None):
             auth = pool['read'](pool['auth_path'](record['auth_file']))
             if auth.get('priority') != record['priority'] or auth.get('disabled',False) != (not record['enabled'] or record.get('state')=='removed'):
                 raise ValueError('Complete stopped-proxy account phase before settings switch')
+    if phase in ('all', 'config'):
+        # Verified library before any write, so the config never enables a missing plugin.
+        install_quota_router()
+    if phase == 'all': pool['migrate_accounts'](True)
     archive = HOME_DIR / '.local/share/ai-setup-backups' / secrets.token_hex(8)
     for path,before,_ in changes:
         if read_json(path,{}) != before: raise ValueError('Settings changed during planning; retry')
@@ -1385,6 +1469,8 @@ def main():
         return
     headless = machine.get('role') == 'headless'
     fresh_proxy = install_packages(headless)
+    # Before a new config.yaml enables the plugin.
+    install_quota_router()
     ensure_runtime()
     configure_proxy_headers()
     configure_t3(machine)

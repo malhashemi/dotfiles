@@ -30,6 +30,7 @@
     ".local/bin/claude-openai",
     ".local/bin/claude-proxy",
     ".local/bin/cpapi",
+    ".local/bin/install-quota-router",
     ".local/bin/sd",
     ".config/opencode/opencode.json",
     ".config/opencode/plugins/cliproxy-claude-compat.js"

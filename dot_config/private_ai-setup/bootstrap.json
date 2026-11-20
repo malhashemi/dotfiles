@@ -24,5 +24,13 @@
     },
     "force-model-prefix": false,
     "save-cooldown-status": true
+  },
+  "quota-router": {
+    "id": "quota-reset-router",
+    "settings": {
+      "enabled": true,
+      "priority": 10,
+      "mode": "active"
+    }
   }
 }

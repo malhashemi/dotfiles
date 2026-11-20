@@ -275,6 +275,7 @@ thoughts/
 .local/bin/claude-openai
 .local/bin/claude-grok
 .local/bin/cpapi
+.local/bin/install-quota-router
 {{- end }}
 
 # Locally generated authentication and application state. Never import these.
@@ -311,4 +312,6 @@ thoughts/
 .config/cli-proxy-api/archive/
 .config/cli-proxy-api/reconcile-journal.json
 .config/cli-proxy-api/oauth-*/
+# Native scheduler plugin, placed by install-quota-router (plugins.dir).
+.config/cli-proxy-api/plugins/
 .local/share/ai-setup-backups/

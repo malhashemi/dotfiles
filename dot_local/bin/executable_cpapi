@@ -19,6 +19,10 @@ import socket
 ROOT = Path.home() / '.config/cli-proxy-api'
 FLAGS = {'claude': '-claude-login', 'codex': '-codex-login', 'xai': '-xai-login'}
 ALIASES = {'openai': 'codex', 'grok': 'xai', 'claude-a': 'personal', 'claude-b': 'work'}
+# One credential tier for the Claude pool, so quota-reset-router can pick the
+# account whose weekly quota resets soonest: credential priority tiers outrank it.
+POOL_ACCOUNTS = ('personal', 'work', 'backup')
+POOL_PRIORITY = 100
 
 
 def read(path, default=None):
@@ -71,8 +75,8 @@ def inventory():
     if path.exists(): return read(path)
     records = {}
     legacy = read(ROOT / 'claude-accounts.json', {})
-    for slot, name, priority in [('a','personal',300),('b','work',200),('c','backup',100)]:
-        record = {'provider':'claude','priority':priority,'enabled':True,'state':'pending','required':name != 'backup'}
+    for slot, name in zip('abc', POOL_ACCOUNTS):
+        record = {'provider':'claude','priority':POOL_PRIORITY,'enabled':True,'state':'pending','required':name != 'backup'}
         if slot in legacy:
             record.update(auth_file=legacy[slot]['auth_file'], state='active')
         records[name] = record
@@ -122,8 +126,10 @@ def metadata(record):
     require_proxy_stopped()
     path = auth_path(record['auth_file'])
     auth = read(path)  # latest on disk, only after refresh writer is excluded
-    auth.update(priority=record['priority'], disabled=not record['enabled'] or record.get('state')=='removed')
-    save(path, auth)
+    desired = {'priority': record['priority'], 'disabled': not record['enabled'] or record.get('state') == 'removed'}
+    if any(auth.get(key) != value for key, value in desired.items()):
+        auth.update(desired)
+        save(path, auth)
 
 
 def archive_plan(data, names):
@@ -200,8 +206,20 @@ def duplicate_plan(data):
     return duplicate
 
 
+def pool_priority_changes(data):
+    """Equalize the Claude pool's inventory priorities; credential metadata follows
+    only through metadata(), i.e. inside the stopped-proxy account phase."""
+    changed = []
+    for name in POOL_ACCOUNTS:
+        record = data['accounts'].get(name)
+        if record and record.get('provider') == 'claude' and record.get('priority') != POOL_PRIORITY:
+            changed.append((name, record.get('priority'), POOL_PRIORITY))
+            record['priority'] = POOL_PRIORITY
+    return changed
+
+
 def _migrate_accounts(apply=False):
-    data = inventory(); duplicates = duplicate_plan(data)
+    data = inventory(); pool_priority_changes(data); duplicates = duplicate_plan(data)
     if apply:
         require_proxy_stopped()
         for record in data['accounts'].values(): metadata(record)
@@ -269,7 +287,7 @@ def main():
     parser.add_argument('--proxy-stopped', action='store_true', help='Confirm supervisor stopped and concurrent starts excluded for credential writes')
     sub=parser.add_subparsers(dest='command',required=True)
     sub.add_parser('list')
-    p=sub.add_parser('add');p.add_argument('name');p.add_argument('provider');p.add_argument('--priority',type=int,default=0)
+    p=sub.add_parser('add');p.add_argument('name');p.add_argument('provider');p.add_argument('--priority',type=int,help='Default: the shared pool priority for claude, 0 otherwise')
     p=sub.add_parser('reconcile');p.add_argument('name');p.add_argument('canonical')
     p=sub.add_parser('restore');p.add_argument('name')
     for cmd in ('enable','disable','remove','login','priority'):
@@ -299,7 +317,8 @@ def main():
             if not re.fullmatch('[a-z][a-z0-9-]{0,63}',name) or (name in records and records[name]['state'] != 'removed'): raise ValueError('Choose a new lowercase account name or re-add a removed name')
             provider=ALIASES.get(args.provider,args.provider)
             if provider not in FLAGS: raise ValueError('Provider must be claude, codex/openai, or xai/grok')
-            records[name]={'provider':provider,'priority':args.priority,'enabled':True,'state':'pending','required':False}
+            priority=args.priority if args.priority is not None else POOL_PRIORITY if provider=='claude' else 0
+            records[name]={'provider':provider,'priority':priority,'enabled':True,'state':'pending','required':False}
         else:
             if name not in records and args.command == 'login' and name in ('codex', 'xai'):
                 records[name] = {'provider':name,'priority':0,'enabled':True,'state':'pending','required':False}

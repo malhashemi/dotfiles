@@ -12,10 +12,22 @@ private `env` in normal `~/.claude/settings.json`. Hooks, skills, MCP, project
 trust, and transcripts remain in their normal homes. The retired alternate
 home is left on disk; no history database is rewritten.
 
-Routing is fill-first with personal 300, work 200, backup 100, session affinity
-720h, subagent inheritance and persisted cooldowns. Bare model IDs use the
-pool. Existing optional prefixes remain diagnostic routes. T3 load balancing
-is off. Native Codex/Grok and OpenCode OpenAI remain independent.
+The active scheduler picks the usable account whose weekly quota resets soonest
+for each request. Personal, Work and Backup share credential priority 100.
+When the scheduler lacks fresh quota data, CLIProxyAPI uses its built-in
+fill-first policy with session affinity (720h, including subagents).
+Cooldowns persist. Bare model IDs use the pool. Optional prefixes provide
+diagnostic routes. T3 load balancing is off. Native Codex/Grok and OpenCode
+OpenAI remain independent. [Upstream quota-reset-router](https://github.com/WebDevCaptain/quota-reset-router)
+
+`install-quota-router` installs the checksum-verified v0.2.1 library into
+`~/.config/cli-proxy-api/plugins/`. The configuration uses an absolute
+`plugins.dir` so systemd and Homebrew load the same library layout.
+Setup verifies the installed library before enabling it. To check the running
+plugin, use an authenticated loopback GET to
+`/v0/management/plugins/quota-reset-router/status`. A PATCH to
+`/v0/management/plugins/quota-reset-router/enabled` with `{"enabled":false}`
+disables it live.
 
 ## Targeted rollout
 
@@ -36,14 +48,17 @@ migration command. Do not use `--install` to migrate an existing machine.
    command before starting the proxy. No token is copied over the canonical file.
 4. While the proxy remains stopped, run
    `ai-setup --proxy-stopped --apply-pool-accounts`. Metadata reads the latest
-   on-disk credential and atomically merges priority/disabled only. Upstream v8.0.20
+   on-disk credential and atomically merges priority/disabled only, and sets
+   personal, work and backup to the shared priority 100. Upstream v8.0.20
    live fields/status PATCH snapshots can overwrite refreshed tokens; they are not
    used. Process/endpoint checks detect mistakes; they cannot exclude a concurrent
    start. Operator-controlled maintenance is the safety boundary.
 5. Run `ai-setup --apply-pool-config`. It requires verified account metadata,
-   preserves unrelated configuration, and backs up replacements under
+   then runs `install-quota-router` and checks the library before writing
+   anything. It preserves unrelated configuration and backs up replacements under
    `~/.local/share/ai-setup-backups`. It updates proxy/Claude configuration only;
-   T3 may stay running. Resume the proxy using its existing supervisor separately.
+   T3 may stay running. Resume the proxy using its existing supervisor separately;
+   that restart loads the plugin.
 6. For live T3, run `ai-setup --export-pool-t3-patch /PRIVATE/NEW-PATH.json`.
    The exclusive mode-0600 export contains `serverSettingsPatch` and
    `clientSettingsPatch`; model favorites/menu are also patched on the server
@@ -67,10 +82,11 @@ convert it privately to equivalent JSON before using these helpers.
 
 ## Accounts
 
-Generic policy lives in `bootstrap.json` and `models.json`. Mutable account
+Generic policy, including the quota router block, lives in `bootstrap.json` and `models.json`. Mutable account
 state lives in private `~/.config/cli-proxy-api/accounts.json`; auth files,
 client key, management key and inventory are excluded from chezmoi. Setup seeds
-personal/work/backup only when inventory is absent. Backup is pending and
+personal/work/backup only when inventory is absent, all at priority 100. A new
+Claude account from `cpapi add` also defaults to 100; other providers default to 0. Backup is pending and
 optional until login. Removed records are tombstones and never re-seeded.
 
 ```
@@ -82,7 +98,7 @@ cpapi add second-openai codex --priority 50
 cpapi login second-openai
 cpapi add second-grok xai --priority 25
 cpapi login second-grok
-cpapi --proxy-stopped priority backup 400
+cpapi --proxy-stopped priority second-openai 60
 cpapi --proxy-stopped disable backup
 cpapi --proxy-stopped enable backup
 cpapi --proxy-stopped remove backup
@@ -128,7 +144,7 @@ into each application's own settings. There is no background synchronization.
 | `t3/preferences.json` | Shared server, desktop, browser and model-menu preferences | T3 preference merge |
 | `t3/profiles.json` | Native provider definitions | T3 preference merge |
 | `t3/keybindings.json` | Shared shortcuts with platform-specific modifiers | T3 preference merge |
-| `bootstrap.json` | Seed configuration for a new proxy | Installation |
+| `bootstrap.json` | Seed configuration for a new proxy and the quota-reset-router plugin block | Installation and pool config phase |
 | `proxy-headers.json` | Explicit provider header overrides; `null` removes a managed header | Installation or proxy header merge |
 | `machine.json` | This machine's role, hosts and remote-access choices, rendered from local chezmoi answers | Setup and connection commands |
 | `deployment-targets.json` | Explicit file list for a targeted AI setup rollout | Deployment planning |

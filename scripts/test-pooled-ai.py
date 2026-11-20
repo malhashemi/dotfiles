@@ -3,6 +3,7 @@
 import contextlib
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import sys
@@ -38,6 +39,7 @@ class PoolTests(unittest.TestCase):
         self.write(self.root/'auth/a.json',self.auth('a'));self.write(self.root/'auth/b.json',self.auth('b'))
         self.patches=[]
         self.pool.require_proxy_stopped=lambda:None
+        self.calls=self.home/'installer-calls';self.installer()
 
     def write(self,path,value): self.pool.save(path,value)
     def auth(self,name,provider='claude'):
@@ -49,7 +51,111 @@ class PoolTests(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()): self.setup.migrate_pool({},apply)
 
     def test_seed_priorities_pending_backup(self):
-        records=self.pool.inventory()['accounts'];self.assertEqual([records[n]['priority'] for n in ('personal','work','backup')],[300,200,100]);self.assertEqual(records['backup']['state'],'pending');self.assertFalse(records['backup']['required'])
+        records=self.pool.inventory()['accounts'];self.assertEqual([records[n]['priority'] for n in ('personal','work','backup')],[100,100,100]);self.assertEqual(records['backup']['state'],'pending');self.assertFalse(records['backup']['required'])
+    def test_add_defaults_claude_to_pool_tier(self):
+        self.cli('add','extra-claude','claude');self.cli('add','extra-codex','openai')
+        records=self.pool.inventory()['accounts'];self.assertEqual(records['extra-claude']['priority'],100);self.assertEqual(records['extra-codex']['priority'],0)
+    def legacy_inventory(self):
+        data=self.pool.inventory();data['accounts']['personal']['priority']=300;data['accounts']['work']['priority']=200
+        self.write(self.root/'accounts.json',data)
+        for name,p in (('a',300),('b',200)):
+            auth=self.pool.read(self.root/'auth'/(name+'.json'));auth['priority']=p;self.write(self.root/'auth'/(name+'.json'),auth)
+    def test_existing_priorities_equalized_only_in_stopped_account_phase(self):
+        self.legacy_inventory();before=sorted((p,p.read_bytes()) for p in self.root.rglob('*') if p.is_file())
+        out=io.StringIO()
+        with contextlib.redirect_stdout(out): self.setup.migrate_pool({},False)
+        self.assertIn('account priority personal: 300 -> 100',out.getvalue());self.assertIn('account priority work: 200 -> 100',out.getvalue())
+        self.assertEqual(before,sorted((p,p.read_bytes()) for p in self.root.rglob('*') if p.is_file()))
+        with self.assertRaisesRegex(ValueError,'account phase'): self.setup.migrate_pool({},True,phase='config')
+        def refuse(): raise ValueError('Proxy must already be stopped')
+        self.pool.require_proxy_stopped=refuse
+        with self.assertRaisesRegex(ValueError,'stopped'): self.pool.migrate_accounts(True)
+        self.assertEqual(self.pool.read(self.root/'auth/a.json')['priority'],300)
+        self.pool.require_proxy_stopped=lambda:None
+        original=self.pool.read(self.root/'auth/a.json');self.pool.migrate_accounts(True)
+        records=self.pool.inventory()['accounts'];self.assertEqual({records[n]['priority'] for n in ('personal','work','backup')},{100})
+        new=self.pool.read(self.root/'auth/a.json');self.assertEqual(new,{**original,'priority':100,'disabled':False})
+        self.assertEqual(self.pool.read(self.root/'auth/b.json')['priority'],100)
+        out=io.StringIO()
+        with contextlib.redirect_stdout(out): self.setup.migrate_pool({},True,phase='config')
+        self.assertNotIn('account priority',out.getvalue())
+    def installer(self,body=None):
+        """Argument-free fixture installer; default places a header-valid library."""
+        library=self.setup.quota_router_library();magic='\\317\\372\\355\\376' if sys.platform=='darwin' else '\\177ELF'
+        body=body or 'mkdir -p "%s"\nprintf \'%s-fixture\' > "%s"\n'%(library.parent,magic,library)
+        path=self.setup.BIN/'install-quota-router';path.parent.mkdir(parents=True,exist_ok=True)
+        path.write_text('#!/bin/sh\n[ "$#" -eq 0 ] || exit 9\necho run >> "%s"\n%s'%(self.calls,body));path.chmod(0o755)
+    def router(self):
+        return self.pool.read(self.root/'config.yaml')['plugins']
+    def test_config_phase_installs_and_merges_quota_router_idempotently(self):
+        self.pool.migrate_accounts(True)
+        config=self.pool.read(self.root/'config.yaml');config['plugins']={'store-sources':['https://example.invalid/registry.json'],
+            'configs':{'other-plugin':{'enabled':True,'x':1},'quota-reset-router':{'poll_interval':'2m','mode':'shadow'}}}
+        self.write(self.root/'config.yaml',config)
+        out=io.StringIO()
+        with contextlib.redirect_stdout(out): self.setup.migrate_pool({},False,phase='config')
+        self.assertIn('Quota router library: missing',out.getvalue());self.assertFalse(self.calls.exists())
+        with contextlib.redirect_stdout(io.StringIO()): self.setup.migrate_pool({},True,phase='config')
+        plugins=self.router();plugin_dir=self.root/'plugins'
+        self.assertEqual(plugins['dir'],str(plugin_dir));self.assertTrue(Path(plugins['dir']).is_absolute());self.assertTrue(plugins['enabled'])
+        self.assertEqual(plugins['store-sources'],['https://example.invalid/registry.json']);self.assertEqual(plugins['configs']['other-plugin'],{'enabled':True,'x':1})
+        self.assertEqual(plugins['configs']['quota-reset-router'],{'poll_interval':'2m','mode':'active','enabled':True,'priority':10})
+        self.assertEqual(set(plugins['configs']),{'other-plugin','quota-reset-router'})
+        self.assertEqual(self.calls.read_text(),'run\n');self.assertEqual(self.pool.read(self.root/'config.yaml')['unrelated'],42)
+        self.assertEqual(self.router(),plugins);before=(self.root/'config.yaml').read_bytes()
+        with contextlib.redirect_stdout(io.StringIO()): self.setup.migrate_pool({},True,phase='config')
+        self.assertEqual(before,(self.root/'config.yaml').read_bytes());self.assertEqual(self.calls.read_text(),'run\nrun\n')
+        self.assertEqual(self.pool.read(self.root/'config.yaml')['routing']['strategy'],'fill-first')
+    def test_accounts_t3_phases_never_run_installer(self):
+        self.pool.migrate_accounts(True)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.setup.migrate_pool({},True,phase='accounts');self.setup.migrate_pool({},True,phase='t3')
+        self.assertFalse(self.calls.exists());self.assertNotIn('plugins',self.pool.read(self.root/'config.yaml'))
+    def snapshot(self):
+        return sorted((p,p.read_bytes()) for p in self.home.rglob('*') if p.is_file() and p!=self.calls and 'plugins' not in p.parts)
+    def test_missing_installer_or_invalid_library_fails_before_config(self):
+        self.pool.migrate_accounts(True);library=self.setup.quota_router_library()
+        cases=[(None,'is missing; deploy it'),('exit 3\n','returned non-zero'),('true\n','missing after'),
+               ('mkdir -p "%s"\n: > "%s"\n'%(library.parent,library),'non-empty regular file'),
+               ('mkdir -p "%s"\nprintf MZxx > "%s"\n'%(library.parent,library),'not a native library'),
+               ('mkdir -p "%s"\nprintf \'\\177ELF\' > "%s.real"\nln -sf "%s.real" "%s"\n'%(library.parent,library,library,library),'non-empty regular file')]
+        for body,message in cases:
+            shutil.rmtree(self.root/'plugins',ignore_errors=True)
+            if body is None: (self.setup.BIN/'install-quota-router').unlink()
+            else: self.installer(body)
+            before=self.snapshot()
+            for phase in ('config','all'):
+                with self.subTest(message=message,phase=phase),self.assertRaisesRegex(Exception,message),contextlib.redirect_stdout(io.StringIO()):
+                    self.setup.migrate_pool({},True,phase=phase)
+                self.assertEqual(before,self.snapshot());self.assertFalse((self.root/'management-key').exists())
+    def test_foreign_or_malformed_plugin_config_refused_before_writes(self):
+        self.pool.migrate_accounts(True)
+        for plugins,message in (({'dir':'/elsewhere/plugins'},'plugins.dir is /elsewhere'),({'dir':'plugins'},'plugins.dir is plugins'),
+                                ([],'not a mapping'),({'configs':[]},'not a mapping'),({'configs':{'quota-reset-router':'on'}},'quota-reset-router is not a mapping')):
+            config=self.pool.read(self.root/'config.yaml');config['plugins']=plugins;self.write(self.root/'config.yaml',config);before=(self.root/'config.yaml').read_bytes()
+            with self.assertRaisesRegex(ValueError,message),contextlib.redirect_stdout(io.StringIO()): self.setup.migrate_pool({},True,phase='config')
+            self.assertEqual(before,(self.root/'config.yaml').read_bytes());self.assertFalse((self.root/'management-key').exists());self.assertFalse(self.calls.exists())
+    def test_fresh_runtime_seeds_quota_router(self):
+        (self.root/'config.yaml').unlink();(self.root/'client-key').unlink();self.setup.configure_cli=lambda:None
+        self.setup.ensure_runtime();plugins=self.router()
+        self.assertEqual(plugins,{'enabled':True,'dir':str(self.root/'plugins'),
+            'configs':{'quota-reset-router':{'enabled':True,'priority':10,'mode':'active'}}})
+        config=self.pool.read(self.root/'config.yaml');self.assertEqual(config['routing']['strategy'],'fill-first');self.assertTrue(config['routing']['session-affinity'])
+        self.assertEqual({r['priority'] for r in self.pool.inventory()['accounts'].values() if r['provider']=='claude'},{100})
+    def test_fresh_install_runs_installer_before_writing_config(self):
+        (self.root/'config.yaml').unlink();(self.root/'client-key').unlink()
+        self.setup.machine_settings=lambda headless:{'role':'laptop'};self.setup.install_packages=lambda headless:False
+        (self.setup.BIN/'install-quota-router').unlink()
+        with patch.object(sys,'argv',['ai-setup','--install']),self.assertRaisesRegex(ValueError,'is missing'),contextlib.redirect_stdout(io.StringIO()):
+            self.setup.main()
+        self.assertFalse((self.root/'config.yaml').exists());self.assertFalse((self.root/'client-key').exists())
+        order=[];self.installer();install=self.setup.install_quota_router
+        self.setup.install_quota_router=lambda:(order.append('install'),install())
+        def stop(): order.append('runtime');raise ValueError('stop after runtime')
+        self.setup.ensure_runtime=stop
+        with patch.object(sys,'argv',['ai-setup','--install']),self.assertRaisesRegex(ValueError,'stop after runtime'),contextlib.redirect_stdout(io.StringIO()):
+            self.setup.main()
+        self.assertEqual(order,['install','runtime']);self.assertEqual(self.calls.read_text(),'run\n')
     def test_lifecycle_persists_removal(self):
         self.cli('add','extra','openai','--priority','50');self.cli('priority','extra','250');self.cli('disable','extra');self.cli('enable','extra');self.cli('remove','extra')
         r=self.pool.inventory()['accounts']['extra'];self.assertEqual(r['state'],'removed');self.assertEqual(r['provider'],'codex');self.assertEqual(r['priority'],250)
