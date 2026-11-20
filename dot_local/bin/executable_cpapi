@@ -55,6 +55,11 @@ def identity(auth):
     return (provider, *values)
 
 
+def required_for(record):
+    """Only Claude pool accounts are required; Codex and xAI logins are optional extras."""
+    return record.get('provider') == 'claude'
+
+
 def auth_path(name):
     if not isinstance(name, str) or Path(name).name != name or not name.endswith('.json'):
         raise ValueError('Invalid auth filename')
@@ -163,7 +168,7 @@ def reconcile(data, name, canonical):
                   if p.name != canonical and read(p).get('type') in FLAGS and identity(read(p)) == ident]
     for r in data['accounts'].values():
         if r.get('auth_file') in duplicates: r.pop('auth_file')
-    record.update(auth_file=canonical, state='active', required=True)
+    record.update(auth_file=canonical, state='active', required=required_for(record))
     data.setdefault('canonicalSelections', {})[name] = canonical
     archive_credentials(data, duplicates)
     metadata(record)
@@ -254,7 +259,7 @@ def login(data, name, extra):
         if record['provider']=='claude': auth['prefix']=name
         if existing: require_proxy_stopped()
         save(auth_path(destination), auth, exclusive=not existing)
-        record.update(auth_file=destination,state='active',required=True)
+        record.update(auth_file=destination,state='active',required=required_for(record))
         save(ROOT/'accounts.json',data)
     print(name+': connected; no T3 providers changed')
 
@@ -297,7 +302,7 @@ def main():
             records[name]={'provider':provider,'priority':args.priority,'enabled':True,'state':'pending','required':False}
         else:
             if name not in records and args.command == 'login' and name in ('codex', 'xai'):
-                records[name] = {'provider':name,'priority':0,'enabled':True,'state':'pending','required':True}
+                records[name] = {'provider':name,'priority':0,'enabled':True,'state':'pending','required':False}
             if name not in records: raise ValueError('Unknown account; use cpapi add NAME PROVIDER')
             record = records[name]
             if args.command in ('restore', 'reconcile') or record.get('auth_file'):
@@ -314,7 +319,7 @@ def main():
                 destination=record['provider']+'-account-'+name+'.json'
                 if auth_path(destination).exists(): raise ValueError('Restore destination occupied')
                 save(auth_path(destination),auth)
-                record.update(auth_file=destination,state='active',enabled=True,required=True)
+                record.update(auth_file=destination,state='active',enabled=True,required=required_for(record))
                 metadata(record);save(ROOT/'accounts.json',data);return
             if args.command=='login': login(data,name,args.flags);return
             record=records[name]

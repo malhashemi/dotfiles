@@ -85,7 +85,6 @@
     "chatWidth": "comfortable",
     "browserRecordingShowKeyPresses": false,
     "browserRecordingShowMousePresses": false,
-    "diffFilesCollapsed": true,
     "composerRichTextEnabled": true,
     "sendShortcut": "enter",
     "followUpBehavior": "steer",
