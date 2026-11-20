@@ -293,7 +293,14 @@ ai-setup --connections
 
 This displays the saved hosts and SSH username, T3 Connect status, this
 machine's environment links, and the exact next steps for anything missing.
-`--install` prints the same T3 guidance. Neither signs in or links anything.
+`--install` prints the same T3 guidance. Neither signs in or links anything,
+and both use passive signals only: the boot log, whether
+`secrets/cloud-linked-user-id.bin` exists (never its value), the local
+`/ready` of the `cloudflared` running under the T3 server, and a read-only
+open of T3's state database for stored links. They never run
+`t3 connect status` or `t3 environment list`: those mint a short-lived CLI
+session, can restart the tunnel connector and can refresh stored peer labels.
+Run them yourself when you want a live check.
 
 - **Desktop apps**: add each machine in Settings -> Environments with a fresh
   pairing code from it: `t3 auth pairing create --label "Arch desktop" --ttl 5m`.
@@ -305,8 +312,8 @@ machine's environment links, and the exact next steps for anything missing.
 - **T3 Connect** (relay; one T3 account for all machines): sign in once per
   machine, approved by a human with a device code, then restart, since the
   server applies a link only at startup:
-  `t3 connect link --headless && t3 service restart`. Check with
-  `t3 connect status` ("Tunnel connected"). If the environment was linked to a
+  `t3 connect link --headless && t3 service restart`. Live check (touches T3
+  state, see above): `t3 connect status` ("Tunnel connected"). If the environment was linked to a
   different T3 account, the boot log shows `CloudLinkAccountMismatchError` and
   no tunnel comes up: `t3 connect unlink`, then link and restart again.
   `t3 connect link` refuses while the server is mid-migration; retry later.
@@ -317,7 +324,7 @@ machine's environment links, and the exact next steps for anything missing.
   Flags must precede the positional URL, or it only prints help. The Tailscale
   URL is tried first, the relay URL second. To add an address to an existing
   link, `t3 environment unlink <environmentId>` first. Links last 30 days;
-  check with `t3 environment list`.
+  live check (touches T3 state): `t3 environment list`.
 
 Each connecting client gets its own authorization, listed by
 `t3 auth session list --json`; relinking leaves the old session behind, so

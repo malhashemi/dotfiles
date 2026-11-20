@@ -165,19 +165,57 @@ class T3ServiceTests(unittest.TestCase):
 
     def test_account_mismatch_only_from_the_latest_start(self):
         log = self.s.T3_BOOT_LOG; log.parent.mkdir(parents=True)
-        log.write_text('Listening on http://127.0.0.1:3773\nFailed to reconcile\n  { cause: { _tag: \'CloudLinkAccountMismatchError\' } }\n')
+        log.write_text('Listening on http://127.0.0.1:3773\nWARN: Failed to reconcile T3 Connect desired link on startup\n'
+                       "  { cause: { _tag: 'CloudLinkAccountMismatchError' } }\n")
         self.assertTrue(self.s.connect_account_mismatch())
-        log.write_text(log.read_text() + 'Listening on http://127.0.0.1:3773\n')
+        log.write_text(log.read_text() + 'Listening on http://127.0.0.1:3773\nT3 Connect desired link reconciled on startup\n')
         self.assertFalse(self.s.connect_account_mismatch())
+        self.assertEqual(self.s.connect_log_state(), 'reconciled')
 
-    def test_remote_access_guidance_never_signs_in(self):
-        answers = {('connect', 'status'): {'reachability': {'status': 'unreachable', 'reason': 'not linked'}},
-                   ('environment', 'list'): []}
-        self.s.t3_json = lambda *args: answers[args]
-        text = self.quiet(self.s.show_t3_remote_access)
+    def forbid_t3_state_commands(self):
+        real = self.s.subprocess.run
+        def run(args, *a, **k):
+            joined = ' '.join(str(x) for x in args)
+            if 'connect status' in joined or 'environment list' in joined or 'connect link' in joined:
+                self.fail('touches T3 state: ' + joined)
+            return real(args, *a, **k)
+        return patch.object(self.s.subprocess, 'run', side_effect=run)
+
+    def test_remote_access_guidance_is_passive_and_never_signs_in(self):
+        self.s.tunnel_ready = lambda: None
+        self.s.run = lambda *a, **k: self.fail('no commands expected')
+        with self.forbid_t3_state_commands():
+            text = self.quiet(self.s.show_t3_remote_access)
+        self.assertIn('T3 Connect: not connected (not linked)', text)
         self.assertIn('t3 connect link --headless && t3 service restart', text)
+        self.assertIn('`t3 connect status` (touches T3 state', text)
         self.assertIn('t3 environment link --pairing-code <credential> --url', text)
         self.assertLess(text.index('--access full-access'), text.index('https://<its tailscale name>'))
+
+    def test_connected_from_passive_signals(self):
+        secret = self.home / '.t3/userdata/secrets/cloud-linked-user-id.bin'; secret.parent.mkdir(parents=True)
+        secret.write_text('')  # existence only; the value is never read
+        self.s.tunnel_ready = lambda: 4
+        with self.forbid_t3_state_commands():
+            text = self.quiet(self.s.show_t3_remote_access)
+        self.assertIn('T3 Connect: tunnel ready (4 connections', text)
+
+    def test_stored_links_read_only_with_t3_expiry_rule(self):
+        import sqlite3
+        path = self.home / '.t3/userdata/statev2.sqlite'; path.parent.mkdir(parents=True)
+        with sqlite3.connect(path) as db:
+            db.execute('create table peer_environment_links (environment_id text primary key, secret_name text, label text,'
+                       ' urls_json text, access text, linked_at text, expires_at text, last_reached_at text,'
+                       ' last_error text, fenced integer not null default 0)')
+            db.execute("insert into peer_environment_links values ('a','peer-link-x','A','[\"https://a.ts.net\"]','full-access',"
+                       "'2026-11-20T00:00:00.000Z','2026-12-20T00:00:00.000Z',null,null,1)")
+            db.execute("insert into peer_environment_links values ('b','peer-link-y','B','[\"https://relay\"]','full-access',"
+                       "'2026-11-20T00:00:00.000Z','2026-12-20T00:00:00.000Z',null,'boom',0)")
+        path.chmod(0o400)
+        links = {l['environmentId']: l for l in self.s.stored_environment_links()}
+        self.assertEqual(links['a']['expiresAt'], '2026-12-20T00:00:00.000Z')
+        self.assertEqual(links['b']['expiresAt'], '2026-11-20T00:00:00.000Z')  # unfenced: T3 treats it as expired
+        self.assertNotIn('secret_name', json.dumps(links))
 
     def test_stray_server_detection(self):
         runtime = self.home / '.t3/userdata/server-runtime.json'; runtime.parent.mkdir(parents=True)

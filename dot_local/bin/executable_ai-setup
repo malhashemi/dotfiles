@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Provision the local mixed-model runtime without replacing existing settings."""
 import argparse
+import contextlib
 import copy
 import difflib
 import getpass
@@ -10,6 +11,7 @@ from pathlib import Path
 import secrets
 import shutil
 import socket
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -18,6 +20,7 @@ import re
 import tomllib
 import runpy
 from urllib.parse import urlparse
+import urllib.request
 
 HOME_DIR = Path.home()
 ROOT = HOME_DIR / '.config/cli-proxy-api'
@@ -1033,39 +1036,97 @@ def setup_service_https(machine):
     run([tailscale, 'serve', '--bg', '--https=443', origin])
 
 
-def t3_json(*args):
-    """Parsed `t3 ... --json` output, or None when T3 cannot answer."""
+def connect_log_state():
+    """T3 Connect's startup reconcile since the server's latest start, from the boot log:
+    'reconciled', 'mismatch' (CloudLinkAccountMismatchError), 'failed' or 'none'."""
     try:
-        result = subprocess.run([t3_cli(), *args, '--json'], capture_output=True, text=True, timeout=60)
-        return json.loads(result.stdout) if result.returncode == 0 else None
-    except (OSError, ValueError, subprocess.TimeoutExpired):
-        return None
+        lines = T3_BOOT_LOG.read_text(errors='replace').splitlines()
+    except OSError:
+        return 'none'
+    state = 'none'
+    for line in lines:
+        if 'Listening on http' in line:
+            state = 'none'
+        elif 'T3 Connect desired link reconciled on startup' in line:
+            state = 'reconciled'
+        elif 'Failed to reconcile T3 Connect desired link' in line:
+            state = 'failed'
+        elif 'CloudLinkAccountMismatchError' in line and state == 'failed':
+            state = 'mismatch'
+    return state
 
 
 def connect_account_mismatch():
     """True when the server's latest start logged a T3 Connect account mismatch."""
+    return connect_log_state() == 'mismatch'
+
+
+def tunnel_ready():
+    """readyConnections reported by the local /ready of a cloudflared running under this
+    machine's T3 server; None when there is no such cloudflared. Passive: never asks T3."""
+    pid = read_json(HOME_DIR / '.t3/userdata/server-runtime.json', {}).get('pid')
+    if not t3_running() or not isinstance(pid, int):
+        return None
+    rows = subprocess.run(['ps', '-axo', 'pid=,ppid=,comm='], capture_output=True, text=True).stdout.splitlines()
+    parents, names = {}, {}
+    for row in rows:
+        fields = row.split(None, 2)
+        if len(fields) == 3 and fields[0].isdigit() and fields[1].isdigit():
+            parents[int(fields[0])], names[int(fields[0])] = int(fields[1]), fields[2]
+    found = None
+    for child, name in names.items():
+        if not name.endswith('cloudflared'):
+            continue
+        ancestor, hops = parents.get(child), 0
+        while ancestor and ancestor != pid and hops < 20:
+            ancestor, hops = parents.get(ancestor), hops + 1
+        if ancestor != pid:
+            continue
+        found = 0
+        if sys.platform == 'darwin':
+            out = subprocess.run(['lsof', '-nP', '-a', '-p', str(child), '-iTCP', '-sTCP:LISTEN'],
+                                 capture_output=True, text=True).stdout.splitlines()[1:]
+            ports = [line.split()[8].rsplit(':', 1)[-1] for line in out if len(line.split()) > 8]
+        else:
+            out = subprocess.run(['ss', '-ltnpH'], capture_output=True, text=True).stdout.splitlines()
+            ports = [line.split()[3].rsplit(':', 1)[-1] for line in out
+                     if 'pid=' + str(child) + ',' in line and len(line.split()) > 3]
+        for port in ports:
+            try:
+                with urllib.request.urlopen('http://127.0.0.1:' + port + '/ready', timeout=5) as response:
+                    return int(json.loads(response.read()).get('readyConnections') or 0)
+            except (OSError, ValueError):
+                continue
+    return found
+
+
+def stored_environment_links():
+    """T3's stored environment links, read-only (never the secret columns); None when unreadable."""
+    path = HOME_DIR / '.t3/userdata/statev2.sqlite'
+    if not path.exists():
+        return None
     try:
-        lines = T3_BOOT_LOG.read_text(errors='replace').splitlines()
-    except OSError:
-        return False
-    for line in reversed(lines):
-        if 'CloudLinkAccountMismatchError' in line:
-            return True
-        if 'Listening on http' in line:
-            return False
-    return False
+        with contextlib.closing(sqlite3.connect('file:' + str(path) + '?mode=ro', uri=True, timeout=5)) as db:
+            rows = db.execute('select environment_id, label, urls_json, linked_at, expires_at, fenced, last_error '
+                              'from peer_environment_links order by label').fetchall()
+    except sqlite3.Error:
+        return None
+    return [{'environmentId': r[0], 'label': r[1], 'urls': json.loads(r[2]),
+             'expiresAt': r[4] if r[5] == 1 else r[3], 'lastError': r[6]} for r in rows]
 
 
 def show_t3_remote_access():
-    """Human steps for T3 Connect and environment links; never signs in or links."""
-    connect = t3_json('connect', 'status')
-    reach = (connect or {}).get('reachability') or {}
-    if reach.get('status') == 'reachable':
-        print('T3 Connect: tunnel connected.')
+    """Human steps for T3 Connect and environment links. Passive only: it never runs
+    `t3 connect status` or `t3 environment list` (they mint a short-lived CLI session,
+    can restart the tunnel connector and refresh peer labels), signs in or links."""
+    log, ready = connect_log_state(), tunnel_ready()
+    linked = (HOME_DIR / '.t3/userdata/secrets/cloud-linked-user-id.bin').exists()
+    if log != 'mismatch' and linked and ready:
+        print('T3 Connect: tunnel ready (' + str(ready) + ' connections, from cloudflared\'s local /ready).')
     else:
-        reason = reach.get('reason') or ('status unavailable' if connect is None else 'not linked')
-        print('T3 Connect: not connected (' + str(reason) + ').')
-        if connect_account_mismatch():
+        print('T3 Connect: not connected (' + ('account mismatch' if log == 'mismatch' else 'not linked' if not linked
+              else 'no ready tunnel') + ').')
+        if log == 'mismatch':
             print('  The environment is linked to a different T3 account (CloudLinkAccountMismatchError in '
                   '~/.t3/userdata/logs/boot-service.log). Fix:')
             print('  t3 connect unlink && t3 connect link --headless && t3 service restart')
@@ -1073,16 +1134,19 @@ def show_t3_remote_access():
             print('  Sign in once on this machine with the fleet\'s T3 account (human approval: device code):')
             print('  t3 connect link --headless && t3 service restart   # the server applies a link only at startup')
         print('  `t3 connect link` refuses (ServerAlreadyRunningError) while the server is migrating; retry later.')
-    links = t3_json('environment', 'list')
+        print('  Diagnose with `t3 connect status` (touches T3 state: mints a short-lived session and can restart '
+              'the tunnel connector).')
+    links = stored_environment_links()
     if links is None:
-        print('Environment links: `t3 environment list` did not answer.')
+        print('Environment links: T3\'s state database could not be read.')
     else:
         for link in links:
-            print('Environment link: ' + str(link.get('label')) + ' (' + str(link.get('environmentId')) + ') ' +
-                  str(link.get('status')) + ', expires ' + str(link.get('expiresAt')) + ': ' +
-                  ', '.join(link.get('urls') or []))
+            print('Environment link: ' + str(link['label']) + ' (' + str(link['environmentId']) + '), expires ' +
+                  str(link['expiresAt']) + ': ' + ', '.join(link['urls']) +
+                  (' (last error: ' + str(link['lastError']) + ')' if link['lastError'] else ''))
         if not links:
             print('Environment links: none (agents here cannot delegate to other machines yet).')
+        print('  Live reachability: `t3 environment list` (touches T3 state: can refresh stored peer labels).')
     print('To link another machine (so agents here can work there), on that machine run:')
     print('  t3 auth pairing create --ttl 5m --label "<this machine> environment link" --json   # field credential')
     print('then here (flags before the URL, or it only prints help):')
@@ -1253,7 +1317,7 @@ def main():
     action.add_argument('--apply-t3-changes', action='store_true')
     action.add_argument('--proxy-diff', action='store_true', help='Preview managed proxy header changes.')
     action.add_argument('--apply-proxy-changes', action='store_true', help='Back up and merge managed proxy headers.')
-    action.add_argument('--connections', action='store_true')
+    action.add_argument('--connections', action='store_true', help='Saved hosts, plus T3 Connect and environment links from passive signals.')
     action.add_argument('--cli-diff', action='store_true', help='Preview shared Claude, Codex and Grok preferences.')
     action.add_argument('--apply-cli-changes', action='store_true', help='Back up and merge selected CLI preferences.')
     action.add_argument('--apply-claude-hooks', action='store_true', help='Install the shared hook runtime and merge only Claude hooks.')
