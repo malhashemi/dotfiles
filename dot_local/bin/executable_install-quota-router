@@ -1,17 +1,15 @@
 #!/usr/bin/env bash
-# Install the pinned CLIProxyAPI scheduler. Build on Apple silicon because
-# upstream v1.1.0 did not publish that platform's binary.
+# Install the original WebDevCaptain scheduler from its verified release ZIP.
 set -euo pipefail
 umask 077
-plugin=kpatdev-quota-router
-version=1.1.0
-revision=4faf2156d264834e71b7c9b4d47ca4e0d6485358
+plugin=quota-reset-router
+version=0.2.1
 directory="${HOME}/.config/cli-proxy-api/plugins"
 case "$(uname -sm)" in
-  'Linux x86_64') platform=linux_amd64; ext=so; digest=fd672946ba17ff79257154b6373ee20b04477dc0c2ae112dbee7a1fcf08d9f4b ;;
-  'Linux aarch64') platform=linux_arm64; ext=so; digest=0ed4d1d45cabd2441c63dbf007549e5c53dd12f0468c9bbd945b9014e971c5ea ;;
-  'Darwin x86_64') platform=darwin_amd64; ext=dylib; digest=0f79663bffa7108b609ce036716d82debb82e288b8d4942acb3481fe3314fa61 ;;
-  'Darwin arm64') platform=darwin_arm64; ext=dylib; digest=facc6a92e3faee95c47ba6d40e358006cbd9920caf500d12f3e9961e1bd60806 ;;
+  'Linux x86_64') platform=linux_amd64; ext=so; digest=228ed40ee438bbd45cf5744dc30d070f4d65f6d0e69a18a3448b43b2d9c35743 ;;
+  'Linux aarch64') platform=linux_arm64; ext=so; digest=57ec2d9ff3ca0b6708b9ef406d44eb833ec2fdcf1616a2907410fc4698bde472 ;;
+  'Darwin x86_64') platform=darwin_amd64; ext=dylib; digest=cb5874d1041bb654fc8e25ed184c8f62e332e95e6a9daad6912946673baf2933 ;;
+  'Darwin arm64') platform=darwin_arm64; ext=dylib; digest=429ca107f2d95d009e443922b230cfb9f8a3ce34f626b8f1a0bc5551b1f1128d ;;
   *) echo "Unsupported quota router platform: $(uname -sm)" >&2; exit 1 ;;
 esac
 mkdir -p "$directory"
@@ -24,24 +22,10 @@ if [[ -f "$directory/$library" && -f "$receipt" ]] &&
 fi
 work=$(mktemp -d "$directory/.install-quota-router.XXXXXXXX")
 trap 'rm -rf "$work"' EXIT
-if [[ $platform == darwin_arm64 ]]; then
-  xcode-select -p >/dev/null && command -v go >/dev/null || {
-    echo "Building the Apple silicon plugin requires installed Xcode Command Line Tools and Go." >&2
-    exit 1
-  }
-  url="https://codeload.github.com/kpatdev/quota-router/tar.gz/$revision"
-else
-  url="https://github.com/kpatdev/quota-router/releases/download/v$version/${plugin}_${version}_${platform}.zip"
-fi
-xh --ignore-stdin --follow --check-status --download --output "$work/artifact" GET "$url"
+url="https://github.com/WebDevCaptain/$plugin/releases/download/v$version/${plugin}_${version}_${platform}.zip"
+xh --ignore-stdin --follow --check-status --download --quiet --output "$work/artifact" GET "$url"
 [[ "$(hash_file "$work/artifact")" == "$digest" ]] || { echo 'Quota router checksum mismatch' >&2; exit 1; }
-if [[ $platform == darwin_arm64 ]]; then
-  tar -xzf "$work/artifact" -C "$work"
-  (cd "$work/quota-router-$revision" && make build TARGET=darwin_arm64)
-  cp "$work/quota-router-$revision/dist/$platform/$library" "$work/$library"
-else
-  unzip -p "$work/artifact" "$library" > "$work/$library"
-fi
+unzip -p "$work/artifact" "$library" > "$work/$library"
 test -s "$work/$library"
 chmod 700 "$work/$library"
 printf '%s %s\n' "$digest" "$(hash_file "$work/$library")" > "$work/receipt"
